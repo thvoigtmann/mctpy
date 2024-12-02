@@ -36,7 +36,8 @@ class abp_model_2d (model_base):
         self.Dr = Dr
         self.v0 = v0
         self.nu = nu
-        self.__init_vertices__ ()
+        if self.rho > 0.0:
+            self.__init_vertices__ ()
     def __len__ (self):
         return self.M
     def matrix_dimension (self):
@@ -69,23 +70,39 @@ class abp_model_2d (model_base):
                + wTinv_wR
     def dq (self):
         return _dq(self.q)
-    def omega_T (self, Lcut):
-        r"""Return translation-frequency matrix, divided by q^2."""
-        L, S = Lcut, 2*Lcut+1
+    def omega_T (self, Lcut=None, lowdens=False):
+        r"""Return translation-frequency matrix, divided by q^2.
+
+        Parameters
+        ----------
+        Lcut : int, optional
+            L cutoff to use for the matrix. If None, take the one
+            provided during initialization of this object.
+        lowdens : boolean, default: False
+            If True, omit the S(q) factor in the calculation, returning
+            the low-density matrix.
+        """
+        if Lcut is None:
+            L, S = self.L, self.S
+        else:
+            L, S = Lcut, 2*Lcut+1
         wT = np.zeros((self.M,S,S),dtype=self.dtype)
         for l in range(-L,L+1):
             for ld in range(-L,L+1):
                 if l==ld:
                     wT[:,L+l,L+ld] = self.D0
                 if abs(l-ld)==1:
-                    if l==0:
+                    if l==0 and not lowdens:
                         wT[:,L+l,L+ld] = - 0.5j/self.q*self.v0 * self.sq
                     else:
                         wT[:,L+l,L+ld] = - 0.5j/self.q*self.v0
         return wT
-    def omega_s_T_inv (self, Lcut):
+    def omega_s_T_inv (self, Lcut=None):
         r"""Return inverse self-translation-frequency matrix, times q^2D_0."""
-        L, S = Lcut, 2*Lcut+1
+        if Lcut is None:
+            L, S = self.L, self.S
+        else:
+            L, S = Lcut, 2*Lcut+1
         Delta = np.sqrt(1. + (self.v0/self.D0/self.q)**2)
         wTinv0 = np.zeros((self.M,S,S),dtype=self.dtype)
         for l in range(-L,L+1):
@@ -93,11 +110,16 @@ class abp_model_2d (model_base):
                 wTinv0[:,L+l,L+ld] = np.power(1j*self.v0/self.D0/self.q/ \
                                      (1 + Delta),abs(l-ld)) / Delta
         return wTinv0
-    def omega_T_inv (self, Lcut):
+    def omega_T_inv (self, Lcut=None, lowdens=False):
         r"""Return inverse translation-frequency matrix, times q^2D_0."""
         # this calculates the cut-off of the proper inf-dim inverse:
-        L = Lcut
-        wTinv0 = self.omega_s_T_inv (Lcut)
+        if Lcut is None:
+            L = self.L
+        else:
+            L = Lcut
+        wTinv0 = self.omega_s_T_inv (L)
+        if lowdens:
+            return wTinv0
         wTinv = wTinv0.copy()
         if L > 0:
             u0 = -0.5j*self.q*self.v0/self.D0 * (self.sq - 1)
@@ -112,20 +134,57 @@ class abp_model_2d (model_base):
         #for q in range(self.M):
         #    wTinv[q] = la.inv(wTinv[q])
         #return wTinv
-    def omega_R (self, Lcut):
+    def omega_R (self, Lcut=None):
         """Return rotation-frequency matrix."""
-        L, S = Lcut, 2*Lcut+1
+        if Lcut is None:
+            L, S = self.L, self.S
+        else:
+            L, S = Lcut, 2*Lcut+1
         return np.ones((self.M,S,S),dtype=self.dtype) \
                * (self.Dr *np.diag(np.arange(-Lcut, Lcut+1)**2) \
                  - self.nu * 1j * np.arange(-Lcut, Lcut+1))
-    def low_density_solution (self, t, Lcut):
-        L, S = Lcut, 2*Lcut+1
+    def low_density_solution (self, t, Lcut=None):
+        """Return the low-density density correlation matrix.
+
+        Parameters
+        ----------
+        t : array_like
+            Set of time points for which to calculate the solution.
+        Lcut : int, optional
+            If given, use this L cutoff for the calculation. If None,
+            use the one provided during initialization of self.
+
+        Notes
+        -----
+        The calculation performed is the matrix exponential of the
+        frequency matrix in the Mori-Zwanzig representation, using the
+        given cutoff. For finite cutoff, this is different than e.g.
+        the representation in terms of Mathieu functions.
+        """
+        if Lcut is None:
+            L, S = self.L, self.S
+        else:
+            L, S = Lcut, 2*Lcut+1
         phi = np.zeros((t.shape[0], self.M, S, S), dtype=self.dtype)
-        w = (self.q**2)[:,None,None] * self.omega_T(Lcut) + self.omega_R(Lcut)
+        w = (self.q**2)[:,None,None] * self.omega_T(Lcut,lowdens=True) \
+            + self.omega_R(Lcut)
         for q in range(self.M):
             wqt = np.einsum('i,jk->ijk', t, -w[q])
             phi[:,q,:,:] = la.expm(wqt)
         return phi
+    def low_density_MSD (self, t):
+        """Return the low-density MSD.
+
+        Parameters
+        ----------
+        t : array_like
+            Set of time points for which to calculate the solution."""
+        Dt, Dr = self.D0, self.Dr
+        v0, nu = self.v0, self.nu
+        return 4*Dt*t + 2*v0*v0*Dr/(Dr**2+nu**2) * (t \
+              + (Dr**2-nu**2)/(Dr**2+nu**2)*(np.exp(-Dr*t)*np.cos(nu*t)-1)/Dr \
+              - 2*nu/(Dr**2+nu**2)*np.exp(-Dr*t)*np.sin(nu*t))
+            #+ 2*self.v0*self.v0/self.Dr*(t+(np.exp(-self.Dr*t)-1)/self.Dr)
     def __init_vertices__ (self):
         q = self.q
         L=self.L
@@ -287,6 +346,11 @@ class abp_model_2d (model_base):
                     assert (not np.isnan(Dvv[qi,ki]).any())
 
     def make_kernel (self):
+        if not self.rho > 0.0:
+            @njit
+            def ker (m, phi, i, t):
+                return
+            return ker
         M, S, L = self.M, self.S, self.L
         q = self.q
         pre = self.rho/(8*np.pi**2)
