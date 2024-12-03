@@ -185,6 +185,59 @@ class abp_model_2d (model_base):
               + (Dr**2-nu**2)/(Dr**2+nu**2)*(np.exp(-Dr*t)*np.cos(nu*t)-1)/Dr \
               - 2*nu/(Dr**2+nu**2)*np.exp(-Dr*t)*np.sin(nu*t))
             #+ 2*self.v0*self.v0/self.Dr*(t+(np.exp(-self.Dr*t)-1)/self.Dr)
+    def low_density_NGP (self, t):
+        """Return the low-density non-Gaussian parameter (NGP).
+
+        Parameters
+        ----------
+        t : array_like
+            Set of time points for which to calculate the solution.
+
+        Notes
+        -----
+        Use with care. The formula is not implemented in a stale way,
+        it is some messy Mathematica output."""
+        Dt, Dr = self.D0, self.Dr
+        v0, nu = self.v0, self.nu
+        if not nu > 0.0:
+            return -1 + (Dr**4*((87*v0**4)/(16*Dr**4) \
+                + (np.exp(-4*Dr*t)*v0**4)/(144*Dr**4) \
+                - (49*np.exp(-Dr*t)*v0**4)/(9*Dr**4) \
+                + (t*(-16*Dr*Dt*v0**2 - 15*v0**4))/(4*Dr**3) \
+                + (np.exp(-Dr*t)*t*(12*Dr*Dt*v0**2 - 5*v0**4))/(3*Dr**3) \
+                + (t**2*(4*Dr**2*Dt**2 + 4*Dr*Dt*v0**2 + v0**4))/ Dr**2)) \
+                / (2*Dr**2*Dt*t + (-1 + np.exp(-Dr*t))*v0**2 + Dr*t*v0**2)**2
+        return (-1 + (2*((np.exp(-4*Dr*t + 2j*t*nu)*v0**4) \
+            /( 64*(2*Dr - 1j*nu)**2*(3*Dr - 1j*nu)**2) \
+            + (np.exp(-4*Dr*t - 2j*t*nu)*v0**4) \
+            /( 64*(2*Dr + 1j*nu)**2*(3*Dr + 1j*nu)**2) \
+            + (np.exp(-Dr*t + 1j*t*nu)*t*(6*Dr**2*Dt*v0**2 - Dr*v0**4 \
+            - 8j*Dr*Dt*v0**2*nu - 2*Dt*v0**2*nu**2)) \
+            /(8*(Dr - 1j*nu)**3*(3*Dr - 1j*nu)) \
+            + (np.exp(-t*(Dr + 1j*nu))*t*(6*Dr**2*Dt*v0**2 - Dr*v0**4 \
+            + 8j*Dr*Dt*v0**2*nu - 2*Dt*v0**2*nu**2))\
+            /(8*(Dr + 1j*nu)**3*(3*Dr + 1j*nu)) \
+            + (np.exp(-t*(Dr + 1j*nu))*(-9j*Dr**3*v0**4 - 7*Dr**2*v0**4*nu \
+            - 5j*Dr*v0**4*nu**2 + v0**4*nu**3))\
+            /(16*(Dr + 1j*nu)**4*(3*Dr + 1j*nu)**2*nu) \
+            + (np.exp(-Dr*t + 1j*t*nu)*(9j*Dr**3*v0**4 - 7*Dr**2*v0**4*nu \
+            + 5j*Dr*v0**4*nu**2 + v0**4*nu**3))\
+            /(16*(Dr - 1j*nu)**4*(3*Dr - 1j*nu)**2*nu) \
+            + (t**2*(4*Dr**4*Dt**2 + 4*Dr**3*Dt*v0**2 + Dr**2*v0**4 \
+            + 8*Dr**2*Dt**2*nu**2 + 4*Dr*Dt*v0**2*nu**2 + 4*Dt**2*nu**4)) \
+            /(8*(Dr**2 + nu**2)**2) \
+            + (t*(-16*Dr**6*Dt*v0**2 - 15*Dr**5*v0**4 - 4*Dr**4*Dt*v0**2*nu**2 \
+            + 11*Dr**3*v0**4*nu**2 + 16*Dr**2*Dt*v0**2*nu**4 \
+            + 2*Dr*v0**4*nu**4 + 4*Dt*v0**2*nu**6))\
+            /(8*(Dr**2 + nu**2)**3*(4*Dr**2 + nu**2)) \
+            + (3*(116*Dr**8*v0**4 - 241*Dr**6*v0**4*nu**2 \
+            - 61*Dr**4*v0**4*nu**4 + 9*Dr**2*v0**4*nu**6 + v0**4*nu**8))\
+            /(32*(Dr**2 + nu**2)**4*(4*Dr**2 + nu**2)**2)))\
+            /(-((np.exp(-Dr*t + 1j*t*nu)*v0**2)/(4*(Dr - 1j*nu)**2)) \
+            - (np.exp(-t*(Dr + 1j*nu))*v0**2)/(4*(Dr + 1j*nu)**2) \
+            + (t*(-2*Dr**2*Dt - Dr*v0**2 - 2*Dt*nu**2))/(2*(Dr**2 + nu**2)) \
+            + (Dr**2*v0**2 - v0**2*nu**2) \
+            /(2*(Dr - 1j*nu)**2*(Dr + 1j*nu)**2))**2).real
     def __init_vertices__ (self):
         q = self.q
         L=self.L
