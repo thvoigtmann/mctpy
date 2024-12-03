@@ -22,13 +22,32 @@ def _calc_phase(phase,L,q,k,p,x,y):
 
 class abp_model_2d (model_base):
     def __init__ (self, Sq, q, L=1, D0=1.0, Dr=1.0, v0=0.0, nu=0.0):
+        """Initialize active Brownian-particle (ABP) model.
+
+        Parameters
+        ----------
+        Sq : object or None
+            Should be a suitable (2d) static structure factor object
+            that provides a density, S(q), and c(q). As a special case,
+            can be None if only the analytical low-density solutions are
+            needed.
+        L : int, default: 1
+            Angular base-function cutoff. The model will result in matrices
+            of dimension (2L+1) times (2L+1).
+        D0 : float, default: 1.0
+            Translational diffusion coefficient.
+        Dr : float, default: 1.0
+            Rotational diffusion coefficient.
+        v0 : float, default: 0.0
+            Self-propulsion velocity of the ABP.
+        nu : float, default: 0.0
+            If set to a non-zero value, the model is that of a circle
+            swimmer or chiral active Brownian particle."""
         model_base.__init__(self)
         self.dtype = np.dtype('complex')
         self.fixed_motion_type = 'brownian'
-        self.rho = Sq.density()
         self.q = q
         self.Sq = Sq
-        self.sq, self.cq = Sq.Sq(q)
         self.M = q.shape[0]
         self.L = L
         self.S = 2*L+1
@@ -36,8 +55,12 @@ class abp_model_2d (model_base):
         self.Dr = Dr
         self.v0 = v0
         self.nu = nu
-        if self.rho > 0.0:
+        if Sq is not None:
+            self.rho = Sq.density()
+            self.sq, self.cq = Sq.Sq(q)
             self.__init_vertices__ ()
+        else:
+            self.rho = 0.0
     def __len__ (self):
         return self.M
     def matrix_dimension (self):
