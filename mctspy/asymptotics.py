@@ -2,6 +2,8 @@ import numpy as np
 from numba import njit
 from numba.extending import overload
 
+import h5py
+
 from .solver import correlator
 from .util import regula_falsi, exponents
 from .__util__ import model_base, np_isclose_all
@@ -220,3 +222,45 @@ class beta_scaling_function (correlator):
     def type (self):
         return 'g'
 
+    def h5save (self, base):
+        super(beta_scaling_function,self).h5save(base)
+        grp = base.create_group("model").create_group("beta_scaling")
+        if self.M==1:
+            grp.attrs['sigma'] = self.sigma
+        else:
+            grp.create_dataset("sigma",data=self.sigma)
+        grp.attrs['lambda'] = self.lambda_
+        grp.attrs['delta'] = self.delta
+        grp.attrs['t0'] = self.t0
+        grp.attrs['M'] = self.M
+        grp.attrs['dim'] = self.dim
+        if self.M>1:
+            grp.attrs['alpha'] = self.alpha
+            grp.attrs['dx'] = self.dx
+        else:
+            grp.attrs['alpha'] = 0.
+            grp.attrs['dx'] = 1.
+
+    @staticmethod
+    def load (file):
+        with h5py.File(file, 'r') as f:
+            attrs = f['correlator/time_domain'].attrs
+            gattrs = f['model/beta_scaling'].attrs
+            newself = beta_scaling_function(
+                blocksize = attrs['blocksize'], h=attrs['h0'],
+                blocks=attrs['blocks'], maxiter=attrs['maxiter'],
+                accuracy=attrs['accuracy'],
+                lam=gattrs['lambda'], sigma=0.,
+                delta=gattrs['delta'], t0=gattrs['t0'],
+                M=gattrs['M'], dim=gattrs['dim'],
+                alpha=gattrs['alpha'], dx=gattrs['dx'])
+            newself.t = np.array(f['correlator/time_domain/t'])
+            newself.phi = np.array(f['correlator/time_domain/phi'], dtype=newself.model.dtype)
+            newself.m = np.array(f['correlator/time_domain/m'], dtype=newself.model.dtype)
+            newself.store = True
+            newself.solved = attrs['solved_blocks']
+            if newself.M>1:
+                newself.sigma = np.array(f['model/beta_scaling/sigma'])
+            else:
+                newself.sigma = gattrs['sigma']
+        return newself
