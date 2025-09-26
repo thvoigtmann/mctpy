@@ -151,6 +151,10 @@ class beta_scaling_function (correlator):
         Spatial coupling strength of SBR.
     dx : float, default: 1.0
         Lattice spacing for SBR.
+    Dsigma : float, default: 1.0
+        Variance of the sigma field for SBR, if sigma is a scalar.
+    rng : object, default: None
+        Random-number generator instance (for SBR if needed).
 
     Notes
     -----
@@ -159,16 +163,25 @@ class beta_scaling_function (correlator):
     does not allow to specify a model: the beta-scaling equation
     is model-independent.
 
-    If `M` is set to a value larger than zero, this solver effectively
-    solves the equations of SBR.
+    If `M` is set to a value larger than zero, this solver solves the
+    equations of SBR.
     In this case, `dim` can be set to the dimensionality of the spatial
     coupling. The correlators will then be matrices of shape (M,)*dim
     (dimensions 1, 2, and 3 are implemented), and the parameter `alpha`
     controls the strength of the dim-dimensional lattice Laplacian.
+    The values `sigma` can then be an array of shape (M,)*dim to pass
+    directly the values of the fluctuating distance parameter. If
+    `sigma` is a scalar, it will be taken as the mean of a Gaussian field
+    with standard deviation given by `Dsigma` that will be initialized (using
+    the provided random-number generator, if given).
+    Note that in this case, the value of the lattice spacing `dx` will
+    be taken into account to properly scale `Dsigma` (as well as `alpha`
+    that is always correctly scaled).
     """
     def __init__ (self, blocksize=256, h=1e-9, blocks=60, Tend=0.0,
                   maxinit=50, maxiter=10000, accuracy=1e-9, store=False,
-                  lam=0.735, sigma=0., delta=0., t0=1., M=1, dim=1, alpha=0, dx=1.0):
+                  lam=0.735, sigma=0., delta=0., t0=1.,
+                  M=1, dim=1, alpha=0, dx=1.0, Dsigma=1.0, rng=None):
         self.M = M
         self.dim = dim
         correlator.__init__ (self, blocksize=blocksize, h=h, blocks=blocks,
@@ -181,6 +194,17 @@ class beta_scaling_function (correlator):
         if M > 1:
             self.alpha = alpha
             self.dx = dx
+            if not hasattr(sigma, "__len__"):
+                # here we assume that sigma is not an array
+                # so then we take it to be the mean of a Gaussian
+                if rng is None:
+                    myrng = np.random.default_rng()
+                else:
+                    myrng = rng
+                s = myrng.normal(loc=sigma, scale=Dsigma/np.power(dx,dim/2),
+                                 size=(M,)*dim)
+                s += sigma - np.mean(s)
+                self.sigma = s
     def __alloc__ (self):
         self.phi_ = np.zeros((self.blocksize,*(self.M,)*self.dim))
         self.dPhi_ = np.zeros((self.halfblocksize+1,*(self.M,)*self.dim))

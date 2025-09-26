@@ -163,10 +163,25 @@ The correlator will then be an array of shape (T,M), (T,M,M), or (T,M,M,M) if
 there are T time points. The `sigma` parameter should then be
 a corresponding array of shape (M), (M,M), or (M,M,M).
 
-Note that for :math:`\alpha=0`, or `sigma` a scalar,
-the solver essentially solves a set of
+Note that for :math:`\alpha=0`, the solver essentially solves a set of
 unrelated scaling functions, and the interesting quantity according to
 SBR then is the spatial average over these correlators [Rizzo2015]_.
+
+If `Dsigma` is given, and `sigma` is a floating-point number, these values
+are taken, respectively, as the standard deviation, and the mean of the
+field :math:`\sigma(x)` which will then be calculated as Gaussian, using
+either the default, or the provided random number generator.
+Note that the parameters :math:`\alpha` and :math:`\Delta\sigma` in SBR
+scale with the lattice spacing according to
+
+.. math::
+
+    \begin{align}
+    \alpha &\mapsto \alpha/\Delta x^2 &
+    \Delta\sigma &\mapsto \Delta\sigma/\Delta x^{d/2}
+    \end{align}
+
+where :math:`d` is the dimensionality of the grid.
 
 
 .. [Rizzo2014] T. Rizzo, EPL 106, 56003 (2014),
