@@ -4,13 +4,11 @@ jupytext:
     extension: .mystnb
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.16.4
+    jupytext_version: 1.17.3
 kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
   name: python3
-mystnb:
-  execution_timeout: -1
 ---
 
 # Stochastic Beta-Relaxation Theory
@@ -45,22 +43,22 @@ The equations that we solve are
 We test the solution on a two-dimensional lattice with size $M\times M$:
 
 ```{code-cell} ipython3
-M, dim = 30, 2
-Dsigma = 1.
+M, dx, dim = 100, 1.0, 2
+alpha, Dsigma = 0.1875, 0.043057436 # values for FA model setting dx=1
 ```
 
 Generate a Gaussian-distributed $\sigma(x)$ field with the given mean. We draw $M^d$ samples with given variance, and by subtracting the numerical mean from each, we make sure that the sum of all numerical values is exactly the given $\sigma$ mean.
 
 ```{code-cell} ipython3
-sigma = -1.0
-s = rng.normal(loc=sigma, scale=Dsigma,size=(M,)*dim)
+sigma = -0.01
+s = rng.normal(loc=sigma, scale=Dsigma/np.power(dx,dim/2),size=(M,)*dim)
 s += sigma - np.mean(s)
-print(np.min(s))
+print(np.min(s),np.max(s))
 ```
 
 ```{code-cell} ipython3
-g = mct.beta_scaling_function (lam=0.74, sigma=s, M=M, dim=dim, alpha=0.1, blocks=100, store=True)
-g0 = mct.beta_scaling_function (lam=0.74, sigma=sigma, M=1, blocks=100, store=True)
+g = mct.beta_scaling_function (lam=0.75, sigma=s, M=M, dim=dim, alpha=alpha, dx=dx, blocks=100, store=True)
+g0 = mct.beta_scaling_function (lam=0.75, sigma=sigma, M=1, blocks=100, store=True)
 ```
 
 ```{code-cell} ipython3
@@ -87,12 +85,17 @@ valid0 = g0.t>0
 As expected, a wide distribution around the mean emerges. The mean over the SBR correlators deviates a little from the standard $\beta$-scaling correlator.
 
 ```{code-cell} ipython3
-plt.plot(g.t[valid],g.phi[valid].reshape(g.t[valid].shape[0],-1))
+plt.plot(g.t[valid],g.phi[valid].reshape(g.t[valid].shape[0],-1)[:,::2*M],color='gray')
+last = g.phi[valid][-1]
+min_i = np.unravel_index(np.argmin(last,axis=None),last.shape)
+max_i = np.unravel_index(np.argmax(last,axis=None),last.shape)
+plt.plot(g.t[valid],g.phi[valid][(...,)+min_i],color='gray',linestyle='dashed')
+plt.plot(g.t[valid],g.phi[valid][(...,)+max_i],color='gray',linestyle='dashed')
 plt.plot(g.t[valid],np.mean(g.phi[valid].reshape(g.t[valid].shape[0],-1), axis=-1), color='black', linewidth=5,label='SBR average')
 plt.plot(g0.t[valid0],g0.phi[valid0,0], color='black', linewidth=3, linestyle='dashed',label='standard beta theory')
 plt.xscale('log')
-plt.xlim(1e-4,g.t[valid][-1])
-plt.ylim(-20,20)
+plt.xlim(1e-3,g.t[valid][-1])
+plt.ylim(-4,4)
 plt.xlabel(r'$t$')
 plt.ylabel(r'$g_x(t)$')
 plt.legend()
@@ -113,12 +116,32 @@ np.mean(Blam),np.std(Blam),np.std(Blam)/np.mean(Blam)
 mct.util.Blambda(g.lambda_)
 ```
 
+```{code-cell} ipython3
+plt.plot(Blam.reshape(-1))
+plt.xlim(0,200)
+plt.show()
+```
+
+```{code-cell} ipython3
+t_, g_  = np.meshgrid(g.t[valid][100::100],np.arange(M),indexing='ij')
+z_ = g.phi[valid][100::100,:,0] #* np.power(t_,b)
+z_[z_>25] = np.nan
+t_.shape,g_.shape,z_.shape
+fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
+ax.plot_surface(np.log10(t_), g_, z_, cmap=plt.cm.coolwarm)
+ax.set_zlim(top=25)
+ax.set_xlabel(r'$\log_{10}t$')
+ax.set_ylabel(r'$x$')
+ax.set_zlabel(r'$g(x,t)$')
+plt.show()
+```
+
 We now repeat the calculation in the glass, with the same $\sigma$-distribution (just with flipped sign).
 
 (The correlator values are overwritten to save a bit of memory.)
 
 ```{code-cell} ipython3
-g = mct.beta_scaling_function (lam=0.74, sigma=-s, M=M, dim=dim, alpha=0.1, blocks=100, store=True)
+g = mct.beta_scaling_function (lam=0.74, sigma=-s, M=M, dim=dim, alpha=0.2, blocks=100, store=True)
 g0 = mct.beta_scaling_function (lam=0.74, sigma=-sigma, M=1, blocks=100, store=True)
 ```
 
@@ -138,26 +161,50 @@ valid0 = g0.t>0
 ```
 
 ```{code-cell} ipython3
-plt.plot(g.t[valid],g.phi[valid].reshape(g.t[valid].shape[0],-1))
+plt.plot(g.t[valid],g.phi[valid].reshape(g.t[valid].shape[0],-1)[:,::2*M],color='gray')
+last = g.phi[valid][-1]
+min_i = np.unravel_index(np.argmin(last,axis=None),last.shape)
+max_i = np.unravel_index(np.argmax(last,axis=None),last.shape)
+plt.plot(g.t[valid],g.phi[valid][(...,)+min_i],color='gray',linestyle='dashed')
+plt.plot(g.t[valid],g.phi[valid][(...,)+max_i],color='gray',linestyle='dashed')
 plt.plot(g.t[valid],np.mean(g.phi[valid].reshape(g.t[valid].shape[0],-1), axis=-1), color='black', linewidth=5,label='SBR average')
 plt.plot(g0.t[valid0],g0.phi[valid0,0], color='black', linewidth=3, linestyle='dashed',label='standard beta theory')
 plt.xscale('log')
-plt.xlim(1e-4,g.t[valid][-1])
-plt.ylim(-20,20)
+plt.xlim(1e-3,g.t[valid][-1])
+plt.ylim(-4,4)
 plt.xlabel(r'$t$')
 plt.ylabel(r'$g_x(t)$')
 plt.legend()
 plt.show()
 ```
 
+```{code-cell} ipython3
+plt.plot(g.t[valid],np.abs(g.phi[valid][:,:,:]*np.power(g.t[valid],-b)[:,None,None]).reshape(g.t[valid].shape[0],-1)[:,::2*M],color='gray')
+last = g.phi[valid][-1]
+plt.xscale('log')
+plt.yscale('log')
+plt.xlim(1e3,g.t[valid][-1])
+plt.xlabel(r'$t$')
+plt.ylabel(r'$g_x(t)$')
+plt.show()
+```
+
 A strong point of SBR is that also in the glass, we get non-exponential relaxation, because all the correlators follow the von Schweidler law. This is best seen in a log-log representation:
 
 ```{code-cell} ipython3
-plt.plot(g.t[valid],np.abs(g.phi[valid].reshape(g.t[valid].shape[0],-1)))
-plt.plot(g.t[valid],np.power(g.t[valid],b),linestyle='dashed',color='black')
+plt.plot(g.t[valid],np.abs(g.phi[valid].reshape(g.t[valid].shape[0],-1)[:,::2*M]),color='gray')
+last = g.phi[valid][-1]
+min_i = np.unravel_index(np.argmin(last,axis=None),last.shape)
+max_i = np.unravel_index(np.argmax(last,axis=None),last.shape)
+plt.plot(g.t[valid],np.abs(g.phi[valid][(...,)+min_i]),color='gray',linestyle='dashed')
+plt.plot(g.t[valid],np.abs(g.phi[valid][(...,)+max_i]),color='gray',linestyle='dashed')
+plt.plot(g.t[valid],np.power(g.t[valid],b),linestyle='dotted')
 plt.xscale('log')
 plt.yscale('log')
-plt.xlim(1e-4,g.t[valid][-1])
+plt.xlim(1e-3,g.t[valid][-1])
+plt.xlabel(r'$t$')
+plt.ylabel(r'$g_x(t)$')
+#plt.legend()
 plt.show()
 ```
 
@@ -175,9 +222,9 @@ In the following, we plot the von-Schweidler amplitude field (as a function of g
 x_, y_  = np.meshgrid(np.arange(M),np.arange(M))
 fig, ax = plt.subplots(ncols=2,figsize=(16,12),subplot_kw=dict(projection='3d'))
 ax[0].set_title('liquid')
-ax[0].plot_surface(x_, y_, -Blam)
+ax[0].plot_surface(x_, y_, Blam/np.mean(Blam), cmap=plt.cm.coolwarm)
 ax[1].set_title('glass')
-ax[1].plot_surface(x_, y_, -Blamglass)
+ax[1].plot_surface(x_, y_, Blamglass/np.mean(Blamglass), cmap=plt.cm.coolwarm)
 plt.show()
 ```
 
@@ -187,62 +234,6 @@ tau_g = g.phi.shape[0] - np.sum(g.phi<-1,axis=0)
 
 ```{code-cell} ipython3
 np.std(tau_g)/np.mean(tau_g)
-```
-
-## Correlation Length
-
-```{code-cell} ipython3
-import scipy.signal
-```
-
-We solve SBR for a range of mean $\sigma$ values and calculate the $B_\lambda(x)$ profiles for each point in order to characterize its statistical evolution as a function of $\sigma$.
-
-```{code-cell} ipython3
-sigmarange = np.linspace(-1,1,21)
-l = 0.74
-a, b = mct.util.exponents(l)
-Bvalues = []
-for sigma in tqdm(sigmarange):
-    s = rng.normal(loc=sigma, scale=Dsigma, size=(M,)*dim)
-    s += sigma - np.mean(s)
-    g = mct.beta_scaling_function (lam=0.74, sigma=s, M=M, dim=dim, alpha=0.1, blocks=100, store=True)
-    g.solve_all()
-    Bvalues.append(np.mean(g.phi[-50:,:,:]*np.power(g.t[-50:],-b)[:,None,None],axis=0))
-```
-
-The variance of the $B_\lambda(x)$ profiles (normalized by the absolute value of the mean) increases into the glass, as expected from the plots above.
-
-```{code-cell} ipython3
-Bvar = [np.std(Bx)/np.abs(np.mean(Bx)) for Bx in Bvalues]
-plt.plot(sigmarange,Bvar)
-plt.xlabel(r'$\sigma$')
-plt.ylabel(r'$\text{var}(B)/|\text{mean}(B)|$')
-plt.show()
-```
-
-Assuming that the Fourier transform of the B profiles (isotropically averaged) shows exponential decay at low q, we can extract a correlation length from that. The signal here is stil quite noisy, but there is a non-monotonic evolution of that correlation length.
-
-```{code-cell} ipython3
-def expfit(x, xi, A):
-    return A*np.exp(-x*xi)
-var=[]
-for Bx in Bvalues:
-    shape = Bx.shape
-    dists=np.sqrt(np.fft.fftfreq(shape[0])[:,None]**2 + np.fft.fftfreq(shape[1])[None,:]**2)
-    bins = np.arange(max(shape)/2+1)/float(max(shape))
-    hd=np.histogram(dists,bins)[0]
-    Bw = np.abs(np.fft.fft2(Bx))
-    lin=np.histogram(dists,bins,weights=Bw)[0]/hd
-    x=bins[:-1]+np.diff(bins)
-    #plt.plot(x[1:],lin[1:]/np.max(lin))
-    popt,_ = scipy.optimize.curve_fit(expfit,x[1:],lin[1:]/np.max(lin))
-    #plt.plot(x[1:],expfit(x[1:],*popt),linestyle='dashed')
-    var.append(popt[0])
-plt.plot(sigmarange,np.array(var))
-#x=np.arange(lin.shape[0])[1:]
-#plt.plot(x,np.exp(-x*2))
-#plt.plot(np.max(Blamw)*np.exp(-np.arange(hd.shape[0])))
-plt.show()
 ```
 
 ```{code-cell} ipython3
