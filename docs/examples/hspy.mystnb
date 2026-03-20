@@ -4,13 +4,11 @@ jupytext:
     extension: .mystnb
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.16.4
+    jupytext_version: 1.19.1
 kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
   name: python3
-mystnb:
-  execution_timeout: -1
 ---
 
 # Hard-Sphere System
@@ -21,7 +19,7 @@ import matplotlib.pyplot as plt
 ```
 
 ```{code-cell} ipython3
-from tqdm.autonotebook import tqdm
+from tqdm.auto import tqdm
 ```
 
 ```{code-cell} ipython3
@@ -227,6 +225,23 @@ for corr,f in [(phi,nep.f),(phi_s,nep_s.f)]:
 plt.yscale('log')
 plt.xlabel(r'$qd$')
 plt.ylabel(r'$\tau_q$, $\tau^s_q$')
+plt.show()
+```
+
+The following tests the $q^2$-scaling of the short-time dynamics.
+
+```{code-cell} ipython3
+for qi, q in enumerate(qgrid):
+    plt.plot(phi.t*q*q/sq[qi], 1-phi.phi[:,qi], label=r'$q = {:.1f}$'.format(qgrid[qi]))
+    plt.plot(phi_s.t*q*q, 1-phi_s.phi[:,qi], label=r'$q = {:.1f}$'.format(qgrid[qi]))
+plt.plot(phi_s.t,phi_s.t,color='black',linestyle='dashed')
+plt.xscale('log')
+plt.xlabel(r'$q^2t/S_q$')
+plt.ylabel(r'$1-\phi(q,t)$')
+plt.xlim(1e-6,1)
+plt.yscale('log')
+plt.ylim(1e-6,1)
+#plt.legend()
 plt.show()
 ```
 

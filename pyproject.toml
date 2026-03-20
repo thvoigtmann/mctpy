@@ -20,6 +20,7 @@ dependencies = [
     "numpy",
     "scipy",
     "numba",
+    "h5py",
 ]
 
 [project.urls]

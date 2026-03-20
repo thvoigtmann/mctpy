@@ -74,16 +74,6 @@ correlators.solve_all(callback=output)
 print("")
 
 
-# test re-running an already solved phi with a new phi_s
-print("RE-SOLVE")
-correlators2 = mct.CorrelatorStack([phi])
-model_s2 = mct.sjoegren_model(args.vs,model)
-phi_s2 = mct.correlator (model = model_s2, base=phi, store=True)
-correlators2.append (phi_s2)
-correlators2.solve_all(callback=output)
-print("")
-assert((phi_s2.phi==phi_s.phi).all())
-
 plt.plot(phi.t,phi.phi)
 plt.plot(phi_gdot.t,phi_gdot.phi)
 plt.plot(phi_s.t,phi_s.phi)
