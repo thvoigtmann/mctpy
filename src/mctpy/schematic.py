@@ -145,7 +145,7 @@ class f12gammadot_model (f12model):
 class f12gammadot_tensorial_model (f12gammadot_model):
     r"""Schematic F12-gammadot model, tensorial version.
 
-    This is the adaptation of the :py:class:`mctspy.f12gammadot_model`
+    This is the adaptation of the :py:class:`mctpy.f12gammadot_model`
     for tensorial flow fields.
 
     Parameters

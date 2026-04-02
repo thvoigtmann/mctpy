@@ -335,7 +335,7 @@ class hssVW (object):
         ----------
         q ; array_like
             Wave number grid,
-            see notes for :py:func:`mctspy.structurefactors.hssVW.cq`.
+            see notes for :py:func:`mctpy.structurefactors.hssVW.cq`.
 
         Returns
         -------

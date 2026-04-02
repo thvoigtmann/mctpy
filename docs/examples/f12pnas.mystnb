@@ -25,7 +25,7 @@ from tqdm.auto import tqdm
 ```
 
 ```{code-cell} ipython3
-import mctspy as mct
+import mctpy as mct
 ```
 
 ## Flow curve and Trouton Ratio

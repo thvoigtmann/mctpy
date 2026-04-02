@@ -34,7 +34,7 @@ by multiplying with :math:`\boldsymbol\rho^{1/2}` from both sides again.
 Simple Liquids (3D)
 -------------------
 
-.. autoclass:: mctspy.structurefactors.hssPY
+.. autoclass:: mctpy.structurefactors.hssPY
     :members:
     :inherited-members:
 
@@ -90,7 +90,7 @@ Simple Liquids (3D)
        `DOI:10.1103/PhysRevLett.10.321 <https://doi.org/10.1103/PhysRevLett.10.321>`_
 
 
-.. autoclass:: mctspy.structurefactors.hssPYtagged
+.. autoclass:: mctpy.structurefactors.hssPYtagged
     :members:
     :inherited-members:
 
@@ -131,7 +131,7 @@ Simple Liquids (3D)
         {5(1-\varphi)^4}\right)q^4
         \end{align}
 
-.. autoclass:: mctspy.structurefactors.hssVW
+.. autoclass:: mctpy.structurefactors.hssVW
     :members:
     :inherited-members:
 
@@ -210,7 +210,7 @@ Simple Liquids (3D)
        `DOI:10.1103/PhysRevA.2.939 <https://doi.org/10.1103/PhysRevA.2.939>`_
 
 
-.. autoclass:: mctspy.structurefactors.swsMSA
+.. autoclass:: mctpy.structurefactors.swsMSA
     :members:
     :inherited-members:
 
@@ -244,7 +244,7 @@ Simple Liquids (3D)
 Simple Liquids (2D)
 -------------------
 
-.. autoclass:: mctspy.structurefactors.hssFMT2d
+.. autoclass:: mctpy.structurefactors.hssFMT2d
     :members:
     :inherited-members:
 
@@ -282,7 +282,7 @@ Simple Liquids (2D)
 Mixtures (3D)
 -------------
 
-.. autoclass:: mctspy.structurefactors.hsmPY
+.. autoclass:: mctpy.structurefactors.hsmPY
     :members:
     :inherited-members:
 
@@ -293,7 +293,7 @@ Mixtures (3D)
     (where Greek indices label the species).
 
     Note that in contrast to the one-component HSS-PY structure factor,
-    :py:class:`mctspy.structurefactors.hssPY`, we do not work with
+    :py:class:`mctpy.structurefactors.hssPY`, we do not work with
     packing fractions here, but with the number densities.
 
     The implementation is based on analytic expressions that follow from

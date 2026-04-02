@@ -6,27 +6,27 @@ Implementation Details
 Implementing Models
 -------------------
 
-Models that should work with :py:class:`mctspy.correlator` or
+Models that should work with :py:class:`mctpy.correlator` or
 derived time-domain solvers need to implement the following
 methods:
 
-* :py:func:`mctspy.model_base.Aq` to specify the prefactor :math:`A_q`
+* :py:func:`mctpy.model_base.Aq` to specify the prefactor :math:`A_q`
     in front of the second time derivative in the evolution equation.
     For models implementing Newtonian dynamics, this will be
     For models implementing Brownian dynamics, this should return the
     symbol `None`.
-* :py:func:`mctspy.model_base.Bq` to specify the prefactor :math:`B_q`
+* :py:func:`mctpy.model_base.Bq` to specify the prefactor :math:`B_q`
     in front of the first time derivative in the evolution equation.
     For models implementing Brownian dynamics, this will be
-* Optionally, :py:func:`mctspy.model_base.Bqinv` can be implemented
+* Optionally, :py:func:`mctpy.model_base.Bqinv` can be implemented
     to avoid numerical inversion of :math:`B_q`.
-* :py:func:`mctspy.model_base.Wq` to specify the prefactor :math:`W_q`
+* :py:func:`mctpy.model_base.Wq` to specify the prefactor :math:`W_q`
     in front of the correlator itself in the evolution equation.
-* Optionally, :py:func:`mctspy.model_base.WqSq` can be implemented
+* Optionally, :py:func:`mctpy.model_base.WqSq` can be implemented
     to return the product :math:`W_q \phi_{q,0}` directly.
-* :py:func:`mctspy.model_base.phi0` to return the initial values of
+* :py:func:`mctpy.model_base.phi0` to return the initial values of
     the function to solve for.
-* Optionally, :py:func:`mctspy.model_base.phi0d` can return the
+* Optionally, :py:func:`mctpy.model_base.phi0d` can return the
     initial derivative of the function to solve for. This is ignored
     if :math:`A_q` is set to zero (Brownian dynamics), since then
     the derivative is fixed by the other parameters.
@@ -34,7 +34,7 @@ methods:
 Standard "Moment" Solver
 ------------------------
 
-The commonly used solver for MCT equations (:py:class:`mctspy.correlator`)
+The commonly used solver for MCT equations (:py:class:`mctpy.correlator`)
 is based on an algorithm first proposed by Fuchs and Hofacker [Fuchs1991]_
 called the "moment algorithm". The key idea is the splitting of a
 convolution integral over slowly varying functions at some half-way
@@ -185,7 +185,7 @@ small), and that the algorithm uses more memory.
 beta-Scaling Solvers
 --------------------
 
-The :py:class:`mctspy.beta_scaling_function` solver uses the same
+The :py:class:`mctpy.beta_scaling_function` solver uses the same
 idea of algorithm as used for the correlator, with a few modifications.
 First, there is no separate memory kernel; second, the discretized
 equation leads to a quadratic equation to be solved at each time step:
@@ -246,7 +246,7 @@ Bengtzelius trick
 ^^^^^^^^^^^^^^^^^
 
 For the memory-kernel integration in the standard mixture model
-:py:class:`mctspy.mixture_model`, we use an extension of the Bengtzelius
+:py:class:`mctpy.mixture_model`, we use an extension of the Bengtzelius
 trick. We have
 
     .. math::
@@ -335,7 +335,7 @@ trick. We have
 Critical amplitudes
 ^^^^^^^^^^^^^^^^^^^
 
-In :py:func:`mctspy.mixture_model.make_dm` we implement
+In :py:func:`mctpy.mixture_model.make_dm` we implement
 
 .. math::
 
@@ -346,7 +346,7 @@ In :py:func:`mctspy.mixture_model.make_dm` we implement
     H_{\alpha'\beta'}(k)F_{\alpha''\beta''}(p)
 
 The corresponding left-eigenvector uses the implementation in
-:py:func:`mctspy.mixture_model.make_dmhat`,
+:py:func:`mctpy.mixture_model.make_dmhat`,
 
 .. math::
 
@@ -357,7 +357,7 @@ The corresponding left-eigenvector uses the implementation in
     \hat H_{\alpha\beta}(q)F_{\alpha''\beta''}(p)
 
 This works together with the implementation of the eigenvalue solver for
-matrices in :py:func:`mctspy.eigenvalue.solve`. There, we solve the
+matrices in :py:func:`mctpy.eigenvalue.solve`. There, we solve the
 eigenvalue equation by iterating
 
 .. math::
@@ -368,7 +368,7 @@ eigenvalue equation by iterating
 
 where :math:`2\boldsymbol M[\boldsymbol F,\boldsymbol H]` is what needs
 to be returned by the function returned by
-:py:func:`mctspy.mixture_model.make_dm`.
+:py:func:`mctpy.mixture_model.make_dm`.
 
 Normalization of the matrix-valued eigenvectors follows the convention
 

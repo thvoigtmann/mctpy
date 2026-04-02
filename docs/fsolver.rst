@@ -25,7 +25,7 @@ the associated eigenvalues, and related quantities.
 Nonergodicity Parameter
 -----------------------
 
-.. autoclass:: mctspy.nonergodicity_parameter
+.. autoclass:: mctpy.nonergodicity_parameter
     :members:
     :inherited-members:
 
@@ -86,6 +86,6 @@ Nonergodicity Parameter
 Critical Eigenvector and -value
 -------------------------------
 
-.. autoclass:: mctspy.eigenvalue
+.. autoclass:: mctpy.eigenvalue
    :members:
    :inherited-members:

@@ -26,7 +26,7 @@ from tqdm.auto import tqdm
 ```
 
 ```{code-cell} ipython3
-import mctspy as mct
+import mctpy as mct
 ```
 
 The F12 model is perhaps the most famous schematic model of MCT. It is defined by the memory kernel

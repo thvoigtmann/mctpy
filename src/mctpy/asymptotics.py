@@ -159,7 +159,7 @@ class beta_scaling_function (correlator):
     Notes
     -----
     The other parameters take the same meaning as in
-    :py:class:`mctspy.correlator`. Note that this solver here
+    :py:class:`mctpy.correlator`. Note that this solver here
     does not allow to specify a model: the beta-scaling equation
     is model-independent.
 

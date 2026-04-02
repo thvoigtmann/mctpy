@@ -2,7 +2,7 @@ import numpy as np
 import argparse
 import matplotlib.pyplot as plt
 
-import mctspy as mct
+import mctpy as mct
 from numba import njit
 
 # try -v1 2.9411 -v2 0.130327 -v3 45 to test critical point

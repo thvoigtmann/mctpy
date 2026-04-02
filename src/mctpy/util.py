@@ -213,7 +213,7 @@ def evscan(phi0, phi1, calc_ev, eps=1e-6, accuracy=1e-6):
         Interval of control parameters to search, must be phi0 < phi1.
     calc_ev : callable
         Must be a function taking a single control parameter phi
-        as input and returning an :py:class:`mctspy.eigenvalue` object.
+        as input and returning an :py:class:`mctpy.eigenvalue` object.
     eps : float, default: 1e-6
         Precision in the control-parameter distance; the seaarch stops
         once the interval in phi is narrower than eps.
@@ -228,7 +228,7 @@ def evscan(phi0, phi1, calc_ev, eps=1e-6, accuracy=1e-6):
 
     Examples
     --------
-    >>> import mctspy as mct
+    >>> import mctpy as mct
     >>> def calc_ev(phi):
     >>>     Sq = mct.structurefactors.hssPY(phi)
     >>>     model = mct.simple_liquid_model (Sq, qgrid)

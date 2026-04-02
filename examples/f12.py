@@ -2,7 +2,7 @@ import numpy as np
 import argparse
 import matplotlib.pyplot as plt
 
-import mctspy as mct
+import mctpy as mct
 from numba import njit
 
 

@@ -3,7 +3,7 @@ requires = [ "hatchling" ]
 build-backend = "hatchling.build"
 
 [project]
-name = "mctspy"
+name = "mctpy"
 version = "0.0.1"
 description = "MCT solver package in python"
 readme = "README.md"
@@ -24,4 +24,10 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/thvoigtmann/mctspy"
+"Homepage" = "https://github.com/thvoigtmann/mctpy"
+
+[project.optional-dependencies]
+dev = [
+    "sphinx",
+    "sphinx-rtd-theme",
+]

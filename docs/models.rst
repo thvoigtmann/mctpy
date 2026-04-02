@@ -32,7 +32,7 @@ The evolution equations of simple-liquid models are thus
 
 
 
-.. autoclass:: mctspy.simple_liquid_model
+.. autoclass:: mctpy.simple_liquid_model
     :members:
     :inherited-members:
 
@@ -53,11 +53,11 @@ The evolution equations of simple-liquid models are thus
 Common Additions to Simple-Liquid Models
 ----------------------------------------
 
-.. autoclass:: mctspy.tagged_particle_model
+.. autoclass:: mctpy.tagged_particle_model
 
-.. autoclass:: mctspy.tagged_particle_q0
+.. autoclass:: mctpy.tagged_particle_q0
 
-.. autoclass:: mctspy.tagged_particle_ngp
+.. autoclass:: mctpy.tagged_particle_ngp
     :members:
     :inherited-members:
 
@@ -88,7 +88,7 @@ Common Additions to Simple-Liquid Models
     is kept to its separate solver).
 
     The equations itself are documented with
-    :py:class:`mctspy.non_gaussian_parameter` with which this model is
+    :py:class:`mctpy.non_gaussian_parameter` with which this model is
     intended to be used.
 
     .. [Fuchs1998] M. Fuchs, W. G\ |ouml|\ tze, and M. R. Mayr,
@@ -118,7 +118,7 @@ and the isotropic advected wave number
 :math:`k(t)=k\sqrt{1+(\dot\gamma t/\gamma_c)^2}`.
 
 
-.. autoclass:: mctspy.isotropically_sheared_model
+.. autoclass:: mctpy.isotropically_sheared_model
     :members:
     :inherited-members:
 
@@ -155,7 +155,7 @@ presented by Kranz/Sperl/Zippelius [Kranz2010]_.
    `DOI:10.1103/PhysRevLett.104.225701 <https://doi.org/10.1103/PhysRevLett.104.225701>`_
 
 
-.. autoclass:: mctspy.granular.granular_model
+.. autoclass:: mctpy.granular.granular_model
     :members:
     :inherited-members:
 
@@ -171,7 +171,7 @@ agitated granular materials.
    and M. Sperl, Phys. Rev. Lett. 121, 148002 (2018),
    `DOI:10.1103/PhysRevLett.121.148002 <https://doi.org/10.1103/PhysRevLett.121.148002>`_
 
-.. autoclass:: mctspy.granular.gitt_model
+.. autoclass:: mctpy.granular.gitt_model
     :members:
     :inherited-members:
 
@@ -200,7 +200,7 @@ correlation function is divided by that factor. For a mixture where
 one species has vanishing concentration, the corresponding diagonal
 element of the correlator matrix then is the tagged-particle correlator.
 
-.. autoclass:: mctspy.mixture_model
+.. autoclass:: mctpy.mixture_model
     :members:
     :inherited-members:
 
@@ -290,7 +290,7 @@ cost of noticeably higher computational effort, since some of the tricks
 introduced in the 3d discretization no longer work in 2d.
 
 
-.. autoclass:: mctspy.simple_liquid_model_2d
+.. autoclass:: mctpy.simple_liquid_model_2d
     :members:
     :inherited-members:
 
@@ -369,23 +369,23 @@ to MCT, and realizing that the asymptotic dynamics close to the glass
 transition is described by universal laws that can be reproduced from
 schematic models.
 
-.. autoclass:: mctspy.schematic.generic
+.. autoclass:: mctpy.schematic.generic
     :members:
     :inherited-members:
 
-.. autoclass:: mctspy.f12model
+.. autoclass:: mctpy.f12model
     :members:
     :inherited-members:
 
-.. autoclass:: mctspy.sjoegren_model
+.. autoclass:: mctpy.sjoegren_model
     :members:
     :inherited-members:
 
-.. autoclass:: mctspy.bosse_krieger_model
+.. autoclass:: mctpy.bosse_krieger_model
     :members:
     :inherited-members:
 
-.. autoclass:: mctspy.f12gammadot_model
+.. autoclass:: mctpy.f12gammadot_model
     :members:
     :inherited-members:
 
@@ -398,12 +398,12 @@ schematic models.
     calculate the dynamics, especially flow curves under strong shear.
 
 
-.. autoclass:: mctspy.f12gammadot_tensorial_model
+.. autoclass:: mctpy.f12gammadot_tensorial_model
     :members:
     :inherited-members:
 
     This model is the tensorial extension of
-    :py:class:`mctspy.f12gammadot_model`.
+    :py:class:`mctpy.f12gammadot_model`.
     While it also works under simple shear, it is computationally more
     expensive since it needs to calculate the deformation tensors as
     matrix-exponentials of a given shear-rate tensor.
@@ -444,7 +444,7 @@ schematic models.
     two strain reduction factors, one given by :math:`\boldsymbol B_{t,t'}`,
     and one given by :math:`\boldsymbol B_{t,0}`.
 
-    The :py:func:`mctspy.f12gammadot_tensorial_model.shear_modulus` function
+    The :py:func:`mctpy.f12gammadot_tensorial_model.shear_modulus` function
     implements both an "upper-convected" and a "lower-convected" integral
     for the stress tensor. The standard variant is the UC model,
 

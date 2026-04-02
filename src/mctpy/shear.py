@@ -23,7 +23,7 @@ class isotropically_sheared_model (simple_liquid_model):
 
     Notes
     -----
-    See :py:class:`mctspy.simple_liquid_model` for restrictions on the
+    See :py:class:`mctpy.simple_liquid_model` for restrictions on the
     wave number grid.
 
     This model only makes sense within Brownian dynamics.

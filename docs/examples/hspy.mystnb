@@ -23,7 +23,7 @@ from tqdm.auto import tqdm
 ```
 
 ```{code-cell} ipython3
-import mctspy as mct
+import mctpy as mct
 ```
 
 ## Nonergodicity Parameter
@@ -51,7 +51,7 @@ nep = mct.nonergodicity_parameter (model = model, maxiter=1500)
 nep.solve()
 ```
 
-We also attach a tagged-particle model to calculate its NEP. Note that the direct correlation function is taken from `mctspy.structurefactors.hssPYtagged` which allows to specify a different size of the tracer. Since we do not use that here, we could have also just specified the same structure-factor object as above.
+We also attach a tagged-particle model to calculate its NEP. Note that the direct correlation function is taken from `mctpy.structurefactors.hssPYtagged` which allows to specify a different size of the tracer. Since we do not use that here, we could have also just specified the same structure-factor object as above.
 
 ```{code-cell} ipython3
 cs = mct.structurefactors.hssPYtagged(phi=Sq.phi,delta=1)
@@ -75,7 +75,7 @@ plt.show()
 
 +++
 
-Let us determine the MCT glass-transition point for the hard-sphere model. The `mctspy.util.evscan` function implements the tool to iteratively search for MCT critical points, for models where the calculation of the critical eigenvalues is implemented. The method is a somewhat adapted bisection search that is optimized to find liquid-glass or glass-glass transitions. We simply need to define a function that calls the model's NEP solver and returns the eigenvalue object. (Note that the value of `maxiter` should be increased if higher accuracy is desired.)
+Let us determine the MCT glass-transition point for the hard-sphere model. The `mctpy.util.evscan` function implements the tool to iteratively search for MCT critical points, for models where the calculation of the critical eigenvalues is implemented. The method is a somewhat adapted bisection search that is optimized to find liquid-glass or glass-glass transitions. We simply need to define a function that calls the model's NEP solver and returns the eigenvalue object. (Note that the value of `maxiter` should be increased if higher accuracy is desired.)
 
 ```{code-cell} ipython3
 def calc_ev(phi):

@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import argparse
 
-import mctspy as mct
+import mctpy as mct
 
 parser = argparse.ArgumentParser()
 parser.add_argument ('-phi',metavar='phi',help='packing fraction',

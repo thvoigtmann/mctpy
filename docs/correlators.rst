@@ -19,14 +19,14 @@ and :math:`W_q` are model-specific.
 
 We implement a direct solver of these equations, that can be used with
 most typical MCT models, including the simple-liquid models
-(e.g. :py:class:`mctspy.simple_liquid_model`), models for mixtures
-(:py:class:`mctspy.mixture_model`), or even active-particle models
-(e.g. :py:class:`mctspy.abp_model_2d`). The underlying algorithm is
+(e.g. :py:class:`mctpy.simple_liquid_model`), models for mixtures
+(:py:class:`mctpy.mixture_model`), or even active-particle models
+(e.g. :py:class:`mctpy.abp_model_2d`). The underlying algorithm is
 essentially the same, although the matrix implementation is somewhat
 different from the scalar one.
 
 
-.. autoclass:: mctspy.correlator
+.. autoclass:: mctpy.correlator
     :members:
     :inherited-members:
 
@@ -34,7 +34,7 @@ different from the scalar one.
 MSD and related
 ---------------
 
-.. autoclass:: mctspy.mean_squared_displacement
+.. autoclass:: mctpy.mean_squared_displacement
     :members:
     :inherited-members:
 
@@ -47,9 +47,9 @@ MSD and related
         + D_0^s\int_0^tm^s_0(t-t')\partial_{t'}\delta r^2(t')\,dt'=6D_0^s
 
     where the memory kernel is given by the :math:`q\to0` limit of a
-    specific model, for example :py:class:`mctspy.tagged_particle_q0`.
+    specific model, for example :py:class:`mctpy.tagged_particle_q0`.
 
-.. autoclass:: mctspy.non_gaussian_parameter
+.. autoclass:: mctpy.non_gaussian_parameter
     :members:
     :inherited-members:
 
@@ -69,7 +69,7 @@ MSD and related
 
     where the memory kernels are given by the specific model.
     For example, the simple-liquid model in 3d specifies, via
-    :py:class:`mctspy.tagged_particle_ngp`,
+    :py:class:`mctpy.tagged_particle_ngp`,
 
     .. math::
 
@@ -101,7 +101,7 @@ The :math:`\beta`-scaling equation of MCT is
 where :math:`\ast` denotes the time-domain convolution. This equation has
 to be solved with initial condition :math:`g(t)\sim(t/t_0)^{-a}` for
 short times. The exponent :math:`a` is determined by the exponent parameter
-:math:`lambda` (see :py:func:`mctspy.exponents`), which can be calculated
+:math:`lambda` (see :py:func:`mctpy.exponents`), which can be calculated
 from a specific model and a specific glass-transition point.
 The parameter :math:`\sigma` is a measure of the distance from the transition
 point, such that :math:`\sigma>0` signifies a glass-like solution
@@ -110,7 +110,7 @@ and :math:`\sigma<0` a liquid-like solution. For the latter, the
 asymptotic behavior at long times is :math:`g(t)\sim-B_\lambda(t/t_\sigma)^b`,
 the celebrated von Schweidler law of MCT. The parameter
 :math:`B_\lambda` needs to be determined numerically,
-see [Goetze1990]_ and :py:func:`mctspy.util.Blambda`.
+see [Goetze1990]_ and :py:func:`mctpy.util.Blambda`.
 
 The parameter :math:`\delta` is the so-called "hopping" term, which was
 introduced to describe asymptotically the decay of correlation functions
@@ -125,10 +125,10 @@ even in the ideal-glass state of MCT. See [Goetze1987]_ for details.
    `DOI:10.1088/0953-8984/2/42/025 <https://doi.org/10.1088/0953-8984/2/42/025>`_
 
 
-.. autoclass:: mctspy.beta_scaling_function
+.. autoclass:: mctpy.beta_scaling_function
     :members:
 
-.. autofunction:: mctspy.util.Blambda
+.. autofunction:: mctpy.util.Blambda
 
     The table was calculated using the following code:
 
@@ -147,7 +147,7 @@ even in the ideal-glass state of MCT. See [Goetze1987]_ for details.
     G\ |ouml|\ tze, although some deviations appear in the third digit.
 
 
-The :py:class:`mctspy.beta_scaling_function` also implements the
+The :py:class:`mctpy.beta_scaling_function` also implements the
 equations of stochastic :math:`\beta`-relaxation (SBR) theory
 [Rizzo2014]_:
 
@@ -195,6 +195,6 @@ where :math:`d` is the dimensionality of the grid.
 High-level interface
 --------------------
 
-.. autoclass:: mctspy.CorrelatorStack
+.. autoclass:: mctpy.CorrelatorStack
     :members:
 

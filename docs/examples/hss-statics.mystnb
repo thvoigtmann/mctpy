@@ -21,7 +21,7 @@ MCT requires as input information on the equilibrium static structure of the flu
 $$ S(q)=\frac1{1-\rho c(q)} $$
 where $\rho$ is the number density of the fluid.
 
-Relating these functions to the interactions between the particles is thesubject of liquid-state theories. For the common fluids, approximation schemes are used, and some commonly used approximations in the context of MCT are available in the `mctspy.structurefactors` module.
+Relating these functions to the interactions between the particles is thesubject of liquid-state theories. For the common fluids, approximation schemes are used, and some commonly used approximations in the context of MCT are available in the `mctpy.structurefactors` module.
 
 ```{code-cell} ipython3
 import numpy as np
@@ -29,7 +29,7 @@ import matplotlib.pyplot as plt
 ```
 
 ```{code-cell} ipython3
-import mctspy as mct
+import mctpy as mct
 ```
 
 ## Hard-Sphere System
@@ -116,7 +116,7 @@ plt.legend()
 plt.show()
 ```
 
-The cross-term of the direct correlation function $\tilde c_{\text{AB}}(q)$, in the limit of vanishing concentration of the B species, corresponds to the direct correlation function of a single tracer particle in a host fluid of A particles. This is a commonly used "tagged-particle" extension of MCT for one-component systems; thus this limiting DCF is also directly available through the `mctspy.structurefactors.hssPYtagged` class.
+The cross-term of the direct correlation function $\tilde c_{\text{AB}}(q)$, in the limit of vanishing concentration of the B species, corresponds to the direct correlation function of a single tracer particle in a host fluid of A particles. This is a commonly used "tagged-particle" extension of MCT for one-component systems; thus this limiting DCF is also directly available through the `mctpy.structurefactors.hssPYtagged` class.
 
 ```{code-cell} ipython3
 mixture_Sq0 = mct.structurefactors.hsmPY(*from_phi_binary(0.515, 0.00001, 0.6))
@@ -156,7 +156,7 @@ plt.show()
 
 While the analytical solution of the Percus-Yevick approximation to the structure factors of hard spheres is possible in any odd dimension, in even dimensions the situation is a bit more tricky.
 
-A hard-disk structure factor that works well with MCT is the one derived from fundamental measure theory (FMT). The `mctspy.structurefactors.hssFMT2d` class implements the expression derived by Thorneywork et al. (2018).
+A hard-disk structure factor that works well with MCT is the one derived from fundamental measure theory (FMT). The `mctpy.structurefactors.hssFMT2d` class implements the expression derived by Thorneywork et al. (2018).
 
 ```{code-cell} ipython3
 fmtSq = mct.structurefactors.hssFMT2d(0.6949)

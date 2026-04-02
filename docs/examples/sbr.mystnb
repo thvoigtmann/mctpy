@@ -23,7 +23,7 @@ from tqdm import tqdm
 ```
 
 ```{code-cell} ipython3
-import mctspy as mct
+import mctpy as mct
 ```
 
 ```{code-cell} ipython3

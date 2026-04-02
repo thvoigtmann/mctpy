@@ -24,7 +24,7 @@ import itertools
 ```
 
 ```{code-cell} ipython3
-import mctspy as mct
+import mctpy as mct
 ```
 
 ## Nonergodicity Parameters

@@ -21,7 +21,7 @@ class granular_model (simple_liquid_model):
 
     Notes
     -----
-    See :py:class:`mctspy.simple_liquid_model` for restrictions on the
+    See :py:class:`mctpy.simple_liquid_model` for restrictions on the
     wave number grid.
     """
     def __init__ (self, Sq, q, vth=1.0, restitution_coeff=1.0):
@@ -54,8 +54,8 @@ class gitt_model (isotropically_sheared_model):
     """Granular ITT isotropically sheared model.
 
     This implements the isotropically sheared model, see
-    :py:class:`mctspy.isotropically_sheared_model`, with the basis
-    of the granular MCT model, :py:class:`mctspy.granular_model`.
+    :py:class:`mctpy.isotropically_sheared_model`, with the basis
+    of the granular MCT model, :py:class:`mctpy.granular_model`.
 
     Parameters
     ----------
@@ -74,7 +74,7 @@ class gitt_model (isotropically_sheared_model):
 
     Notes
     -----
-    See :py:class:`mctspy.simple_liquid_model` for restrictions on the
+    See :py:class:`mctpy.simple_liquid_model` for restrictions on the
     wave number grid.
     """
     def __init__ (self, Sq, q, vth=1.0, restitution_coeff=1.0,

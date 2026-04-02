@@ -16,7 +16,7 @@ adaptation to catch boundary cases that are adapted to the behavior
 of the MCT eigenvalue close to critical points. This is provided as
 a convencience helper:
 
-.. autofunction:: mctspy.util.evscan
+.. autofunction:: mctpy.util.evscan
 
 
 MCT exponents
@@ -29,7 +29,7 @@ the nonergodic plateau, and :math:`\phi(q,t)\simeq f^c(q)-Bh(q)(t/t_\sigma)^b`
 for the decay from the plateau. The exponents are fixed by a single parameter
 :math:`\lambda` that can be calculated from the memory kernel at the
 critical point knowing the critical nonergodicity parameters; see
-:py:func:`mctspy.eigenvalue.solve()`.
+:py:func:`mctpy.eigenvalue.solve()`.
 
 The exponent fixes :math:`a>0` and :math:`b>0` by the relation
 
@@ -41,10 +41,10 @@ The exponent fixes :math:`a>0` and :math:`b>0` by the relation
 which results in :math:`0<a\lesssim0.395` and :math:`0<b<1` since
 :math:`\lambda\in[1/2,1[`.
 
-.. autofunction:: mctspy.exponents
+.. autofunction:: mctpy.exponents
 
 
-.. autofunction:: mctspy.util.lambda_func
+.. autofunction:: mctpy.util.lambda_func
 
 For example, to calculate the exponent for the divergence of the
 structural-relaxation time scale,
@@ -75,12 +75,12 @@ by [Tuck1967]_
 .. [Tuck1967] E. O. Tuck, Math. Comp. 21, 239 (1967),
    `DOI:10.1090/s0025-5718-67-99892-4 <https://doi.org/10.1090/s0025-5718-67-99892-4>`_
 
-.. autofunction:: mctspy.util.filon_integrate
+.. autofunction:: mctpy.util.filon_integrate
 
-.. autofunction:: mctspy.util.filon_cos_transform
-.. autofunction:: mctspy.util.filon_sin_transform
+.. autofunction:: mctpy.util.filon_cos_transform
+.. autofunction:: mctpy.util.filon_sin_transform
 
-These are special functions using :py:func:`mctspy.util.filon_integrate`
+These are special functions using :py:func:`mctpy.util.filon_integrate`
 for calculating the one-sided cosine- and sine-transforms
 (Fourier-Laplace transforms) of temporal data.
 
