@@ -14,3 +14,6 @@ from .__util__ import model_base
 import mctpy.granular
 
 import mctpy.structurefactors
+
+from importlib.metadata import version
+__version__ = version("mctpy")

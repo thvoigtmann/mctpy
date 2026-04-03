@@ -1,13 +1,20 @@
 [build-system]
-requires = [ "hatchling" ]
+requires = [ "hatchling","versioningit" ]
 build-backend = "hatchling.build"
 
 [project]
 name = "mctpy"
-version = "0.0.1"
+#version = "0.0.1"
 description = "MCT solver package in python"
 readme = "README.md"
 requires-python = ">=3.10"
+dynamic = ["version"]
+
+[tool.hatch.version]
+source = "versioningit"
+
+[tool.versioningit]
+#version = {attr = "version_query.local_git_version.PREDICTED"}
 
 authors = [
   { name = "thvoigtmann", email = "thomas.voigtmann@dlr.de" },
