@@ -4,7 +4,7 @@ from numba import njit
 
 import h5py
 
-from .__util__ import model_base, loaded_model, np_isclose_all
+from .__util__ import model_base, loaded_model, np_isclose_all, h5info
 from .util import exponents, CorrelatorBase
 
 import scipy.sparse.linalg
@@ -600,7 +600,7 @@ class correlator (CorrelatorBase):
     def save (self, file):
         """Save the correlator data to the given file.
 
-        The data will be stored in the mcspy h5 file format.
+        The data will be stored in the mctpy h5 file format.
 
         Parameters
         ----------
@@ -610,6 +610,7 @@ class correlator (CorrelatorBase):
         if not self.store or not self.solved > -2:
             return # should throw an exception
         with h5py.File(file, 'w') as f:
+            h5info (f)
             self.h5save (f)
             self.model.h5save (f)
     def h5save (self, base):

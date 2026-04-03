@@ -112,6 +112,11 @@ class loaded_model(model_base):
     def __len__ (self):
         return self.M
 
+def h5info (h5file):
+    from . import __version__
+    grp = h5file.create_group("mctpy")
+    grp.attrs['version'] = __version__
+
 @nb.njit
 def np_gradient(f,k):
     df_dk = np.zeros_like(f)
