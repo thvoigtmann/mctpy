@@ -94,6 +94,7 @@ particular acknowledged from
    structurefactors
    fsolver
    util
+   data
    impl
    examples
 
