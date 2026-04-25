@@ -241,6 +241,61 @@ Simple Liquids (3D)
        `DOI:10.1103/PhysRevE.63.011401 <https://doi.org/10.1103/PhysRevE.63.011401>`_
 
 
+.. autoclass:: mctpy.structurefactors.gcm4MSA
+    :members:
+    :inherited-members:
+
+    The generalized Gaussian core model GCM4 is
+
+    .. math::
+
+        V(r) = \epsilon e^{-(r/\sigma)^4}
+
+    and in the mean-spherical approximation, we directly have
+    :math:`c(q) = -\beta V(q)`. In three spatial dimensions, the
+    Fourier transform of the GCM4 pair potential can be evaluated in terms
+    of generalized hypergeometric functions.
+
+    .. math::
+
+        V(q) = \frac{4\pi}{q} \int_0^\infty r\,\sin(qr)e^{-r^4}\,dr
+
+    This expression has been evaluated to high numerical precision
+    with Wolfram Mathematica and tabulated, so that the structure factor
+    class can interpolate to the desired values. Also :math:`V'(q)`
+    can be evaluated in terms of generalized hypergeometric functions.
+
+
+.. autoclass:: mctpy.structurefactors.lgDCF
+    :members:
+    :inherited-members:
+
+    The Lorentz gas of overlapping hard spheres consists of randomly
+    distributed, fixed hard-sphere obstacle, through which a point obstacle
+    moves. The hard spheres are of radius :math:`R` obstacle and may overlap;
+    in essence, :math:`R` is the distance of closest possible approach between
+    the point particle and the center of any scattering sphere.
+
+    For the purpose of MCT calculations, the mixted static structure factor,
+    :math:`S^s(q)=\sum_i\langle\exp(-i\vec q\cdot\vec r_s)
+    \exp(i\vec q\cdot\vec r_i)\rangle` (where :math:`\vec r_i` are the
+    scatterer positions), plays the role of the direct correlation function
+    (once divided by the density). Direct evaluation leads to set
+
+    .. math::
+
+        c^s(q) = \frac{4\pi}{q}R^2j_1(qR)
+
+    where :math:`j_1(x)` denotes the spherical Bessel function of order 1.
+    The expression approaches a constant value of
+    :math:`(4\pi/3)R^3` as :math:`q\to0`.
+
+    This object is to implement this simple expression, essentially as a
+    wrapper around library-provided code for the spherical Bessel function,
+    so that the Lorentz-gas expression can be used in appropriate
+    (tagged-particle) MCT models.
+
+
 Simple Liquids (2D)
 -------------------
 

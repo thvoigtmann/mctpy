@@ -1,4 +1,4 @@
-# MCTPY
+# mctpy
 MCT (Mode-Coupling Theory of the Glass Transition) solver in python.
 
 ## Installation

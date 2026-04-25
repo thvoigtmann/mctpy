@@ -9,9 +9,8 @@ class hssFMT2d (simpleLiquidSq):
     """
     def __init__ (self, eta):
         self.eta = eta
+        self.rho = eta*4/np.pi
         self.lowq = np.finfo(float).eps
-    def density (self):
-        return self.eta*4/np.pi
     def _cq_high (self, q):
         etacmp = (1-self.eta)**2
         j0 = scipy.special.j0(q/2)

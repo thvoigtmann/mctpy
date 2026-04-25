@@ -4,3 +4,5 @@ from .mixtures import hsmPY
 from .interpolation import dataSq
 
 from .squarewell import swsMSA
+from .gcm4 import gcm4MSA
+from .lg import lgDCF

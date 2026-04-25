@@ -78,16 +78,16 @@ class mixtureSq (object):
 
 
 class hsmPY (mixtureSq):
-    """Hard-sphere mixture structure factor, Percus-Yevick (PY).
-
-    Parameters
-    ----------
-    densities : array_like
-        List of number densities of the hard-sphere species.
-    diameters : array_like
-        List of diameters of the hard spheres, must match shape of densities.
-    """
     def __init__ (self, densities, diameters):
+        """Hard-sphere mixture structure factor, Percus-Yevick (PY).
+
+        Parameters
+        ----------
+        densities : array_like
+            List of number densities of the hard-sphere species.
+        diameters : array_like
+            List of diameters of the hard spheres, must match shape of densities.
+        """
         self.densities = np.array(densities)
         self.diameters = np.array(diameters)
         xi1 = np.sum(self.densities*self.diameters) * np.pi/6.
@@ -146,6 +146,7 @@ class hsmPY (mixtureSq):
                 - 12*np.pi*self.a2*(Cb*Sa*self.db+Ca*Sb*self.da-2*Sa*Sb/q)/q6
             )
     def _dcq_dq_low (self, q):
+        q2 = q*q
         q3 = q2*q
         dab = self.da + self.db
         dadb2 = self.da**2+self.db**2

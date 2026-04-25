@@ -4,13 +4,11 @@ jupytext:
     extension: .mystnb
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.16.4
+    jupytext_version: 1.19.1
 kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
   name: python3
-mystnb:
-  execution_timeout: -1
 ---
 
 # Static Structure Factors
@@ -179,6 +177,57 @@ plt.xscale('log')
 plt.yscale('log')
 plt.xlabel(r'$q$')
 plt.ylabel(r'$|c(q)|$')
+plt.legend()
+plt.show()
+```
+
+## Square-Well System
+
++++
+
+We implement the MSA closure for the three-dimensional square-well system.
+
+```{code-cell} ipython3
+for Gamma in [0.0,1.0,4.0]:
+    swsSq = mct.structurefactors.swsMSA(0.5,delta=0.03,Gamma=Gamma)
+    sq, cq = swsSq.Sq(qgrid)
+    plt.plot(qgrid,sq,label=f'SWS $S(q)$, MSA, Gamma={Gamma}')
+plt.xlabel(r'$q$')
+plt.ylabel(r'$S(q)$')
+plt.legend()
+plt.show()
+```
+
+## Gaussian Core Model
+
++++
+
+The generalized Gaussian core model
+$$ V(r)=\epsilon e^{-(r/\sigma)^4} $$
+is implemented in the MSA approximation, $c(q)=-\beta V(q)$.
+
+```{code-cell} ipython3
+gcmSq = mct.structurefactors.gcm4MSA(rho=1.2,epsilon=5)
+sq, cq = gcmSq.Sq(qgrid)
+plt.plot(qgrid,sq,label=f'GCM4 $S(q)$, MSA')
+plt.xlabel(r'$q$')
+plt.ylabel(r'$S(q)$')
+plt.legend()
+plt.show()
+```
+
+## Lorentz-gas model
+
++++
+
+For the Lorentz gas, the direct correlation function $c(q)$ can be directly evaluated and expressed through the spherical Bessel function.
+
+```{code-cell} ipython3
+lgSq = mct.structurefactors.lgDCF(R=1.)
+cq = lgSq.cq(qgrid)
+plt.plot(qgrid,cq,label=f'Lortenz gas DCF')
+plt.xlabel(r'$q$')
+plt.ylabel(r'$c(q)$')
 plt.legend()
 plt.show()
 ```

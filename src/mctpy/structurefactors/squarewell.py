@@ -3,6 +3,8 @@ from .simple_liquid import simpleLiquidSq
 
 # q0, q1, q2, q3: integrals \int_r0^r1 dr exp(iqr) r^alpha
 
+# helper function to call func(q), but funclow(q) if q<qlow
+# made to work with both numpy arrays and single numbers
 def dispatch (func, funclow, q, qlow):
     if isinstance(q,np.ndarray):
         highq = q>=qlow
@@ -15,20 +17,22 @@ def dispatch (func, funclow, q, qlow):
         res = func(q) if highq else funclow(q)
     return res
 
-class swsMSA (simpleLiquidSq):
-    """Square-well system structure factor, MSA.
 
-    Parameters
-    ----------
-    phi : float
-        Packing fraction of the hard-sphere cores.
-    delta : float, default: 0.0
-        Range of the square-well potential.
-    Gamma : float, default: 0.0
-        Attraction strength.
-    """
+class swsMSA (simpleLiquidSq):
     def __init__ (self, phi, delta=0.0, Gamma=0.0):
+        """Square-well system structure factor, MSA.
+    
+        Parameters
+        ----------
+        phi : float
+            Packing fraction of the hard-sphere cores.
+        delta : float, default: 0.0
+            Range of the square-well potential.
+        Gamma : float, default: 0.0
+            Attraction strength.
+        """
         self.phi = phi
+        self.rho = phi*6/np.pi
         self.Gamma = Gamma
         self.delta = delta 
         tau = self.Gamma*self.delta
@@ -102,25 +106,19 @@ class swsMSA (simpleLiquidSq):
         Qq = self.Q(q)
         Sinv = (Qq * Qq.conjugate()).real
         return (1.-Sinv)/self.density()
-    def Sq (self, q):
-        """Return the structure factor and DCF.
+    def dcq_dq (self, q):
+        """Return derivative to the DCF.
 
         Parameters
         ----------
         q : array_like
-            Grid of wave numbers where S(q) and DCF should be evaluated.
+            Grid of wave numbers where the DCF should be evaluated.
 
         Returns
         -------
-        sq : array_like
-            S(q) evaluated on the given grid.
-        cq : array_like
-            c(q) evaluated on the given grid.
+        dcq : array_like
+            Derivative of the DCF evaluated on the given grid.
         """
-        cq_ = self.cq(q)
-        sq_ = 1.0 / (1.0 - self.phi*6./np.pi * cq_)
-        return sq_, cq_
-    def dcq_dq (self, q):
         Qq = self.Q(q)
         K=self.Gamma*self.delta
         dQq = - 12j*self.phi * (0.5*self.a*self.Q3(q,0.,1.) \

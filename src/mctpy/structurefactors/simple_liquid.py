@@ -7,6 +7,9 @@ import numpy as np
 class simpleLiquidSq (object):
     def __init__ (self):
         self.lowq = 0.0
+        self.rho = 0.0
+    def density (self):
+        return self.rho
     def cq (self, q):
         """Return the direct-correlation function (DCF).
 
@@ -47,7 +50,7 @@ class simpleLiquidSq (object):
             c(q) evaluated on the given grid.
         """
         cq_ = self.cq(q)
-        sq_ = 1.0 / (1.0 - self.phi*6./np.pi * cq_)
+        sq_ = 1.0 / (1.0 - self.rho * cq_)
         return sq_, cq_
     def dcq_dq (self, q):
         """Return derivative of the DCF.
@@ -66,7 +69,7 @@ class simpleLiquidSq (object):
             highq = q>=self.lowq
             lowq = q<self.lowq
             res = np.zeros_like(q)
-            res[lowq] = self._dcq__dq_low(q[lowq])
+            res[lowq] = self._dcq_dq_low(q[lowq])
             res[highq] = self._dcq_dq_high(q[highq])
         else:
             highq = q>=self.lowq
@@ -87,9 +90,8 @@ class hssPY (simpleLiquidSq):
         self.alpha = (1.+2*phi)*(1.+2*phi) / etacmp
         self.beta = - (1.+0.5*phi)*(1.+0.5*phi) * 6.*phi/etacmp
         self.phi = phi
+        self.rho = phi*6/np.pi
         self.lowq = 0.05
-    def density (self):
-        return self.phi*6/np.pi
     def _cq_low (self, q):
         q2 = q*q
         q3 = q2*q
@@ -162,6 +164,7 @@ class hssPYtagged (simpleLiquidSq):
                   (1.+6*phi/etacmp+9*phi**2/etacmp**2)
         self.phi = phi
         self.delta = delta
+        self.rho = phi*6/np.pi
         self.lowq = 0.05
     def _cq_high (self, q):
         phi = self.phi
@@ -213,6 +216,7 @@ class hssVW (simpleLiquidSq):
             Packing fraction of the system.
         """
         self.phi = phi
+        self.rho = phi*6/np.pi
         phieff = phi*(1-phi/16)
         self.pySq = hssPY(phi=phieff)
         self.deff = (phieff/phi)**(1./3)
