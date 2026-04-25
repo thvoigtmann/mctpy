@@ -1,8 +1,21 @@
 import numpy as np
+from .simple_liquid import simpleLiquidSq
 
 # q0, q1, q2, q3: integrals \int_r0^r1 dr exp(iqr) r^alpha
 
-class swsMSA (object):
+def dispatch (func, funclow, q, qlow):
+    if isinstance(q,np.ndarray):
+        highq = q>=qlow
+        lowq = q<qlow
+        res = np.zeros_like(q,dtype=complex)
+        res[lowq] = funclow(q[lowq])
+        res[highq] = func(q[highq])
+    else:
+        highq = q>=qlow
+        res = func(q) if highq else funclow(q)
+    return res
+
+class swsMSA (simpleLiquidSq):
     """Square-well system structure factor, MSA.
 
     Parameters
@@ -34,64 +47,44 @@ class swsMSA (object):
     def density (self):
         return self.phi*6/np.pi
     def Q0 (self, q, r0, r1):
-        res = np.zeros_like(q,dtype=complex)
-        highq = q>=self.lowq
-        lowq = q<self.lowq
-        q_ = q[highq]
-        res[highq] = (np.exp(1j*q_*r0) - np.exp(1j*q_*r1))*1j/q_
-        q_ = q[lowq]
-        res[lowq] = (-r0+r1) + 0.5j*q_*(r1**2-r0**2) + q_**2*(r0**3-r1**3)/6.
-        return res
+        return dispatch (
+            lambda q: (np.exp(1j*q*r0) - np.exp(1j*q*r1))*1j/q,
+            lambda q: (-r0+r1) + 0.5j*q*(r1**2-r0**2) + q**2*(r0**3-r1**3)/6.,
+            q, self.lowq)
     def Q1 (self, q, r0, r1):
-        res = np.zeros_like(q,dtype=complex)
-        highq = q>=self.lowq
-        lowq = q<self.lowq
-        q_ = q[highq]
-        res[highq] = ((-1+1j*q_*r0)*np.cos(q_*r0) + (1-1j*q_*r1)*np.cos(q_*r1) \
-            + (- 1j - q_*r0)*np.sin(q_*r0) + (1j + q_*r1)*np.sin(q_*r1))/q_**2
-        q_ = q[lowq]
-        res[lowq] = (r1**2-r0**2)/2 + 1j*q_*(r1**3-r0**3)/3 \
-            + q_**2*(r0**4-r1**4)/8
-        return res
+        return dispatch (
+            lambda q: ((-1+1j*q*r0)*np.cos(q*r0) + (1-1j*q*r1)*np.cos(q*r1)\
+            + (- 1j - q*r0)*np.sin(q*r0) + (1j + q*r1)*np.sin(q*r1))/q**2,
+            lambda q: (r1**2-r0**2)/2 + 1j*q*(r1**3-r0**3)/3 \
+            + q**2*(r0**4-r1**4)/8,
+            q, self.lowq)
     def Q2 (self, q, r0, r1):
-        res = np.zeros_like(q,dtype=complex)
-        highq = q>=self.lowq
-        lowq = q<self.lowq
-        q_ = q[highq]
-        res[highq] = (1j*(-2+2j*q_*r0 + q_**2*r0**2)*np.cos(q_*r0) \
-                   +(2j+2*q_*r1 - 1j*q_**2*r1**2)*np.cos(q_*r1) \
-                   -(-2+2j*q_*r0 + q_**2*r0**2)*np.sin(q_*r0) \
-                   +(-2+2j*q_*r1 + q_**2*r1**2)*np.sin(q_*r1))/q_**3
-        q_ = q[lowq]
-        res[lowq] = (r1**3-r0**3)/3 - 1j*q_*(r0**4-r1**4)/4 \
-            + q_**2*(r0**5-r1**5)/10
-        return res
+        return dispatch (
+            lambda q: (1j*(-2+2j*q*r0 + q**2*r0**2)*np.cos(q*r0) \
+                    +(2j+2*q*r1 - 1j*q**2*r1**2)*np.cos(q*r1) \
+                    -(-2+2j*q*r0 + q**2*r0**2)*np.sin(q*r0) \
+                    +(-2+2j*q*r1 + q**2*r1**2)*np.sin(q*r1))/q**3,
+            lambda q: (r1**3-r0**3)/3 - 1j*q*(r0**4-r1**4)/4 \
+                    + q**2*(r0**5-r1**5)/10,
+            q, self.lowq)
     def Q3 (self, q, r0, r1):
-        res = np.zeros_like(q,dtype=complex)
-        highq = q>=self.lowq
-        lowq = q<self.lowq
-        q_ = q[highq]
-        res[highq] = ((6-6j*q_*r0 - 3*q_**2*r0**2 + 1j*q_**3*r0**3)*np.cos(q_*r0) \
-                   + (-6+6j*q_*r1 + 3*q_**2*r1**2 - 1j*q_**3*r1**3)*np.cos(q_*r1) \
-                   + (6j+6*q_*r0 - 3j*q_**2*r0**2 - q_**3*r0**3)*np.sin(q_*r0) \
-                   + (-6j-6*q_*r1 + 3j*q_**2*r1**2 + q_**3*r1**3)*np.sin(q_*r1))/q_**4
-        q_ = q[lowq]
-        res[lowq] = (r1**4-r0**4)/4 - 1j*q_*(r0**5-r1**5)/5 \
-            + q_**2*(r0**6-r1**6)/12
-        return res
+        return dispatch (
+            lambda q: ((6-6j*q*r0 - 3*q**2*r0**2 + 1j*q**3*r0**3)*np.cos(q*r0) \
+                    + (-6+6j*q*r1 + 3*q**2*r1**2 - 1j*q**3*r1**3)*np.cos(q*r1) \
+                    + (6j+6*q*r0 - 3j*q**2*r0**2 - q**3*r0**3)*np.sin(q*r0) \
+                    + (-6j-6*q*r1+3j*q**2*r1**2+q**3*r1**3)*np.sin(q*r1))/q**4,
+            lambda q: (r1**4-r0**4)/4 - 1j*q*(r0**5-r1**5)/5 \
+                    + q**2*(r0**6-r1**6)/12,
+            q, self.lowq)
     def Q4 (self, q, r0, r1):
-        res = np.zeros_like(q,dtype=complex)
-        highq = q>=self.lowq
-        lowq = q<self.lowq
-        q_ = q[highq]
-        res[highq] = ((24j + 24*q_*r0 - 12j*q_**2*r0**2 - 4*q_**3*r0**3 + 1j*q_**4*r0**4)*np.cos(q_*r0) \
-                   + (-24j - 24*q_*r1 + 12j*q_**2*r1**2 + 4*q_**3*r1**3 - 1j*q_**4*r0**4)*np.cos(q_*r1) \
-                   + (-24 + 24j*q_*r0 + 12*q_**2*r0**2 - 4j*q_**3*r0**3 - q_**4*r0**4)*np.sin(q_*r0) \
-                   + (24 - 24j*q_*r1 - 12*q_**2*r1**2 + 4j*q_**3*r1**3 + q_**4*r1**4)*np.sin(q_*r1))/q_**5
-        q_ = q[lowq]
-        res[lowq] = (r1**5-r0**5)/5 - 1j*(r0**6-r1**6)/6 \
-            + q_**2*(r0**7-r1**7)/14
-        return res
+        return dispatch (
+            lambda q: ((24j + 24*q*r0 - 12j*q**2*r0**2 - 4*q**3*r0**3 + 1j*q**4*r0**4)*np.cos(q*r0) \
+                    + (-24j - 24*q*r1 + 12j*q**2*r1**2 + 4*q**3*r1**3 - 1j*q**4*r0**4)*np.cos(q*r1) \
+                    + (-24 + 24j*q*r0 + 12*q**2*r0**2 - 4j*q**3*r0**3 - q**4*r0**4)*np.sin(q*r0) \
+                    + (24 - 24j*q*r1 - 12*q**2*r1**2 + 4j*q**3*r1**3 + q**4*r1**4)*np.sin(q*r1))/q**5,
+            lambda q: (r1**5-r0**5)/5 - 1j*(r0**6-r1**6)/6 \
+                    + q**2*(r0**7-r1**7)/14,
+            q, self.lowq)
     def Q (self, q):
         K=self.Gamma*self.delta
         Qq = 1. - 12*self.phi * (0.5*self.a*self.Q2(q,0.,1.) \

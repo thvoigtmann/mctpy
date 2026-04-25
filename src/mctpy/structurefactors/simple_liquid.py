@@ -1,21 +1,12 @@
 import numpy as np
 
-class hssPY (object):
-    """Hard-sphere structure factor, Percus-Yevick approximation.
-
-    Parameters
-    ----------
-    phi : float
-        Packing fraction of the hard-sphere system.
-    """
-    def __init__ (self, phi):
-        etacmp = (1.-phi)**4
-        self.alpha = (1.+2*phi)*(1.+2*phi) / etacmp
-        self.beta = - (1.+0.5*phi)*(1.+0.5*phi) * 6.*phi/etacmp
-        self.phi = phi
-        self.lowq = 0.05
-    def density (self):
-        return self.phi*6/np.pi
+# this base class provides convenience wrappers for cq(q), Sq(q)
+# and dcq_dq(q), accepting single floats or numpy arrays,
+# relegating the calculation to methods _cq_low, cq_high, and so on
+# depending on the setting of lowq
+class simpleLiquidSq (object):
+    def __init__ (self):
+        self.lowq = 0.0
     def cq (self, q):
         """Return the direct-correlation function (DCF).
 
@@ -23,36 +14,23 @@ class hssPY (object):
         ----------
         q : array_like
             Grid of wave numbers where the DCF should be evaluated.
+            The values are in units of the inverse diameter.
 
         Returns
         -------
         cq : array_like
             DCF evaluated on the given grid.
         """
-        highq = q>=self.lowq
-        lowq = q<self.lowq
-        q2 = q*q
-        q3 = q2*q
-        q4 = q2*q2
-        q6 = q4[highq]*q2[highq]
-        cosq = np.cos(q[highq])
-        sinq = np.sin(q[highq])
-        cq1 = np.zeros_like(q)
-        cq2 = np.zeros_like(q)
-        cq3 = np.zeros_like(q)
-        cq1[highq] = 4.*np.pi*self.alpha * (cosq/q2[highq] - sinq/q3[highq])
-        cq2[highq] = 2.*np.pi*self.alpha*self.phi * \
-               (cosq/q2[highq] - 4*sinq/q3[highq] - 12*cosq/q4[highq] \
-                - 24*((1-cosq) - q[highq]*sinq)/q6)
-        cq3[highq] = 8.*np.pi*self.beta * \
-               (0.5*cosq/q2[highq] - sinq/q3[highq] + (1-cosq)/q4[highq])
-        # for low q, calculate expansion in q
-        cq1[lowq] = -np.pi*self.alpha/3. *(4.+self.phi) - np.pi*self.beta
-        cq2[lowq] = (np.pi*self.alpha * (2./15. + self.phi/24.) \
-                     + np.pi*self.beta/9) * q2[lowq]
-        cq3[lowq] = -(np.pi * self.alpha * (1./210. + self.phi/600.) \
-                     + np.pi*self.beta/240.)*q4[lowq]
-        return cq1 + cq2 + cq3
+        if isinstance(q,np.ndarray):
+            highq = q>=self.lowq
+            lowq = q<self.lowq
+            res = np.zeros_like(q,dtype=float)
+            res[lowq] = self._cq_low(q[lowq])
+            res[highq] = self._cq_high(q[highq])
+        else:
+            highq = q>=self.lowq
+            res = self._cq_high(q) if highq else self._cq_low(q)
+        return res
     def Sq (self, q):
         """Return the structure factor and DCF.
 
@@ -70,19 +48,6 @@ class hssPY (object):
         """
         cq_ = self.cq(q)
         sq_ = 1.0 / (1.0 - self.phi*6./np.pi * cq_)
-        # old code used explicit low-q expansion, but since we use
-        # a low-q expansion of cq, this doesn't really help much
-        #lowq = q<self.lowq
-        #q2 = q[lowq]**2
-        #q4 = q[lowq]**4
-        #eta = self.phi
-        #etasq = eta**2
-        #eta2 = (1+2.*eta)**2
-        #etacmp = (1.-eta)**4
-        #sq_[lowq] = etacmp/eta2 * (1 + eta/eta2 * \
-        #                           ((16.-11.*eta+4*etasq)/20.*q2 + \
-        #                           (-20.+386*eta-627*etasq+494*eta*etasq \
-        #                          -etasq*etasq*(173.-21*eta))/(700*eta2)*q4))
         return sq_, cq_
     def dcq_dq (self, q):
         """Return derivative of the DCF.
@@ -97,46 +62,97 @@ class hssPY (object):
         dcq : array_like
             Derivative of the DCF evaluated on the given grid.
         """
+        if isinstance(q,np.ndarray):
+            highq = q>=self.lowq
+            lowq = q<self.lowq
+            res = np.zeros_like(q)
+            res[lowq] = self._dcq__dq_low(q[lowq])
+            res[highq] = self._dcq_dq_high(q[highq])
+        else:
+            highq = q>=self.lowq
+            res = self._dcq_dq_high(q) if highq else self._dcq_dq_low(q)
+        return res
+
+
+class hssPY (simpleLiquidSq):
+    def __init__ (self, phi):
+        """Hard-sphere structure factor, Percus-Yevick approximation.
+
+        Parameters
+        ----------
+        phi : float
+            Packing fraction of the hard-sphere system.
+        """
+        etacmp = (1.-phi)**4
+        self.alpha = (1.+2*phi)*(1.+2*phi) / etacmp
+        self.beta = - (1.+0.5*phi)*(1.+0.5*phi) * 6.*phi/etacmp
+        self.phi = phi
+        self.lowq = 0.05
+    def density (self):
+        return self.phi*6/np.pi
+    def _cq_low (self, q):
+        q2 = q*q
+        q3 = q2*q
+        q4 = q2*q2
+        cq1 = -np.pi*self.alpha/3. *(4.+self.phi) - np.pi*self.beta
+        cq2 = (np.pi*self.alpha * (2./15. + self.phi/24.) \
+                + np.pi*self.beta/9) * q2
+        cq3 = -(np.pi * self.alpha * (1./210. + self.phi/600.) \
+                + np.pi*self.beta/240.)*q4
+        return cq1 + cq2 + cq3
+    def _cq_high (self, q):
+        q2 = q*q
+        q3 = q2*q
+        q4 = q2*q2
+        q6 = q4*q2
+        cosq = np.cos(q)
+        sinq = np.sin(q)
+        cq1 = 4.*np.pi*self.alpha * (cosq/q2 - sinq/q3)
+        cq2 = 2.*np.pi*self.alpha*self.phi * \
+               (cosq/q2 - 4*sinq/q3 - 12*cosq/q4 \
+                - 24*((1-cosq) - q*sinq)/q6)
+        cq3 = 8.*np.pi*self.beta * \
+               (0.5*cosq/q2 - sinq/q3 + (1-cosq)/q4)
+        return cq1 + cq2 + cq3
+    def _dcq_dq_low (self, q):
         q2 = q*q;
         q3 = q2*q;
-        highq = q>=self.lowq
-        lowq = q<self.lowq
-        q4 = q2[highq]**2
-        q6 = q4*q2[highq]
-        cosq, sinq = np.cos(q[highq]), np.sin(q[highq]);
-        dcq = np.zeros_like(q)
-        dcq[highq] = -4*np.pi*self.alpha * \
-            (sinq/q2[highq] + 3.*(cosq/q2[highq] - sinq/q3[highq])/q[highq]) \
-            - 2*self.phi * np.pi*self.alpha * \
-                (sinq/q2[highq] + 6*(cosq/q2[highq] - 4*sinq/q3[highq] \
-                - 12*cosq/q4 - 24*((1-cosq) - q[highq]*sinq)/q6)/q[highq]) \
-            - 8*np.pi*self.beta * (0.5*sinq/q2[highq] + 2*(cosq/q2[highq] \
-                                   + 2*((1-cosq) - q[highq]*sinq)/q4)/q[highq])
-        dcq[lowq] = (np.pi*self.alpha * (4./15. + self.phi/12.) \
-                     + 2.*np.pi*self.beta/9)*q[lowq] \
-                  - (np.pi*self.alpha * (2./105. + self.phi/150.) \
-                     + np.pi*self.beta/60.)*q3[lowq];
-        return dcq
+        return (np.pi*self.alpha * (4./15. + self.phi/12.) \
+                + 2.*np.pi*self.beta/9)*q \
+                - (np.pi*self.alpha * (2./105. + self.phi/150.) \
+                + np.pi*self.beta/60.)*q3;
+    def _dcq_dq_high (self, q):
+        q2 = q*q;
+        q3 = q2*q;
+        q4 = q2**2
+        q6 = q4*q2
+        cosq, sinq = np.cos(q), np.sin(q);
+        return -4*np.pi*self.alpha * (sinq/q2 + 3.*(cosq/q2 - sinq/q3)/q) \
+                - 2*self.phi * np.pi*self.alpha * \
+                (sinq/q2 + 6*(cosq/q2 - 4*sinq/q3 \
+                - 12*cosq/q4 - 24*((1-cosq) - q*sinq)/q6)/q) \
+                - 8*np.pi*self.beta * (0.5*sinq/q2 + 2*(cosq/q2 \
+                + 2*((1-cosq) - q*sinq)/q4)/q)
     def contact_value (self):
         """Return contact value of the RDF."""
         return 0.5*self.phi * (2 + self.phi) / (1-self.phi)**2
 
 
-class hssPYtagged (object):
-    """Direct correlation function of tagged hard-sphere particle (PY).
-
-    This implement the specific case of the Percus-Yevick approximation
-    of the hard-sphere mixture, where the given particle is a tracer
-    in a system of unit-sized spheres.
-
-    Parameters
-    ----------
-    phi : float
-        Packing fraction of the host system.
-    delta : float
-        Size ratio of tracer to host particles.
-    """
+class hssPYtagged (simpleLiquidSq):
     def __init__ (self, phi, delta):
+        """Direct correlation function of tagged hard-sphere particle (PY).
+
+        This implement the specific case of the Percus-Yevick approximation
+        of the hard-sphere mixture, where the given particle is a tracer
+        in a system of unit-sized spheres.
+
+        Parameters
+        ----------
+        phi : float
+            Packing fraction of the host system.
+        delta : float
+            Size ratio of tracer to host particles.
+        """
         etacmp = (1.-phi)
         self.eta2 = (1.+2*phi)/etacmp**2
         self.Aab = 0.5*(1-phi+delta*(1+2*phi))/etacmp**2
@@ -147,67 +163,55 @@ class hssPYtagged (object):
         self.phi = phi
         self.delta = delta
         self.lowq = 0.05
-    def cq (self, q):
-        """Return the direct-correlation function (DCF).
-
-        Parameters
-        ----------
-        q : array_like
-            Grid of wave numbers where the DCF should be evaluated.
-
-        Returns
-        -------
-        cq : array_like
-            DCF evaluated on the given grid.
-        """
-        highq = q>=self.lowq
-        lowq = q<self.lowq
+    def _cq_high (self, q):
         phi = self.phi
         delta = self.delta
         q2 = q*q
-        q3 = q2[highq]*q[highq]
+        q3 = q2*q
         q4 = q2*q2
-        q6 = q4[highq]*q2[highq]
-        c1 = np.cos(0.5*q[highq])
-        s1 = np.sin(0.5*q[highq])
-        cd = np.cos(0.5*q[highq]*delta)
-        sd = np.sin(0.5*q[highq]*delta)
-        cq1 = np.zeros_like(q)
-        cq2 = np.zeros_like(q)
-        cq3 = np.zeros_like(q)
-        cq1[highq] = 4*np.pi * self.Aab * (c1*cd - s1*sd)/q2[highq]
-        cq2[highq] = -4*np.pi * self.Bab * (cd*s1 + c1*sd)/q3 \
-                     -4*np.pi * self.Dab * s1 * sd / q4[highq]
-        cq3[highq] = -4*np.pi*np.pi * self.a2 * \
-                     (q[highq]*c1-2*s1)*(q[highq]*delta*cd-2*sd) / q6
-        # low q expansion
-        cq1[lowq] = - np.pi/6.*((3*self.Aab-0.5*self.Bab*(1+delta)) \
-                    *(1+delta)**2 - 0.25*self.Dab*delta*(1+delta**2) \
-                    +(self.eta2**2)*(delta**3)*phi)
-        cq2[lowq] = np.pi/240. * ((2.5*self.Aab-0.25*self.Bab*(1+delta))\
-                    *(1+delta)**4 - (1./24)*self.Dab*delta*(3+10*(delta**2)\
-                    +3*(delta**4)) + ((delta**3)+(delta**5))*phi\
-                    *(self.eta2**2)) * q2[lowq]
-        cq3[lowq] = -np.pi/26880.*(((7./3)*self.Aab-(1./6)*self.Bab*(1+delta))\
-                    *(1+delta)**6 -(1./12)*self.Dab*delta*(1+7*(delta**2)\
-                    +7*(delta**4)+(delta**6)) + (delta**3)*(1./5)*(5+14\
-                    *(delta**2)+5*(delta**4))*phi * (self.eta2**2)) * q4[lowq]
+        q6 = q4*q2
+        c1 = np.cos(0.5*q)
+        s1 = np.sin(0.5*q)
+        cd = np.cos(0.5*q*delta)
+        sd = np.sin(0.5*q*delta)
+        cq1 = 4*np.pi * self.Aab * (c1*cd - s1*sd)/q2
+        cq2 = -4*np.pi * self.Bab * (cd*s1 + c1*sd)/q3 \
+                -4*np.pi * self.Dab * s1 * sd / q4
+        cq3 = -4*np.pi*np.pi * self.a2 * \
+                (q*c1-2*s1)*(q*delta*cd-2*sd) / q6
+        return cq1 + cq2 + cq3
+    def _cq_low (self, q):
+        phi = self.phi
+        delta = self.delta
+        q2 = q*q
+        q4 = q2*q2
+        cq1 = - np.pi/6.*((3*self.Aab-0.5*self.Bab*(1+delta)) \
+                *(1+delta)**2 - 0.25*self.Dab*delta*(1+delta**2) \
+                +(self.eta2**2)*(delta**3)*phi)
+        cq2 = np.pi/240. * ((2.5*self.Aab-0.25*self.Bab*(1+delta))\
+                *(1+delta)**4 - (1./24)*self.Dab*delta*(3+10*(delta**2)\
+                +3*(delta**4)) + ((delta**3)+(delta**5))*phi\
+                *(self.eta2**2)) * q2
+        cq3 = -np.pi/26880.*(((7./3)*self.Aab-(1./6)*self.Bab*(1+delta))\
+                *(1+delta)**6 -(1./12)*self.Dab*delta*(1+7*(delta**2)\
+                +7*(delta**4)+(delta**6)) + (delta**3)*(1./5)*(5+14\
+                *(delta**2)+5*(delta**4))*phi * (self.eta2**2)) * q4
         return cq1 + cq2 + cq3
 
 
-class hssVW (object):
-    """Verlet-Weis structure factor for hard spheres.
-
-    This implements the modified Percus-Yevick (PY) approximation
-    proposed by Verlet and Weis; a semi-empirical correction designed
-    to enforce thermodynamic consistency of the result.
-
-    Parameters
-    ----------
-    phi : float
-        Packing fraction of the system.
-    """
+class hssVW (simpleLiquidSq):
     def __init__ (self, phi):
+        """Verlet-Weis structure factor for hard spheres.
+
+        This implements the modified Percus-Yevick (PY) approximation
+        proposed by Verlet and Weis; a semi-empirical correction designed
+        to enforce thermodynamic consistency of the result.
+
+        Parameters
+        ----------
+        phi : float
+            Packing fraction of the system.
+        """
         self.phi = phi
         phieff = phi*(1-phi/16)
         self.pySq = hssPY(phi=phieff)
@@ -288,17 +292,21 @@ class hssVW (object):
         res2 *= np.exp(-self.delta*x)
         return res - res2;
     def hq (self, q):
-        highq = q>=0.05
-        lowq = q<0.05
+        qsq = q*q
+        if isinstance(q,np.ndarray):
+            highq = q>=0.05
+            lowq = q<0.05
+            sinq_q = np.zeros_like(q,dtype=float)
+            sinq_q[highq] = np.sin(q[highq])/q[highq]
+            sinq_q[lowq] = 1.-qsq[lowq]/6
+        else:
+            highq = q>=0.05
+            sinq_q = np.sin(q)/q if highq else 1.-qsq/6
         phieff = self.phieff
         rhoeff = phieff*6/np.pi
         q_eff = q*self.deff;
         hpy = self.pySq.cq(q_eff)
         hpy = hpy/(1.-rhoeff*hpy)
-        qsq = q*q
-        sinq_q = np.zeros_like(q)
-        sinq_q[highq] = np.sin(q[highq])/q[highq]
-        sinq_q[lowq] = 1.-qsq[lowq]/6
         corr = 4*np.pi*self.A*(qsq*np.cos(q)+self.mu*(qsq+2*self.mu**2)*sinq_q) \
                /(qsq*qsq + 4*self.mu**4);
         pre = 4*np.pi*self.deff**3/(1.-phieff)**2/q_eff;
