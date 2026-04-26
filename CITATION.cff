@@ -1,12 +1,11 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 authors:
-  - family-names: Voigtmann
-    given-names: Thomas
-    orcid: https://orcid.org/0000-0002-1261-9295
+- family-names: Voigtmann
+  given-names: Thomas
+  orcid: https://orcid.org/0000-0002-1261-9295
 title: "mctpy Mode-Coupling Theory solver in Python"
-version: 0.0.1
-identifiers:
-  - type: doi
-    value: 10.5281/zenodo.xxxx
-date-released: 2026-04-14
+version: 0.0.2
+doi: 10.5281/zenodo.19793690
+date-released: 2026-04-26
+url: "https://github.com/thvoigtmann/mctpy"
