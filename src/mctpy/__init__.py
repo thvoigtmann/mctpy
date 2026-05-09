@@ -12,6 +12,7 @@ from .util import CorrelatorStack, exponents, evscan, filon_integrate, filon_cos
 from .__util__ import model_base
 
 import mctpy.granular
+import mctpy.scgle
 
 import mctpy.structurefactors
 
