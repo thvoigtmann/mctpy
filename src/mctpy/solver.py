@@ -366,19 +366,25 @@ class correlator (CorrelatorBase):
     def __alloc__ (self):
         model = self.model
         self.mdimen = len(model)
+        self.vdim = model.vector_dimension()
         self.dim = model.matrix_dimension()
-        self.phi_ = np.zeros((self.blocksize,self.mdimen*self.dim**2),dtype=model.dtype)
-        self.m_ = np.zeros((self.blocksize,self.mdimen*self.dim**2),dtype=model.dtype)
-        self.dPhi_ = np.zeros((self.halfblocksize+1,self.mdimen*self.dim**2),dtype=model.dtype)
-        self.dM_ = np.zeros((self.halfblocksize+1,self.mdimen*self.dim**2),dtype=model.dtype)
+        msize = self.mdimen * self.vdim * self.dim**2
+        self.phi_ = np.zeros((self.blocksize,msize),dtype=model.dtype)
+        self.m_ = np.zeros((self.blocksize,msize),dtype=model.dtype)
+        self.dPhi_ = np.zeros((self.halfblocksize+1,msize),dtype=model.dtype)
+        self.dM_ = np.zeros((self.halfblocksize+1,msize),dtype=model.dtype)
         if self.store:
             self.t = np.zeros(self.halfblocksize*(self.blocks+1))
             if model.scalar():
-                self.phi = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen*self.dim**2),dtype=model.dtype)
-                self.m = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen*self.dim**2),dtype=model.dtype)
+                if self.vdim == 1:
+                    self.phi = np.zeros((self.halfblocksize*(self.blocks+1),msize),dtype=model.dtype)
+                    self.m = np.zeros((self.halfblocksize*(self.blocks+1),msize),dtype=model.dtype)
+                else:
+                    self.phi = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen,self.vdim),dtype=model.dtype)
+                    self.m = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen,self.vdim),dtype=model.dtype)
             else:
-                self.phi = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen,self.dim,self.dim),dtype=model.dtype)
-                self.m = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen,self.dim,self.dim),dtype=model.dtype)
+                self.phi = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen*self.vdim,self.dim,self.dim),dtype=model.dtype)
+                self.m = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen*self.vdim,self.dim,self.dim),dtype=model.dtype)
 
 
 
@@ -429,7 +435,7 @@ class correlator (CorrelatorBase):
                     tauinv = 0.
                 WqSq = self.model.WqSq()
                 omega = np.zeros_like(phi0,dtype=self.model.dtype)
-                for q in range(self.mdimen):
+                for q in range(self.mdimen*self.vdim):
                     omega[q] = Aqinv[q] @ WqSq[q]
                 for i in range(iend):
                     t = i*self.h0
@@ -441,7 +447,7 @@ class correlator (CorrelatorBase):
                 tauinv = np.zeros_like(phi0,dtype=self.model.dtype)
                 Bqinv = self.model.Bqinv()
                 WqSq = self.model.WqSq()
-                for q in range(self.mdimen):
+                for q in range(self.mdimen*self.vdim):
                     tauinv[q] = Bqinv[q] @ WqSq[q]
                 for i in range(iend):
                     t = i*self.h0
@@ -526,8 +532,12 @@ class correlator (CorrelatorBase):
                 N2 = self.halfblocksize
                 self.t[:N2] = self.h * np.arange(N2)
                 if self.model.scalar():
-                    self.phi[:N2,:] = self.phi_[:N2,:]
-                    self.m[:N2,:] = self.m_[:N2,:]
+                    if self.vdim == 1:
+                        self.phi[:N2,:] = self.phi_[:N2,:]
+                        self.m[:N2,:] = self.m_[:N2,:]
+                    else:
+                        self.phi[:N2,:] = self.phi_[:N2,:].reshape(N2,self.mdimen,self.vdim)
+                        self.m[:N2,:] = self.m_[:N2,:].reshape(N2,self.mdimen,self.vdim)
                 else:
                     self.phi[:N2,:] = self.phi_[:N2,:].reshape(N2,self.mdimen,self.dim,self.dim)
                     self.m[:N2,:] = self.m_[:N2,:].reshape(N2,self.mdimen,self.dim,self.dim)
@@ -535,8 +545,12 @@ class correlator (CorrelatorBase):
         else:
             N2 = self.halfblocksize
             if self.model.scalar():
-                self.phi_[:N2,:] = self.phi[:N2,:]
-                self.m_[:N2,:] = self.m[:N2,:]
+                if self.vdim == 1:
+                    self.phi_[:N2,:] = self.phi[:N2,:]
+                    self.m_[:N2,:] = self.m[:N2,:]
+                else:
+                    self.phi_[:N2,:] = self.phi[:N2,:].reshape(N2,self.mdimen*self.vdim)
+                    self.m_[:N2,:] = self.m[:N2,:].reshape(N2,self.mdimen*self.vdim)
             else:
                 self.phi_[:N2,:] = self.phi[:N2,:].reshape(N2,self.mdimen*self.dim**2)
                 self.m_[:N2,:] = self.m[:N2,:].reshape(N2,self.mdimen*self.dim**2)
@@ -561,8 +575,12 @@ class correlator (CorrelatorBase):
                 N = self.blocksize
                 self.t[d*N2+N2:d*N2+N] = self.h * np.arange(N2,N)
                 if self.model.scalar():
-                    self.phi[d*N2+N2:d*N2+N,:] = self.phi_[N2:,:]
-                    self.m[d*N2+N2:d*N2+N,:] = self.m_[N2:,:]
+                    if self.vdim == 1:
+                        self.phi[d*N2+N2:d*N2+N,:] = self.phi_[N2:,:]
+                        self.m[d*N2+N2:d*N2+N,:] = self.m_[N2:,:]
+                    else:
+                        self.phi[d*N2+N2:d*N2+N,:] = self.phi_[N2:,:].reshape(N2,self.mdimen,self.vdim)
+                        self.m[d*N2+N2:d*N2+N,:] = self.m_[N2:,:].reshape(N2,self.mdimen,self.vdim)
                 else:
                     self.phi[d*N2+N2:d*N2+N,:] = self.phi_[N2:,:].reshape(N2,self.mdimen,self.dim,self.dim)
                     self.m[d*N2+N2:d*N2+N,:] = self.m_[N2:,:].reshape(N2,self.mdimen,self.dim,self.dim)
@@ -571,8 +589,12 @@ class correlator (CorrelatorBase):
             N2 = self.halfblocksize
             N = self.blocksize
             if self.model.scalar():
-                self.phi_[N2:,:] = self.phi[d*N2+N2:d*N2+N,:]
-                self.m_[N2:,:] = self.m[d*N2+N2:d*N2+N,:]
+                if self.vdim == 1:
+                    self.phi_[N2:,:] = self.phi[d*N2+N2:d*N2+N,:]
+                    self.m_[N2:,:] = self.m[d*N2+N2:d*N2+N,:]
+                else:
+                    self.phi_[N2:,:] = self.phi[d*N2+N2:d*N2+N,:].reshape(N2,self.mdim*self.vdim)
+                    self.m_[N2:,:] = self.m[d*N2+N2:d*N2+N,:].reshape(N2,self.mdim*self.vdim)
             else:
                 self.phi_[N2:,:] = self.phi[d*N2+N2:d*N2+N,:].reshape(N2,self.mdimen*self.dim**2)
                 self.m_[N2:,:] = self.m[d*N2+N2:d*N2+N,:].reshape(N2,self.mdimen*self.dim**2)
@@ -685,7 +707,7 @@ class mean_squared_displacement (correlator):
         self.model.set_base(self.phi_)
         for i in range(iend):
             t = i*self.h0
-            self.phi_[i] = np.ones(self.mdimen,dtype=self.model.dtype)*6.*t/self.model.Bq()
+            self.phi_[i] = np.ones(self.mdimen*self.vdim,dtype=self.model.dtype)*6.*t/self.model.Bq()
             self.jit_kernel (self.m_[i], None, i, t, *self.model.kernel_extra_args())
         for i in range(1,iend):
             self.dPhi_[i] = 0.5 * (self.phi_[i-1] + self.phi_[i])
@@ -739,7 +761,7 @@ class non_gaussian_parameter (correlator):
         self.model.set_base(self.phi_)
         for i in range(iend):
             t = i*self.h0
-            self.phi_[i] = np.zeros(self.mdimen, dtype=self.model.dtype)
+            self.phi_[i] = np.zeros(self.mdimen*self.vdim, dtype=self.model.dtype)
             self.phi_[i,1] = self.model.phi2()[i,0]
             self.jit_kernel (self.m_[i], None, i, t, *self.model.kernel_extra_args())
         for i in range(1,iend):

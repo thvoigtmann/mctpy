@@ -27,24 +27,53 @@ class model_base (object):
     def __init__ (self):
         self.dtype = np.dtype(float)
     def __len__ (self):
+        """The "length" of a model is the number of correlators.
+        Typically, they are numbered by wave-number index `q`."""
+        return 1
+    def vector_dimension (self):
+        """Models can define vector-valued correlators, where the index
+        `q` counting towards the "length" of the model corresponds to
+        a vector, where multiplication in the equation of motion is
+        defined element-wise."""
         return 1
     def matrix_dimension (self):
+        """Models can define matrix-valued correlators. A matrix dimension
+        of `S` will typically define `S*S` elements per length index, and
+        multiplication in the equation of motion is standard matrix
+        multiplication for any fixed `q`."""
         return 1
     def scalar (self):
+        """Return True if the model obeys scalar equations, i.e., those
+        where multiplication in the equations of motion is simply
+        element-wise."""
         return True
     def hopping (self):
         return None
     def phi0 (self):
-        return np.ones(len(self))
+        """Return initial value of the correlators of this model.
+        Needs to be a matrix of shape (M*V,) for scalar models,
+        where M is the number of q indices and V the vector dimension.
+        For matrix models, needs to be of shape (M*V,S,S) or similar,
+        but the implemented default here then won't do."""
+        return np.ones(len(self)*self.vector_dimension())
     def phi0d (self):
-        return np.zeros(len(self))
+        """Return initial derivative values for the correlators of this
+        model. See `phi0()` for the expected array shapes."""
+        return np.zeros(len(self)*self.vector_dimension())
     def Wq (self):
-        return np.ones(len(self))
+        """Return prefactor in front of the correlator in the
+        equation of motion. See `phi0()` for the expected shape."""
+        return np.ones(len(self)*self.vector_dimension())
     def Aq (self):
-        return np.ones(len(self))
+        """Return prefactor in front of the second derivative of the
+        correlator in the equation of motion. See `phi0()` for the expected
+        shape. Will only be called for non-Brownian models."""
+        return np.ones(len(self)*self.vector_dimension())
     def Bq (self):
-        return np.ones(len(self))
-
+        """Return prefactor in front of the first derivative of the
+        correlator in the equation of motion. See `phi0()` for the expected
+        shape."""
+        return np.ones(len(self)*self.vector_dimension())
     def set_base (self, array):
         #self.phi = void(array)
         self.phi = array
@@ -111,6 +140,7 @@ class loaded_model(model_base):
             self.__dict__[field] = np.array(val)
     def __len__ (self):
         return self.M
+    # TODO should we define vector_dimension and matrix_dimension here??
 
 def h5info (h5file):
     from . import __version__

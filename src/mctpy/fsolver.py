@@ -70,9 +70,10 @@ class nonergodicity_parameter (object):
         self.accuracy = accuracy
         self.maxiter = maxiter
         self.dim = model.matrix_dimension()
+        self.vdim = model.vector_dimension()
         self.M = len(model)
-        self.f_ = np.zeros((1,self.M*self.dim**2),dtype=model.dtype)
-        self.m_ = np.zeros((1,self.M*self.dim**2),dtype=model.dtype)
+        self.f_ = np.zeros((1,self.M*self.vdim*self.dim**2),dtype=model.dtype)
+        self.m_ = np.zeros((1,self.M*self.vdim*self.dim**2),dtype=model.dtype)
         self.jit_kernel = model.get_kernel()
 
     def solve (self, callback=None, callback_every=0):
@@ -93,25 +94,33 @@ class nonergodicity_parameter (object):
         if self.model.scalar():
             f0 = self.model.phi0().copy()
             for b in range(blocks):
-                converged = _fsolve(self.f_, self.m_, self.model.Wq(), f0, self.model.phi0(), self.jit_kernel, self.M, self.accuracy, block_iter, *self.model.kernel_extra_args())
+                converged = _fsolve(self.f_, self.m_, self.model.Wq(), f0, self.model.phi0(), self.jit_kernel, self.M*self.vdim, self.accuracy, block_iter, *self.model.kernel_extra_args())
                 if callback is not None:
                     callback(block_iter*(b+1),self)
                 if converged: break
                 if b < blocks-1:
                     f0 = self.f_[0]
-            self.f = self.f_[0]
-            self.m = self.m_[0]
+            if self.vdim > 1:
+                self.f = self.f_[0].reshape(-1,self.vdim)
+                self.m = self.m_[0].reshape(-1,self.vdim)
+            else:
+                self.f = self.f_[0]
+                self.m = self.m_[0]
         else:
             f0 = self.model.phi0()
             for b in range(blocks):
-                converged = _fsolve_mat(self.f_.reshape(1,-1,self.dim,self.dim), self.m_.reshape(1,-1,self.dim,self.dim), self.model.Wq().reshape(-1,self.dim,self.dim), f0.reshape(-1,self.dim,self.dim), self.model.phi0().reshape(-1,self.dim,self.dim), self.model.WqSq().reshape(-1,self.dim,self.dim), self.jit_kernel, self.M, self.accuracy, block_iter, *self.model.kernel_extra_args())
+                converged = _fsolve_mat(self.f_.reshape(1,-1,self.dim,self.dim), self.m_.reshape(1,-1,self.dim,self.dim), self.model.Wq().reshape(-1,self.dim,self.dim), f0.reshape(-1,self.dim,self.dim), self.model.phi0().reshape(-1,self.dim,self.dim), self.model.WqSq().reshape(-1,self.dim,self.dim), self.jit_kernel, self.M*self.vdim, self.accuracy, block_iter, *self.model.kernel_extra_args())
                 if callback is not None:
                     callback(block_iter*(b+1),self)
                 if converged: break
                 if b < blocks-1:
                     f0 = self.f_[0]
-            self.f = self.f_[0].reshape(-1,self.dim,self.dim)
-            self.m = self.m_[0].reshape(-1,self.dim,self.dim)
+            if self.vdim > 1:
+                self.f = self.f_[0].reshape(-1,self.vdim,self.dim,self.dim)
+                self.m = self.m_[0].reshape(-1,self.vdim,self.dim,self.dim)
+            else:
+                self.f = self.f_[0].reshape(-1,self.dim,self.dim)
+                self.m = self.m_[0].reshape(-1,self.dim,self.dim)
 
 
 @njit
@@ -216,12 +225,14 @@ class eigenvalue (object):
         """
         model = self.nep.model
         dim = model.matrix_dimension()
+        vdim = model.vector_dimension()
+        msize = len(model)*vdim*dim**2
         if model.scalar():
             f = self.nep.f_[0]
-            self.e = np.zeros(len(model)*dim**2,dtype=model.dtype)
-            self.ehat = np.zeros(len(model)*dim**2,dtype=model.dtype)
-            self.eval = _esolve(self.e, self.dm, f, len(model), self.maxiter, self.accuracy)
-            self.eval2 = _ehatsolve(self.ehat, self.dmhat, f, len(model), self.maxiter, self.accuracy)
+            self.e = np.zeros(msize,dtype=model.dtype)
+            self.ehat = np.zeros(msize,dtype=model.dtype)
+            self.eval = _esolve(self.e, self.dm, f, msize, self.maxiter, self.accuracy)
+            self.eval2 = _ehatsolve(self.ehat, self.dmhat, f, msize, self.maxiter, self.accuracy)
         else:
             f = self.nep.f_[0].reshape(-1,dim,dim)
             self.e = np.zeros((len(model),dim,dim),dtype=model.dtype)
@@ -232,9 +243,11 @@ class eigenvalue (object):
 
         if self.eval > 0:
             dq = model.dq()
+            if vdim > 1:
+                dq = np.repeat(dq,vdim)
             if model.scalar():
                 nl = np.dot(dq * self.ehat, self.e)
-                nr = np.dot(dq * self.ehat, self.e*self.e * (1-f))
+                nr = np.dot(dq * self.ehat, self.e*self.e * (1-f)) # ARGH CHECK
             else:
                 S_F = phi0 - f
                 S_F_inv = np.linalg.inv(S_F)
@@ -253,5 +266,8 @@ class eigenvalue (object):
                                      S_F, L, S_F)
         else:
             self.lam = 0.0
-
+        if model.scalar():
+            if vdim > 1:
+                self.e = self.e.reshape(-1,vdim)
+                self.ehat = self.ehat.reshape(-1,vdim)
 
