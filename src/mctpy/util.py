@@ -2,8 +2,7 @@ import numpy as np
 import scipy
 
 class CorrelatorStack(list):
-    def solve_all (self, callback=None, stop_on_zero=False,
-                                        stop_condition=None):
+    def solve_all (self, callback=None, stop_on_zero=False, stop_condition=None, progress_bar=None):
         """Solve all correlators in the list.
 
         This method calls the solver for each correlator in the list,
@@ -47,11 +46,14 @@ class CorrelatorStack(list):
         blocksize = self[0].blocksize
         halfblocksize = self[0].halfblocksize
         blocks = self[0].blocks
+        blockrange = range(blocks)
+        if progress_bar is not None:
+            blockrange = progress_bar(blockrange)
         for _phi_ in self:
             _phi_.solve_first()
         if callback is not None:
             callback (0, 0, halfblocksize, self)
-        for d in range(blocks):
+        for d in blockrange:
             for _phi_ in self:
                 _phi_.solve_next (d)
             if callback is not None:
