@@ -8,7 +8,7 @@ class gcm4MSA (simpleLiquidSq):
     """MSA structure factor for the GCM4 model.
 
     The generalized Gaussian core model GCM4 sets
-    V(r) = epsilon exp(-(r/\sigma)^4).
+    V(r) = epsilon exp(-(r/sigma)^4).`
     Within MSA the direct correlation function is directly  related
     to the Fourier transform of the potential which can be
     calculated explicitly here in terms of generalized hypergeometric

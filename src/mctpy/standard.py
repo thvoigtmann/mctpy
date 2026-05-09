@@ -197,12 +197,13 @@ class simple_liquid_model (model_base):
         grp = fh.create_group("model")
         grp.attrs['type'] = 'simple_liquid'
         grp.attrs['M'] = self.M
-        grp.attrs['dynamics'] = 'BD'
+        grp.attrs['dynamics'] = 'BD' # TODO FIXME
         grp.attrs['D0'] = self.D0
         grp.attrs['rho'] = self.rho
         grp.create_dataset("q",data=self.q)
         grp.create_dataset("sq",data=self.sq)
         grp.create_dataset("cq",data=self.cq)
+    # TODO FIXME implement h5load also for other models
 
 class tagged_particle_model (model_base):
     def __init__ (self, base_model, cs, D0s=1.0):
