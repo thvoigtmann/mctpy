@@ -1,3 +1,4 @@
+========================
 Static Structure Factors
 ========================
 .. include:: <isolat1.txt>
@@ -32,7 +33,10 @@ by multiplying with :math:`\boldsymbol\rho^{1/2}` from both sides again.
 
 
 Simple Liquids (3D)
--------------------
+===================
+
+Hard-Sphere Percus Yevick
+-------------------------
 
 .. autoclass:: mctpy.structurefactors.hssPY
     :members:
@@ -42,6 +46,7 @@ Simple Liquids (3D)
     here was derived by Wertheim [Wertheim1963]_:
 
     .. math::
+        :nowrap:
 
         \begin{align}
         c(q) &= 4\pi\alpha\left(\frac{\cos q}{q^2}-\frac{\sin q}{q^3}\right)
@@ -66,6 +71,7 @@ Simple Liquids (3D)
     The derivative of the DCF is also implemented analytically,
 
     .. math::
+        :nowrap:
 
         \begin{align}
         c'(q)&=-4\pi\alpha\left(\frac{\sin q}{q^2}+\frac3q\left(
@@ -90,6 +96,9 @@ Simple Liquids (3D)
        `DOI:10.1103/PhysRevLett.10.321 <https://doi.org/10.1103/PhysRevLett.10.321>`_
 
 
+Tagged-particle HSPY
+--------------------
+
 .. autoclass:: mctpy.structurefactors.hssPYtagged
     :members:
     :inherited-members:
@@ -99,6 +108,7 @@ Simple Liquids (3D)
     of one species density to zero. In particular,
 
     .. math::
+        :nowrap:
 
         \begin{align}
         c^s(q) &= 4\pi\left(A\frac{\cos(q/2)\cos(q\delta/2)-\sin(q/2)
@@ -116,6 +126,7 @@ Simple Liquids (3D)
     For low :math:`q`, an expansion is used,
 
     .. math::
+        :nowrap:
 
         \begin{align}
         c^s(q) &= -\frac{\pi}6\left(3A(1+\delta)^2-\frac{B}{2}(1+\delta)^3
@@ -130,6 +141,9 @@ Simple Liquids (3D)
         +\frac{\delta^3\varphi(5+14\delta^2+5\delta^4)(1+2\varphi)^2}
         {5(1-\varphi)^4}\right)q^4
         \end{align}
+
+Hard-Sphere Verlet-Weis
+-----------------------
 
 .. autoclass:: mctpy.structurefactors.hssVW
     :members:
@@ -171,6 +185,7 @@ Simple Liquids (3D)
     the :math:`i_{0,1,2}(q)` are functions that we implement explicitly,
 
     .. math::
+        :nowrap:
 
         \begin{align}
         i_0(qd_\text{eff})&=\left.e^{\gamma x}\frac{\gamma\sin(qd_\text{eff}x)
@@ -192,6 +207,7 @@ Simple Liquids (3D)
     obtained from the total correlation function,
 
     .. math::
+        :nowrap:
 
         \begin{align} c(q)&=\frac{h(q)}{1+\rho h(q)} \\
         S(q) &= 1 + \rho h(q) \end{align}
@@ -209,6 +225,9 @@ Simple Liquids (3D)
     .. [Verlet1972] L. Verlet and J.-J. Weis, Phys. Rev. A 5, 939 (1972),
        `DOI:10.1103/PhysRevA.2.939 <https://doi.org/10.1103/PhysRevA.2.939>`_
 
+
+Square Well System (MSA)
+------------------------
 
 .. autoclass:: mctpy.structurefactors.swsMSA
     :members:
@@ -240,6 +259,8 @@ Simple Liquids (3D)
        E. Zaccarelli, Phys. Rev. E 63, 011401 (2000),
        `DOI:10.1103/PhysRevE.63.011401 <https://doi.org/10.1103/PhysRevE.63.011401>`_
 
+Generalized Gaussian core model (GCM4)
+--------------------------------------
 
 .. autoclass:: mctpy.structurefactors.gcm4MSA
     :members:
@@ -251,7 +272,7 @@ Simple Liquids (3D)
 
         V(r) = \epsilon e^{-(r/\sigma)^4}
 
-    and in the mean-spherical approximation, we directly have
+    and in the mean-spherical approximation (MSA), we directly have
     :math:`c(q) = -\beta V(q)`. In three spatial dimensions, the
     Fourier transform of the GCM4 pair potential can be evaluated in terms
     of generalized hypergeometric functions.
@@ -265,6 +286,9 @@ Simple Liquids (3D)
     class can interpolate to the desired values. Also :math:`V'(q)`
     can be evaluated in terms of generalized hypergeometric functions.
 
+
+Lorentz-Gas direct correlation function
+---------------------------------------
 
 .. autoclass:: mctpy.structurefactors.lgDCF
     :members:
@@ -297,7 +321,10 @@ Simple Liquids (3D)
 
 
 Simple Liquids (2D)
--------------------
+===================
+
+Hard Spheres (FMT)
+-----------------
 
 .. autoclass:: mctpy.structurefactors.hssFMT2d
     :members:
@@ -307,6 +334,7 @@ Simple Liquids (2D)
     Thorneywork et al. [Thorneywork2018]_
 
     .. math::
+        :nowrap:
 
         \begin{align}
         c(q) &= \frac{\pi}{6(1-\varphi)^3}q^2\left[
@@ -335,7 +363,10 @@ Simple Liquids (2D)
 
 
 Mixtures (3D)
--------------
+=============
+
+Hard-Sphere Mixtures
+--------------------
 
 .. autoclass:: mctpy.structurefactors.hsmPY
     :members:
@@ -363,6 +394,7 @@ Mixtures (3D)
     given by
 
     .. math::
+        :nowrap:
 
         \begin{align} c_{\alpha\beta}(q) &= -4\pi\left(
         A_{\alpha\beta}\frac{\sin(qd_\alpha/2)\sin(qd_\beta/2)-
@@ -383,6 +415,7 @@ Mixtures (3D)
     with parameters
 
     .. math::
+        :nowrap:
 
         \begin{align} A_{\alpha\beta}&=\frac{d_{\alpha\beta}(1-\xi_3)
         +(3/2)d_\alpha d_\beta\xi_2}{(1-\xi_3)^2} \\
@@ -399,6 +432,7 @@ Mixtures (3D)
     to avoid cancellation errors. Specifically,
 
     .. math::
+        :nowrap:
 
         \begin{align} c_{\alpha\beta}(q)&=c_{\alpha\beta}^{(0)}
         +\frac12c_{\alpha\beta}^{(2)}q^2+\frac1{4!}c_{\alpha\beta}^{(4)}q^4
@@ -422,6 +456,7 @@ Mixtures (3D)
     Also the derivative of the DCF is implemented analytically,
 
     .. math::
+        :nowrap:
 
         \begin{align} c'_{\alpha\beta}(q)&=4\pi\left(
         -A_{\alpha\beta}\frac{d_\alpha+d_\beta}2
@@ -447,12 +482,15 @@ Mixtures (3D)
         -12\pi a_2\frac{\cos(qd_\alpha/2)\sin(qd_\beta/2)d_\alpha
          +\cos(qd_\beta/2)\sin(qd_\alpha/2)d_\beta-2\sin(qd_\alpha/2)
          \sin(qd_\beta/2)/q}{q^6}
+         \right)
          \end{align}
 
     with its low-wave-number expansion
 
     .. math::
+        :nowrap:
 
+        \begin{multline}
         c'_{\alpha\beta}(q)=\frac{\pi}{60}\left(
         A_{\alpha\beta}(d_\alpha+d_\beta)^4+\frac16D_{\alpha\beta}
         (d_\alpha d_\beta)^3+\left(\frac14D_{\alpha\beta}+\frac{a_2\pi}{12}
@@ -466,6 +504,7 @@ Mixtures (3D)
         (d_\alpha d_\beta)^2\right) (d_\alpha d_\beta)^3
         +\frac16 D_{\alpha\beta}(d_\alpha d_\beta)^4
         \right)q^3+{\mathcal O}(q^5)
+        \end{multline}
 
 
     .. [Baxter1970] R. J. Baxter, J. Chem. Phys. 52, 4559 (1970),

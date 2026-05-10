@@ -1,9 +1,10 @@
+=======================
 Correlators and Solvers
 =======================
 .. include:: <isolat1.txt>
 
 Simple Liquid-Like
-------------------
+==================
 
 The "simple liquid-like" MCT equations take the form
 
@@ -14,8 +15,8 @@ The "simple liquid-like" MCT equations take the form
     +\int_0^t M(q,t-t')\partial_{t'}\phi(q,t')\,dt' = 0
 
 where :math:`\phi` and :math:`M` can be scalar or matrix-valued functions
-of a single wave-number index and time. The coefficients :math:`B_q`
-and :math:`W_q` are model-specific.
+of a single wave-number index and time. The coefficients :math:`A_q`,
+:math:`B_q` and :math:`W_q` are model-specific.
 
 We implement a direct solver of these equations, that can be used with
 most typical MCT models, including the simple-liquid models
@@ -28,15 +29,17 @@ different from the scalar one.
 
 .. autoclass:: mctpy.correlator
     :members:
-    :inherited-members:
+    :inherited-members: list
 
 
 MSD and related
----------------
+===============
+
+Mean squared displacement
+-------------------------
 
 .. autoclass:: mctpy.mean_squared_displacement
     :members:
-    :inherited-members:
 
     The MCT equation for the mean-squared displacement :math:`\delta r^2(t)`
     are (in 3D, and for Brownian dynamics) is
@@ -49,9 +52,15 @@ MSD and related
     where the memory kernel is given by the :math:`q\to0` limit of a
     specific model, for example :py:class:`mctpy.tagged_particle_q0`.
 
+    `mctpy.mean_squared_displacement` is a subclass of `mctpy.correlator`;
+    see there for the documentation of the relevant methods.
+
+
+Non-Gaussian Parameter
+----------------------
+
 .. autoclass:: mctpy.non_gaussian_parameter
     :members:
-    :inherited-members:
 
     The MCT equation for the non-Gaussian parameter :math:`\alpha_2(t)` is
     (in 3D, and for Brownian dynamics) written in terms of the function
@@ -60,6 +69,7 @@ MSD and related
     to be calculated first and separately. Then, this class allows to solve
 
     .. math::
+        :nowrap:
 
         \begin{multline}
         \partial_ta(t)+D_0^s\int_0^tm^s_0(t-t')\partial_{t'}a(t')\,dt'\\
@@ -72,6 +82,7 @@ MSD and related
     :py:class:`mctpy.tagged_particle_ngp`,
 
     .. math::
+        :nowrap:
 
         \begin{align}
         m^s_0&=\frac1{6\pi^2}\int\rho S_k(c_k^s)^2k^4f_kf_k^s\,dk\\
@@ -90,7 +101,7 @@ MSD and related
     temporal range where the data is plotted.
 
 Asymptotics
------------
+===========
 
 The :math:`\beta`-scaling equation of MCT is
 
@@ -101,7 +112,7 @@ The :math:`\beta`-scaling equation of MCT is
 where :math:`\ast` denotes the time-domain convolution. This equation has
 to be solved with initial condition :math:`g(t)\sim(t/t_0)^{-a}` for
 short times. The exponent :math:`a` is determined by the exponent parameter
-:math:`lambda` (see :py:func:`mctpy.exponents`), which can be calculated
+:math:`\lambda` (see :py:func:`mctpy.exponents`), which can be calculated
 from a specific model and a specific glass-transition point.
 The parameter :math:`\sigma` is a measure of the distance from the transition
 point, such that :math:`\sigma>0` signifies a glass-like solution
@@ -123,29 +134,6 @@ even in the ideal-glass state of MCT. See [Goetze1987]_ for details.
 .. [Goetze1990] W. G\ |ouml|\ tze,
    J. Phys.: Condens. Matter 2, 8485 (1990),
    `DOI:10.1088/0953-8984/2/42/025 <https://doi.org/10.1088/0953-8984/2/42/025>`_
-
-
-.. autoclass:: mctpy.beta_scaling_function
-    :members:
-
-.. autofunction:: mctpy.util.Blambda
-
-    The table was calculated using the following code:
-
-    .. code-block:: python
-
-        ltab = np.linspace(0.5,0.98,49)
-        Btab = []
-        for l in ltab:
-            g = mct.beta_scaling_function (lam=l, sigma=-1.0, delta=0.0, store=True)
-            mct.CorrelatorStack([g]).solve_all()
-            a, b = mct.util.exponents(l)
-            Btab.append(np.mean((g.phi[1:,0]*np.power(g.t[1:],-b))[-50:]))
-        Btab = np.array(Btab)
-
-    The values in our table closely match and extend the ones given by
-    G\ |ouml|\ tze, although some deviations appear in the third digit.
-
 
 The :py:class:`mctpy.beta_scaling_function` also implements the
 equations of stochastic :math:`\beta`-relaxation (SBR) theory
@@ -191,9 +179,32 @@ where :math:`d` is the dimensionality of the grid.
    `DOI:10.1209/0295-5075/111/56008 <https://doi.org/10.1209/0295-5075/111/56008>`_
 
 
+.. autoclass:: mctpy.beta_scaling_function
+    :members:
+
+.. autofunction:: mctpy.util.Blambda
+
+    The table was calculated using the following code:
+
+    .. code-block:: python
+
+        ltab = np.linspace(0.5,0.98,49)
+        Btab = []
+        for l in ltab:
+            g = mct.beta_scaling_function (lam=l, sigma=-1.0, delta=0.0, store=True)
+            mct.CorrelatorStack([g]).solve_all()
+            a, b = mct.util.exponents(l)
+            Btab.append(np.mean((g.phi[1:,0]*np.power(g.t[1:],-b))[-50:]))
+        Btab = np.array(Btab)
+
+    The values in our table closely match and extend the ones given by
+    G\ |ouml|\ tze, although some deviations appear in the third digit.
+
+
+
 
 High-level interface
---------------------
+====================
 
 .. autoclass:: mctpy.CorrelatorStack
     :members:

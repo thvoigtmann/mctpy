@@ -2,7 +2,8 @@ import numpy as np
 import scipy
 
 class CorrelatorStack(list):
-    def solve_all (self, callback=None, stop_on_zero=False, stop_condition=None, progress_bar=None):
+    def solve_all (self, callback=None, stop_on_zero=False,
+                   stop_condition=None, progress_bar=None):
         """Solve all correlators in the list.
 
         This method calls the solver for each correlator in the list,
@@ -10,6 +11,10 @@ class CorrelatorStack(list):
         and the solver are called for the first half, and then for each
         second half of a block, the loop is to call the solver, and then
         decimize.
+
+        The list of correlators is either just the current correlator,
+        or, if the object is initialized as a `CorrelatorStack`, a whole
+        stack of potentially inter-dependent correlators.
 
         Parameters
         ----------
@@ -28,6 +33,12 @@ class CorrelatorStack(list):
             object as an argument, and shall return a boolean indicating
             whether to stop or not. This test is performed in addition
             to the stop_on_zero test.
+        progress_bar : callable, optional
+            If set, this will be used to wrap the range of blocks in the
+            foreach loop, and is expected to yield an iterator over the
+            blocks. It is meant to be either left unspecified, or
+            be passed a `tqdm.tqdm` object to easy visual feedback on
+            the progress.
 
         Returns
         -------
@@ -369,6 +380,14 @@ def filon_cos_transform(f,x,w):
                                lambda x:x*np.sin(w*x)/w+np.cos(w*x)/w**2)
 def filon_sin_transform(f,x,w):
     """Filon sine transform.
+
+    Parameters
+    ----------
+
+    f : array_like, shape (M,N)
+        Function values on the grid `x`.
+    x : array_like, shape (M,N)
+    w : array_like, shape (M,N)
     """
     return filon_integrate(f,x,lambda x:-np.cos(w*x)/w,
                                lambda x:-x*np.cos(w*x)/w+np.sin(w*x)/w**2)

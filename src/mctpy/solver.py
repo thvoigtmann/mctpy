@@ -311,11 +311,12 @@ class correlator (CorrelatorBase):
 
     If `store` is `True`, the fields `t`, `phi`, and `m` will be set
     to contain the solutions. They have shape (T,M) for scalar models,
-    and shape (T,M,S,S) for matrix-valued models.
+    shape (T,M,V) for vectorial models, and shape (T,M,S,S) for matrix-valued
+    models.
     """
     def __init__ (self, blocksize=256, h=1e-9, blocks=60, Tend=0.0,
                   maxinit=50, maxiter=10000, accuracy=1e-9, store=False,
-                  model = model_base, base = None,
+                  model = model_base(), base = None,
                   motion_type = "brownian"):
         if base is None:
             self.h0 = h

@@ -1,8 +1,12 @@
+=========
 Utilities
 =========
 
 Critical points of MCT
-----------------------
+======================
+
+Scanning for critical points
+----------------------------
 
 The glass-transition points of MCT are determined as the points where
 the eigenvalue of the stability matrix is unity; the eigenvalues are
@@ -62,7 +66,7 @@ given knowledge of the critical exponent :math:`a`, you can use
 
 
 Filon Fourier-Laplace Transforms
---------------------------------
+================================
 
 A common post-processing of correlation functions obtained by MCT is
 to calculate their spectra, by the one-sided Fourier-Laplace transform.
