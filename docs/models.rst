@@ -1,9 +1,10 @@
+==========
 MCT Models
 ==========
 .. include:: <isolat1.txt>
 
 Simple Liquids
---------------
+==============
 
 "Simple liquid" models are the "standard models" of MCT. The liquid is
 assumed to be isotropic, homogeneous, and composed of identical particles
@@ -30,6 +31,8 @@ The evolution equations of simple-liquid models are thus
     + \int_0^t\hat m(q,t-t')\partial_{t'}\phi(q,t)=0
 
 
+Standard scalar model of MCT
+----------------------------
 
 
 .. autoclass:: mctpy.simple_liquid_model
@@ -70,6 +73,7 @@ Common Additions to Simple-Liquid Models
     to those needed for the MCT equations for the NGP:
 
     .. math::
+        :nowrap:
 
         \begin{align}
         m^s_0&=\frac1{6\pi^2}\int\rho S_k(c_k^s)^2k^4f_kf_k^s\,dk\\
@@ -94,6 +98,9 @@ Common Additions to Simple-Liquid Models
     .. [Fuchs1998] M. Fuchs, W. G\ |ouml|\ tze, and M. R. Mayr,
        Phys. Rev. E 58, 3384 (1998),
        `DOI:10.1103/PhysRevE.58.3384 <https://doi.org/10.1103/PhysRevE.58.3384>`_
+
+Sheared Systems
+===============
 
 Isotropically Sheared System
 ----------------------------
@@ -141,6 +148,9 @@ and the isotropic advected wave number
        `DOI:10.1007/12_2009_30 <https://doi.org/10.1007/12_2009_30>`_
 
 
+Granular Systems
+================
+
 Driven Granular Fluids
 ----------------------
 
@@ -177,7 +187,10 @@ agitated granular materials.
 
 
 Mixtures
---------
+========
+
+Standard Model for Mixtures
+---------------------------
 
 Mixture models here refer to mixtures of simple-liquid components,
 so that the only addition to the case of simple liquids is a particle-species
@@ -276,7 +289,7 @@ element of the correlator matrix then is the tagged-particle correlator.
 
 
 Two-dimensional MCT
--------------------
+===================
 
 Two-dimensional MCT differs from the three-dimensional one only by
 the dimensionality of the wave-vector integral in the memory kernel
@@ -320,6 +333,7 @@ introduced in the 3d discretization no longer work in 2d.
     with the inner integral
 
     .. math::
+        :nowrap:
 
         \begin{align}
         A_{ij}&=\int_{|q_i-q_j|}^{q_i+q_j}dp\,p\Phi_p
@@ -338,6 +352,7 @@ introduced in the 3d discretization no longer work in 2d.
     Specifically, one needs here
 
     .. math::
+        :nowrap:
 
         \begin{align}
         \int dx\,\frac1{\sqrt{1-x^2}} &= \arcsin x\\
@@ -359,7 +374,7 @@ introduced in the 3d discretization no longer work in 2d.
 
 
 Schematic Models
-----------------
+================
 
 Schematic models are ad-hoc simplifcations of the MCT equations to one or
 at most a few correlation functions. They are often formulated as "dropping
@@ -368,6 +383,9 @@ more generally thought of as the result of applying bifurcation theory
 to MCT, and realizing that the asymptotic dynamics close to the glass
 transition is described by universal laws that can be reproduced from
 schematic models.
+
+Classic schematic models
+------------------------
 
 .. autoclass:: mctpy.schematic.generic
     :members:
@@ -384,6 +402,9 @@ schematic models.
 .. autoclass:: mctpy.bosse_krieger_model
     :members:
     :inherited-members:
+
+Schematic Models for Sheared Systems
+------------------------------------
 
 .. autoclass:: mctpy.f12gammadot_model
     :members:
@@ -462,6 +483,7 @@ schematic models.
     through the formulas (valid in homogeneous flow),
 
     .. math::
+        :nowrap:
 
         \begin{align}
         \partial_tB_{tt'}&=\kappa_t\cdot B_{tt'}+B_{tt'}\cdot\kappa_t^T\\
@@ -473,3 +495,36 @@ schematic models.
     .. [Brader2009] J. M. Brader, T. Voigtmann, M. Fuchs, R. G. Larson,
        and M. E. Cates, Proc. Natl. Acad. Sci. (USA) 106, 15186 (2009),
        `DOI:10.1073/pnas.0905330106 <https://doi.org/10.1073/pnas.0905330106>`_
+
+SCGLE
+=====
+
+The self-consistent generalized Langevin equation (SCGLE) is not strictly
+speaking MCT, but the theories share so much of the mathematical structure
+that they can be treated with the same numerical methods.
+
+The main difference in this context is that SCGLE always treats models
+to contain both the collective and the tagged-particle dynamics.
+While in MCT, the tagged particle correlator is fully "enslaved" to the
+collective dynamics, SCGLE starts from the tagged-particle picture and
+presumes that the collective dynamics is essentially the same, decorated
+with the static structure factor.
+
+For this reason, SCGLE models are typically "vectorial" models with
+a vector dimension of two in our context.
+
+The MCT-like treatment of SCGLE in this code follows [Elizondo2019]_.
+
+.. [Elizondo2019] L. F. Elizondo-Aguilera and Th. Voigtmann,
+   Phys. Rev. E 100, 042601 (2019),
+   `DOI:10.1103/PhysRevE.100.042601 <https://doi.org/10.1103/PhysRevE.100.042601>`_
+
+
+Simple liquid in SCGLE
+----------------------
+
+.. autoclass:: mctpy.scgle.scgle_model
+   :members:
+   :inherited-members:
+
+

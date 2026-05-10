@@ -9,7 +9,30 @@ def _dq (q):
     return np.diff(q, append=2*q[-1]-q[-2])
 
 class scgle_model (model_base):
-    # TODO find good default for alpha_min
+    """The simple-liquid model of SCGLE.
+
+    Parameters
+    ----------
+    Sq : object
+        The static structure factor object
+    q : array_like
+        Wave number grid.
+    D0 : float, default = 1.0
+        Short-term diffusion coefficient for Brownian dynamics.
+    alpha_min : float, default = 1.725
+        Fraction of structure-factor maximum to set `k_min` to.
+    k_min : float, optional
+        Value to set `k_min` to directly, overriding `alpha_min`.
+
+    Notes
+    -----
+    If only `alpha_min` is set, initialization will search for
+    the global maximum of the structure factor on the given q grid,
+    and set `k_min` to `alpha_min` times the maximum value obtained
+    from a parabolic fit around the three points closest to the
+    maximum. If a value is given for `k_min`, this supersedes the
+    automatic determination and takes the value directly.
+    """
     def __init__ (self, Sq, q, D0=1.0, alpha_min=1.725, k_min=None):
         model_base.__init__(self)
         self.rho = Sq.density()

@@ -324,7 +324,7 @@ Simple Liquids (2D)
 ===================
 
 Hard Spheres (FMT)
------------------
+------------------
 
 .. autoclass:: mctpy.structurefactors.hssFMT2d
     :members:
