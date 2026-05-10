@@ -34,9 +34,16 @@ class simple_liquid_model (model_base):
         self.Sq = Sq
         self.sq, self.cq = Sq.Sq(q)
         self.M = q.shape[0]
+        self.a = np.zeros((9,self.M))
+        self.b = np.zeros((9,self.M,self.M))
         self.__init_vertices__()
         self.D0 = D0
         self.vth = 1.0
+    def reinit (self, Sq):
+        self.Sq = Sq
+        self.sq, self.cq = Sq.Sq(self.q)
+        self.rho = Sq.density()
+        self.__init_vertices__()
     def __len__ (self):
         return self.M
     def Wq (self):
@@ -51,8 +58,6 @@ class simple_liquid_model (model_base):
         pre = 1./(32.*np.pi**2) * self.rho
         q = self.q
         qSq = q * self.sq
-        self.a = np.zeros((9,self.M))
-        self.b = np.zeros((9,self.M,self.M))
         self.a[0] = qSq * 2 * self.cq
         self.a[1] = - qSq * 2 * q**4 * self.cq
         self.a[2] = qSq * 4 * q**2 * self.cq
@@ -78,11 +83,15 @@ class simple_liquid_model (model_base):
         self.b[7] = pSp * qsqppsq * cp**2
         self.b[8] = pSp * qsqppsq**2 * cp**2
     def make_kernel (self):
-        a, b, apre = self.a, self.b, self.apre
+        #a, b, apre = self.a, self.b, self.apre
+        a_, b_ = void(self.a), void(self.b)
+        apre = self.apre
         M = self.M
         dq = self.dq()
         @njit
         def ker (m, phi, i, t):
+            a = nparray(a_)
+            b = nparray(b_)
             for qi in range(M):
                 mq = 0.
                 for n in range(6):
@@ -103,11 +112,15 @@ class simple_liquid_model (model_base):
                 m[qi] = mq * dq[qi]**2
         return ker
     def set_C (self, f):
-        a, b, apre = self.a, self.b, self.apre
+        #a, b, apre = self.a, self.b, self.apre
+        a_, b_ = void(self.a), void(self.b)
+        apre = self.apre
         M = self.M
         C = np.zeros((M,M))
         @njit
         def calc_C (C, f):
+            a = nparray(a_)
+            b = nparray(b_)
             for qi in range(M):
                 for n in range(9):
                     pi, ki = qi, 0
@@ -148,10 +161,14 @@ class simple_liquid_model (model_base):
         return dmhat
     def make_dm2 (self):
         M = self.M
-        a, b, apre = self.a, self.b, self.apre
+        #a, b, apre = self.a, self.b, self.apre
+        a_, b_ = void(self.a), void(self.b)
+        apre = self.apre
         q = self.q
         dq = self.dq()
         def dm2 (m, phi, dphi):
+            a = nparray(a_)
+            b = nparray(b_)
             for qi in range(M):
                 mq = 0.
                 for n in range(6):
