@@ -116,7 +116,8 @@ class simple_liquid_model (model_base):
         a_, b_ = void(self.a), void(self.b)
         apre = self.apre
         M = self.M
-        C = np.zeros((M,M))
+        if not '__C__' in dir(self):
+            self.__C__ = np.zeros((M,M))
         @njit
         def calc_C (C, f):
             a = nparray(a_)
@@ -125,6 +126,7 @@ class simple_liquid_model (model_base):
                 for n in range(9):
                     pi, ki = qi, 0
                     zqk = b[n,qi,qi] * f[pi]
+                    if n==0: C[qi,ki] = 0.
                     C[qi,ki] += a[n,0] * zqk * (1-f[ki])**2
                     for ki in range(1, M):
                         if ki <= qi:
@@ -136,9 +138,9 @@ class simple_liquid_model (model_base):
                         pi = qi + ki
                         if pi < M:
                             zqk += b[n,qi,pi] * f[pi]
+                        if n==0: C[qi,ki] = 0.
                         C[qi,ki] += a[n,ki] * zqk * (1-f[ki])**2
-        calc_C (C, f)
-        self.__C__ = C
+        calc_C (self.__C__, f)
     def make_dm (self):
         M = self.M
         Cqk = void(self.__C__)
