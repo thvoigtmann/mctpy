@@ -16,6 +16,7 @@ kernelspec:
 ```{code-cell} ipython3
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.optimize
 ```
 
 ```{code-cell} ipython3
@@ -105,9 +106,6 @@ print("phi_c = {:.8f}(1), lambda = {:.3f}, ev = {:.6f}".format(phis[p],evs[p].la
 
 ```{code-cell} ipython3
 hss_c = evs[p]
-```
-
-```{code-cell} ipython3
 phi_c = phis[p]
 ```
 
@@ -122,26 +120,32 @@ plt.xlabel(r'$qd$')
 plt.show()
 ```
 
-```{code-cell} ipython3
-hss_c.nep.f
-```
+With the critical point determined, we can calculate the distance parameter $\sigma$.
 
 ```{code-cell} ipython3
-mct1 = mct.simple_liquid_model(mct.structurefactors.hssPY(0.),qgrid)
-phirange = np.linspace(0.46,0.58,20)
+m1 = mct.simple_liquid_model(mct.structurefactors.hssPY(0.),qgrid)
+phirange = np.linspace(0.46,0.58,101)
 sigrange = np.zeros_like(phirange)
-for i,phi in enumerate(phirange):
-    mct1.reinit(mct.structurefactors.hssPY(phi))
-    ker = mct1.make_kernel()
-    m1 = np.zeros_like(hss_c.nep.f)
-    ker (m1, hss_c.nep.f, 0, 0)
-    #print (np.dot(0.4*hss_c.ehat, hss_c.e * hss_c.e * (1-hss_c.nep.f)))
-    sigrange[i] = np.dot(0.4*hss_c.ehat, (m1 - hss_c.nep.m)/qgrid**2)
+for i, phi in enumerate(phirange):
+    m1.reinit (mct.structurefactors.hssPY(phi))
+    sigrange[i] = hss_c.sigma (m1)
 ```
 
+Close to the critical point, $\sigma = C\,\epsilon$ holds, where $\epsilon=(\varphi-\varphi_c)/\varphi_c$ is the relative packing-fraction distance to the critical one. The number $C$ has to be determined by fitting.
+
 ```{code-cell} ipython3
-plt.plot(phirange, sigrange)
-plt.plot(phirange, 1.54*(phirange-phi_c)/phi_c)
+filter = np.abs(sigrange) < 0.005
+popt, pcov = scipy.optimize.curve_fit (lambda eps, C: C*eps, (phirange[filter]-phi_c)/phi_c, sigrange[filter])
+C = popt[0]
+```
+
+The following figure should be compared to Fig. 1 in the Franosch et al (1997) paper. The value of $C=1.54$ was also determined there.
+
+```{code-cell} ipython3
+plt.plot(phirange, sigrange, label='sigma')
+plt.plot(phirange, C*(phirange-phi_c)/phi_c, label=f'C*eps, C={C:.2f}', linestyle='dashed')
+plt.legend()
+plt.xlabel('phi')
 plt.show()
 ```
 

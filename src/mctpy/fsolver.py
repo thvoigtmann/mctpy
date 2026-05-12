@@ -290,12 +290,12 @@ class eigenvalue (object):
         # TODO test for vector-models
         m = np.zeros_like (self.nep.f)
         model_nc.make_kernel() (m, self.nep.f, 0, 0)
-        dq = self.model.dq()
-        vdim = self.model.vector_dimension()
+        dq = self.nep.model.dq()
+        vdim = self.nep.model.vector_dimension()
         if vdim > 1:
             dq = np.repeat(dq,vdim)
         if self.nep.model.scalar():
             norm = np.dot(dq * self.ehat, self.e*self.e * (1-self.nep.f))
-            s = np.dot(dq * self.ehat, (m - self.nep.m)/self.model.Wq())
+            s = np.dot(dq * self.ehat, (m - self.nep.m)/self.nep.model.Wq())
             return s/norm
 
