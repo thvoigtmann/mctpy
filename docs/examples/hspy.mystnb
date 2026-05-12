@@ -78,15 +78,21 @@ plt.show()
 Let us determine the MCT glass-transition point for the hard-sphere model. The `mctpy.util.evscan` function implements the tool to iteratively search for MCT critical points, for models where the calculation of the critical eigenvalues is implemented. The method is a somewhat adapted bisection search that is optimized to find liquid-glass or glass-glass transitions. We simply need to define a function that calls the model's NEP solver and returns the eigenvalue object. (Note that the value of `maxiter` should be increased if higher accuracy is desired.)
 
 ```{code-cell} ipython3
-def calc_ev(phi):
-    Sq = mct.structurefactors.hssPY(phi)
-    model = mct.simple_liquid_model (Sq, qgrid)
-    nep = mct.nonergodicity_parameter (model = model)
-    nep.solve()
-    ev = mct.eigenvalue(nep)
-    ev.solve()
-    return ev
-phis, evs = mct.util.evscan(0.51,0.52,calc_ev,eps=1e-8)
+class evsearch_hss:
+    def __init__ (self):
+        self.model = None
+    def calc_ev (self, phi):
+        Sq = mct.structurefactors.hssPY(phi)
+        if self.model is None:
+            self.model = mct.simple_liquid_model (Sq, qgrid)
+        else:
+            self.model.reinit (Sq)
+        nep = mct.nonergodicity_parameter (model = self.model)
+        nep.solve()
+        ev = mct.eigenvalue (nep)
+        ev.solve()
+        return ev
+phis, evs = mct.util.evscan (0.51, 0.52, evsearch_hss().calc_ev, eps=1e-8)
 ```
 
 The value of the critical point given in Franosch et al 1997 is $\varphi_c=0.51591213(1)$.
@@ -101,6 +107,10 @@ print("phi_c = {:.8f}(1), lambda = {:.3f}, ev = {:.6f}".format(phis[p],evs[p].la
 hss_c = evs[p]
 ```
 
+```{code-cell} ipython3
+phi_c = phis[p]
+```
+
 Compare to Fig.2 in Franosch et al, PRE 55, 7153 (1997). The critical amplitude there is defined as $h_q=(1-f_q^c)^2e_q$.
 
 ```{code-cell} ipython3
@@ -109,6 +119,29 @@ plt.plot(qgrid,hss_c.e*(1-hss_c.nep.f)**2,label=r'$h_q$')
 plt.plot(qgrid,hss_c.ehat,label=r'$\hat e_q$')
 plt.legend()
 plt.xlabel(r'$qd$')
+plt.show()
+```
+
+```{code-cell} ipython3
+hss_c.nep.f
+```
+
+```{code-cell} ipython3
+mct1 = mct.simple_liquid_model(mct.structurefactors.hssPY(0.),qgrid)
+phirange = np.linspace(0.46,0.58,20)
+sigrange = np.zeros_like(phirange)
+for i,phi in enumerate(phirange):
+    mct1.reinit(mct.structurefactors.hssPY(phi))
+    ker = mct1.make_kernel()
+    m1 = np.zeros_like(hss_c.nep.f)
+    ker (m1, hss_c.nep.f, 0, 0)
+    #print (np.dot(0.4*hss_c.ehat, hss_c.e * hss_c.e * (1-hss_c.nep.f)))
+    sigrange[i] = np.dot(0.4*hss_c.ehat, (m1 - hss_c.nep.m)/qgrid**2)
+```
+
+```{code-cell} ipython3
+plt.plot(phirange, sigrange)
+plt.plot(phirange, 1.54*(phirange-phi_c)/phi_c)
 plt.show()
 ```
 

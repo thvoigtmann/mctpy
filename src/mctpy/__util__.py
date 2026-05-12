@@ -126,6 +126,10 @@ class model_base (object):
         return dummy
 
     def dq (self):
+        """Return q-grid spacing.
+
+        Should be the values that need to be multiplied into the sum
+        when an integral over the q-indices is performed."""
         return 1.0
 
     def h5save (self, fh):

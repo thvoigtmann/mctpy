@@ -270,4 +270,32 @@ class eigenvalue (object):
             if vdim > 1:
                 self.e = self.e.reshape(-1,vdim)
                 self.ehat = self.ehat.reshape(-1,vdim)
+    def sigma (self, model_nc):
+        """Calculate distance parameter with respect to this state point.
+
+        Parameters
+        ----------
+        model_nc : mctpy.model_base
+            `mctpy.model_base` object representing a "non-critical" point
+            whose distance to the object here (taken to represent the
+            "critical" point) shall be calculated. Should match the type
+            of this object's `model`; if not, results are undefined.
+
+        Returns
+        -------
+        sigma : float
+            MCT distance parameter.
+        """
+        # TODO FIXME currently not implemented for mixtures
+        # TODO test for vector-models
+        m = np.zeros_like (self.nep.f)
+        model_nc.make_kernel() (m, self.nep.f, 0, 0)
+        dq = self.model.dq()
+        vdim = self.model.vector_dimension()
+        if vdim > 1:
+            dq = np.repeat(dq,vdim)
+        if self.nep.model.scalar():
+            norm = np.dot(dq * self.ehat, self.e*self.e * (1-self.nep.f))
+            s = np.dot(dq * self.ehat, (m - self.nep.m)/self.model.Wq())
+            return s/norm
 

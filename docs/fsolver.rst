@@ -1,3 +1,4 @@
+==========================================
 Non-Ergodicity Parameters and Eigenvectors
 ==========================================
 
@@ -23,7 +24,7 @@ the associated eigenvalues, and related quantities.
 .. include:: <isolat1.txt>
 
 Nonergodicity Parameter
------------------------
+=======================
 
 .. autoclass:: mctpy.nonergodicity_parameter
     :members:
@@ -83,9 +84,25 @@ Nonergodicity Parameter
 
     .. [2] T. Franosch and Th. Voigtmann, J. Stat. Phys. 109, 237 (2002), `DOI:10.1023/A:1019991729106 <https://doi.org/10.1023/A:1019991729106>`_
 
+
 Critical Eigenvector and -value
--------------------------------
+===============================
 
 .. autoclass:: mctpy.eigenvalue
    :members:
    :inherited-members:
+
+
+Distance parameter
+==================
+
+The MCT distance parameter :math:`\sigma` is calculated from the vertex
+difference of a non-critical point to a given critical point. It is
+defined as, for a scalar model
+
+.. math::
+
+   \sigma = \frac{\left(\hat e_q,(m_q[f^c] - m^c_q[f^c])\right)}
+   {\left(\hat e_q,e_q(1-f^c_q)e_q\right)}
+
+The method `mctpy.eigenvalue.sigma` allows to calculate that sum.
