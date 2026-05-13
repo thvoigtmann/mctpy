@@ -334,7 +334,7 @@ def filon_integrate(f,x,G0,G1):
     f : array_like
         Function values on the grid `x`
     x : array_like
-	Points corresponding to the function values `f`.
+	    Points corresponding to the function values `f`.
     G0 : callable
         Analytic implementation of the integral over the weight function.
     G1 : callable

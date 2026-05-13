@@ -156,31 +156,92 @@ plt.show()
 We now specify a packing fraction somewhat below the ciritcal point and solve for the dynamical correlation function.
 
 ```{code-cell} ipython3
-Sq = mct.structurefactors.hssPY(0.515)
-model = mct.simple_liquid_model(Sq,qgrid)
-phi = mct.correlator (model = model, store=True)
+nlist = [-3,-6,-9,-12,0,9,6,3]
+philist = mct.CorrelatorStack()
+for n in nlist:
+    phi = phi_c*(1 + np.sign(n)*10**(-np.abs(n)/3.))
+    Sq = mct.structurefactors.hssPY(phi)
+    model = mct.simple_liquid_model(Sq,qgrid)
+    philist.append(mct.correlator (model = model, store=True))
 ```
 
 ```{code-cell} ipython3
-pbar = tqdm(total=phi.blocks+1)
-phi.solve_all(callback=lambda d,bs2,bs,c: pbar.update(1))
-pbar.close()
+philist.solve_all(progress_bar=tqdm)
 ```
 
 Pick a few typical wave numbers and plot the result:
 
 ```{code-cell} ipython3
-qvals = [3.4,7.4,12.2]
+#qvals = [3.4,7.4,12.2]
+qvals = [7.0, 10.6]
 qis = np.array([np.nonzero(np.isclose(qgrid,qval)) for qval in qvals],dtype=int).reshape(-1)
 ```
 
+Compare this to Fig. 4 in the 1997 PRE:
+
 ```{code-cell} ipython3
-for qi in qis:
-    plt.plot(phi.t, phi.phi[:,qi], label=r'$q = {:.1f}$'.format(qgrid[qi]))
-plt.xscale('log')
-plt.xlabel(r'$t$')
-plt.ylabel(r'$\phi(q,t)$')
-plt.legend()
+fig, ax = plt.subplots(nrows=2, ncols=1)
+for i, qi in enumerate(qis):
+    ltxt = r'$q = {:.1f}$'.format(qgrid[qi])
+    for phi in philist:
+        ax[i].plot(phi.t, phi.phi[:,qi], label=ltxt)
+        ltxt = ''
+    ax[i].set_xscale('log')
+    ax[i].set_xlabel(r'$t$')
+    ax[i].set_ylabel(r'$\phi(q,t)$')
+    ax[i].legend()
+plt.show()
+```
+
+Filon transform, in order to recreate the spectra shown in Fig. 5 and Fig. 6 of the PRE.
+
+```{code-cell} ipython3
+wrange = 160*10**np.linspace(-12,2,100)
+chidlist = []
+chiddlist = []
+for phi in philist:
+    # for Q qvectors out of M, T time points and W frequency points
+    # f has shape (T,M)
+    f = phi.phi - phi.phi[-1] # subtract finite last value to omit delta contribution
+    t_, w_ = np.meshgrid(phi.t, wrange)
+    f_, _ = np.meshgrid(f[:,qis].T, wrange)
+    # f_ now has shape (W, Q*T) since meshgrid flattens
+    # reshape back to (W,Q,T), transpose to (Q,W,T)
+    f_ = np.transpose(f_.reshape(wrange.shape[0],qis.shape[0],-1),axes=(1,0,2))
+    # works because t_ has shape (W,T)
+    chidlist.append(mct.util.filon_sin_transform(f_,t_,w_))
+    chiddlist.append(mct.util.filon_cos_transform(f_,t_,w_))
+```
+
+```{code-cell} ipython3
+fig, ax = plt.subplots(nrows=2, ncols=1)
+for i, qi in enumerate(qis):
+    ltxt = r'$q = {:.1f}$'.format(qgrid[qi])
+    for chi in chiddlist:
+        ax[i].plot(wrange, chi[i], label=ltxt)
+        ltxt = ''
+    ax[i].set_xscale('log')
+    ax[i].set_yscale('log')
+    ax[i].set_ylim(0.001,1e10)
+    ax[i].set_xlabel(r'$t$')
+    ax[i].set_ylabel(r'$\phi(q,t)$')
+    ax[i].legend()
+plt.show()
+```
+
+```{code-cell} ipython3
+fig, ax = plt.subplots(nrows=2, ncols=1)
+for i, qi in enumerate(qis):
+    ltxt = r'$q = {:.1f}$'.format(qgrid[qi])
+    for chi in chiddlist:
+        ax[i].plot(wrange, wrange*chi[i], label=ltxt)
+        ltxt = ''
+    ax[i].set_xscale('log')
+    ax[i].set_yscale('log')
+    ax[i].set_ylim(0.001,1)
+    ax[i].set_xlabel(r'$t$')
+    ax[i].set_ylabel(r'$\phi(q,t)$')
+    ax[i].legend()
 plt.show()
 ```
 
