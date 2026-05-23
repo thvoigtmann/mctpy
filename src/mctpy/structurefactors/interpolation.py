@@ -67,6 +67,13 @@ class dataMixtureSq:
         the upper triangular matrix for each q.
         'lower_triangular' : sq should have shape (M,S(S+1)/2) and gives
         the lower triangular matrix for each q.
+        The difference between the last two is in the ordering of indices:
+        for example, in a 3x3 matrix
+            upper_triangular        lower_triangular
+            0 1 2                   0
+              3 4                   1 2
+                5                   3 4 5
+        (For 2x2 matrices it does not matter.)
     normalization : string
         'densities': sq data approaches the unit matrix set by the
         number densities at large q
