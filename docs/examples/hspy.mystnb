@@ -210,6 +210,10 @@ plt.show()
 Filon transform, in order to recreate the spectra shown in Fig. 5 and Fig. 6 of the PRE.
 
 ```{code-cell} ipython3
+---
+jupyter:
+  source_hidden: true
+---
 wrange = 160*10**np.linspace(-12,2,100)
 chidlist = []
 chiddlist = []

@@ -46,6 +46,11 @@ long warm-up times when running even simple code. This code base is mostly
 intended to provide an easy entry point for people wanting to understand,
 use, modify and extend the core numerics behind MCT.
 
+WARNING: This code is still in its "rapid prototyping" phase. In particular
+not all things are as thoroughly tested as they should be - use at your
+own risk. Also, as long as the version number starts with 0, the API
+should not be considered fully stable.
+
 
 Overview
 --------
