@@ -193,6 +193,20 @@ for i, qi in enumerate(qis):
 plt.show()
 ```
 
+```{code-cell} ipython3
+fig, ax = plt.subplots(nrows=2, ncols=1)
+for i, qi in enumerate(qis):
+    ltxt = r'$q = {:.1f}$'.format(qgrid[qi])
+    for phi in philist:
+        ax[i].plot(phi.t[1:], np.gradient(phi.phi[1:,qi],np.log(phi.t[1:])), label=ltxt)
+        ltxt = ''
+    ax[i].set_xscale('log')
+    ax[i].set_xlabel(r'$t$')
+    ax[i].set_ylabel(r'$\phi(q,t)$')
+    ax[i].legend()
+plt.show()
+```
+
 Filon transform, in order to recreate the spectra shown in Fig. 5 and Fig. 6 of the PRE.
 
 ```{code-cell} ipython3
@@ -248,10 +262,11 @@ plt.show()
 Since we have stored the solutions and the nonergodicity parameters, it is relatively easy to extract, for example, the structural relaxation times:
 
 ```{code-cell} ipython3
-tau_indices = phi.phi.shape[0] - np.sum(phi.phi/nep.f<=0.1,axis=0)
-tau_indices[tau_indices>=phi.phi.shape[0]] = -1
-tau = phi.t[tau_indices]
-plt.plot(model.q,tau)
+for phi in philist[:4]:
+    tau_indices = phi.phi.shape[0] - np.sum(phi.phi/nep.f<=0.1,axis=0)
+    tau_indices[tau_indices>=phi.phi.shape[0]] = -1
+    tau = phi.t[tau_indices]
+    plt.plot(model.q,tau)
 plt.yscale('log')
 plt.xlabel(r'$qd$')
 plt.ylabel(r'$\tau_q$')
@@ -261,10 +276,10 @@ plt.show()
 Let us add tagged-particle dynamics. This uses the fact that the collective dynamics has been calculated and stored above, and the solver can use this cached solution.
 
 ```{code-cell} ipython3
-cs = mct.structurefactors.hssPYtagged(phi=Sq.phi,delta=1)
-model_s = mct.tagged_particle_model (model, cs=cs, D0s=1)
-phi_s = mct.correlator (model = model_s, base=phi, store = True)
-correlators = mct.CorrelatorStack([phi,phi_s])
+cs = mct.structurefactors.hssPYtagged(phi=philist[2].model.Sq.phi,delta=1)
+model_s = mct.tagged_particle_model (philist[2].model, cs=cs, D0s=1)
+phi_s = mct.correlator (model = model_s, base=philist[2], store = True)
+correlators = mct.CorrelatorStack([philist[2],phi_s])
 ```
 
 The tagged-particle correlator also allows to calculate the mean-squared displacement (MSD), and the non-Gaussian parameter (NGP). These essentially arise from the first two leading orders of a small-$q$ expansion of the memory kernel, which is implemented as separate models.
@@ -315,7 +330,7 @@ plt.show()
 With the tagged-particle solution at hand, we can also update the relaxation-time plot:
 
 ```{code-cell} ipython3
-for corr,f in [(phi,nep.f),(phi_s,nep_s.f)]:
+for corr,f in [(philist[2],nep.f),(phi_s,nep_s.f)]:
     tau_indices = corr.phi.shape[0] - np.sum(corr.phi/f<=0.01,axis=0)
     tau_indices[tau_indices>=corr.phi.shape[0]] = -1
     tau = corr.t[tau_indices]
@@ -329,9 +344,11 @@ plt.show()
 The following tests the $q^2$-scaling of the short-time dynamics.
 
 ```{code-cell} ipython3
-for qi, q in enumerate(qgrid):
-    plt.plot(phi.t*q*q/sq[qi], 1-phi.phi[:,qi], label=r'$q = {:.1f}$'.format(qgrid[qi]))
-    plt.plot(phi_s.t*q*q, 1-phi_s.phi[:,qi], label=r'$q = {:.1f}$'.format(qgrid[qi]))
+for phi in [philist[2]]:
+    for qi, q in enumerate(qgrid):
+        if qi > 2:
+            plt.plot(phi.t*q*q/sq[qi], 1-phi.phi[:,qi], label=r'$q = {:.1f}$'.format(qgrid[qi]))
+        plt.plot(phi_s.t*q*q, 1-phi_s.phi[:,qi], label=r'$q = {:.1f}$'.format(qgrid[qi]))
 plt.plot(phi_s.t,phi_s.t,color='black',linestyle='dashed')
 plt.xscale('log')
 plt.xlabel(r'$q^2t/S_q$')
