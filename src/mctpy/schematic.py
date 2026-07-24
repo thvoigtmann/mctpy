@@ -110,6 +110,15 @@ class f12model (model_base):
         def dm2(m, phi, dphi):
             m[:] = (1-phi)**2 * v2 * dphi*dphi * (1-phi)**2
         return dm2
+    def h5save (self, fh):
+        # FIXME make this more generic in parent model, check what to save
+        # where is the information on the dynamics?
+        grp = fh.create_group("model")
+        grp.attrs['type'] = 'f12model'
+        grp.attrs['v1'] = self.v1
+        grp.attrs['v2'] = self.v2
+        if self.delta is not None:
+            grp.attrs['delta'] = self.delta
 
 class f12gammadot_model (f12model):
     r"""Schematic F12-gammadot model.
