@@ -80,34 +80,36 @@ class f12model (model_base):
         return 1
     def hopping (self):
         return self.delta
+    def kernel_extra_args (self):
+        return [self.v1,self.v2]
     def make_kernel (self):
         """Kernel-factory method.
 
         Returns njit-able function to evaluate the F12 model."""
-        v1 = self.v1
-        v2 = self.v2
+        #v1 = self.v1
+        #v2 = self.v2
         @njit
-        def ker(m, phi, i, t):
+        def ker(m, phi, i, t, v1, v2):
             m[:] = v1*phi + v2*phi*phi
         return ker
     def make_dm (self):
-        v1 = self.v1
-        v2 = self.v2
+        #v1 = self.v1
+        #v2 = self.v2
         @njit
-        def dm(m, phi, dphi):
+        def dm(m, phi, dphi, v1, v2):
             m[:] = (1-phi) * (v1 * dphi + 2*v2 * phi*dphi) * (1-phi)
         return dm
     def make_dmhat (self):
-        v1 = self.v1
-        v2 = self.v2
+        #v1 = self.v1
+        #v2 = self.v2
         @njit
-        def dmhat(m, f, ehat):
+        def dmhat(m, f, ehat, v1, v2):
             m[:] = (1-f)*(v1*ehat + 2*v2 * f*ehat)*(1-f)
         return dmhat
     def make_dm2 (self):
-        v2 = self.v2
+        #v2 = self.v2
         @njit
-        def dm2(m, phi, dphi):
+        def dm2(m, phi, dphi, v1, v2):
             m[:] = (1-phi)**2 * v2 * dphi*dphi * (1-phi)**2
         return dm2
     def h5save (self, fh):
@@ -119,6 +121,72 @@ class f12model (model_base):
         grp.attrs['v2'] = self.v2
         if self.delta is not None:
             grp.attrs['delta'] = self.delta
+
+class fmnmodel (model_base):
+    r"""Schematic Fmn model.
+
+    Declares a single memory kernel of polynomial form,
+    :math:`m[f] = \sum_n v_n f^n`
+    where the `n` run over a given set of integers.
+
+    This encompasses some typical models used in the literature,
+    for example the F12 model (which is used so often, it has its
+    specific own implementation, `f12model`), or the F13 or F123 models.
+
+    Parameters
+    ----------
+    args : array of (int,float) tuples
+        In the tuples (n,vn) indicate the power and the coupling coefficient.
+    delta : float, default: None
+        Hopping parameter.
+    """
+    def __init__ (self, args, delta=None):
+        model_base.__init__ (self)
+        self.args = args
+        for n,vn in args:
+            assert n == int(n)
+        self.delta = delta
+    def __len__ (self):
+        return 1
+    def hopping (self):
+        return self.delta
+    def kernel_extra_args (self):
+        return self.args
+    def make_kernel (self):
+        @njit
+        def ker (m, phi, i, t, *args):
+            res = 0.*phi
+            for n,vn in args:
+                res += vn*phi**n
+            m[:] = res
+        return ker
+    def make_dm (self):
+        @njit
+        def dm (m, phi, dphi, *args):
+            res = 0.*phi
+            for n,vn in args:
+                res += (1-phi) * n *vn * phi**(n-1) * dphi * (1-phi)
+            m[:] = res
+        return dm
+    def make_dmhat (self):
+        @njit
+        def dmhat (m, f, ehat, *args):
+            res = 0.*f
+            for n,vn in args:
+                res += (1-f) * n *vn * f**(n-1) * ehat * (1-f)
+            m[:] = res
+        return dmhat
+
+    def make_dm2 (self):
+        @njit
+        def dm2 (m, phi, dphi, *args):
+            res = 0.*phi
+            for n,vn in args:
+                if n>1:
+                    res += (1-phi)**2 * n*(n-1)*vn * phi**(n-2) * dphi**2 * (1-phi)**2
+            m[:] = res
+        return dm2
+
 
 class f12gammadot_model (f12model):
     r"""Schematic F12-gammadot model.
@@ -310,34 +378,36 @@ class bosse_krieger_model (model_base):
         self.v3 = v3
     def __len__ (self):
         return 2
+    def kernel_extra_args (self):
+        return [self.v1,self.v2,self.v3]
     def make_kernel (self):
-        v1, v2, v3 = self.v1, self.v2, self.v3
+        #v1, v2, v3 = self.v1, self.v2, self.v3
         @njit
-        def ker (m, phi, i, t):
+        def ker (m, phi, i, t, v1, v2, v3):
             m[0] = v1 * phi[0]*phi[0] + v2 * phi[1]*phi[1]
             m[1] = v3 * phi[0]*phi[1]
         return ker
     def make_dm (self):
-        v1, v2, v3 = self.v1, self.v2, self.v3
+        #v1, v2, v3 = self.v1, self.v2, self.v3
         @njit
-        def dm (m, phi, dphi):
+        def dm (m, phi, dphi, v1, v2, v3):
             dp = (1-phi)**2 * dphi
             m[0] = 2.*v1*phi[0]*dp[0] + 2.*v2*phi[1]*dp[1]
             m[1] = v3 * (phi[0]*dp[1] + phi[1]*dp[0])
         return dm
     def make_dmhat (self):
-        v1, v2, v3 = self.v1, self.v2, self.v3
+        #v1, v2, v3 = self.v1, self.v2, self.v3
         @njit
-        def dmhat (m, f, ehat):
+        def dmhat (m, f, ehat, v1, v2, v3):
             m[0] = 2.*v1*f[0]*ehat[0]*(1-f[0])**2 \
                    +v3*f[1]*ehat[1]*(1-f[0])**2
             m[1] = 2.*v2*f[1]*ehat[0]*(1-f[1])**2 \
                    +v3*f[0]*ehat[1]*(1-f[1])**2
         return dmhat
     def make_dm2 (self):
-        v1, v2, v3 = self.v1, self.v2, self.v3
+        #v1, v2, v3 = self.v1, self.v2, self.v3
         @njit
-        def dm2 (m, phi, dphi):
+        def dm2 (m, phi, dphi, v1, v2, v3):
             dp = (1-phi)**2 * dphi
             m[0] = v1*dp[0]*dp[0]+v2*dp[1]*dp[1]
             m[1] = v3 * dp[0]*dp[1]

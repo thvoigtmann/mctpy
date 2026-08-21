@@ -124,14 +124,14 @@ class nonergodicity_parameter (object):
 
 
 @njit
-def _esolve(e, dm, f, M, maxiter, accuracy):
+def _esolve(e, dm, f, M, maxiter, accuracy, *kernel_args):
     iterations = 0
     converged = False
     newe = np.ones(M)
     while (not converged and iterations < maxiter):
         e[:] = newe
         #newe = (1-f)*model.dm(f,self.e)*(1-f)
-        dm(newe,f,e)
+        dm(newe,f,e,*kernel_args)
         norm = np.sqrt(np.dot(newe,newe))
         if norm>1e-10: newe = newe/norm
         if np.isclose (newe, e, rtol=accuracy, atol=0.0).all():
@@ -140,7 +140,7 @@ def _esolve(e, dm, f, M, maxiter, accuracy):
     return norm
 
 @njit
-def _esolve_mat(e, dm, f, phi0, M, maxiter, accuracy):
+def _esolve_mat(e, dm, f, phi0, M, maxiter, accuracy, *kernel_args):
     iterations = 0
     converged = False
     newe = phi0.copy()
@@ -148,7 +148,7 @@ def _esolve_mat(e, dm, f, phi0, M, maxiter, accuracy):
     while (not converged and iterations < maxiter):
         iterations+=1
         e[:] = newe
-        dm(newe,f,e)
+        dm(newe,f,e,*kernel_args)
         for q in range(M):
             newe[q] = S_F[q] @ newe[q] @ S_F[q]
         norm = np.sqrt(np.dot(newe.reshape(-1),newe.reshape(-1)))
@@ -160,13 +160,13 @@ def _esolve_mat(e, dm, f, phi0, M, maxiter, accuracy):
     return norm
 
 @njit
-def _ehatsolve(ehat, dmhat, f, M, maxiter, accuracy):
+def _ehatsolve(ehat, dmhat, f, M, maxiter, accuracy, *kernel_args):
     iterations = 0
     converged = False
     newehat = np.ones(M)
     while (not converged and iterations < maxiter):
         ehat[:] = newehat
-        dmhat(newehat,f,ehat)
+        dmhat(newehat,f,ehat,*kernel_args)
         norm = np.sqrt(np.dot(newehat,newehat))
         if norm>1e-10: newehat = newehat/norm
         if np.isclose (newehat,ehat,rtol=accuracy,atol=0.0).all():
@@ -175,7 +175,7 @@ def _ehatsolve(ehat, dmhat, f, M, maxiter, accuracy):
     return norm
 
 @njit
-def _ehatsolve_mat(ehat, dmhat, f, phi0, M, maxiter, accuracy):
+def _ehatsolve_mat(ehat, dmhat, f, phi0, M, maxiter, accuracy, *kernel_args):
     iterations = 0
     converged = False
     newehat = phi0.copy()
@@ -186,7 +186,7 @@ def _ehatsolve_mat(ehat, dmhat, f, phi0, M, maxiter, accuracy):
         ehat[:] = newehat
         for q in range(M):
             tmp[q] = S_F[q] @ ehat[q] @ S_F[q]
-        dmhat(newehat,f,tmp)
+        dmhat(newehat,f,tmp,*kernel_args)
         norm = np.sqrt(np.dot(newehat.reshape(-1),newehat.reshape(-1)))
         if norm>1e-10: newehat = newehat/norm
         if np.isclose(newehat.reshape(-1),ehat.reshape(-1),
@@ -231,15 +231,15 @@ class eigenvalue (object):
             f = self.nep.f_[0]
             self.e = np.zeros(msize,dtype=model.dtype)
             self.ehat = np.zeros(msize,dtype=model.dtype)
-            self.eval = _esolve(self.e, self.dm, f, msize, self.maxiter, self.accuracy)
-            self.eval2 = _ehatsolve(self.ehat, self.dmhat, f, msize, self.maxiter, self.accuracy)
+            self.eval = _esolve(self.e, self.dm, f, msize, self.maxiter, self.accuracy, *self.nep.model.kernel_extra_args())
+            self.eval2 = _ehatsolve(self.ehat, self.dmhat, f, msize, self.maxiter, self.accuracy, *self.nep.model.kernel_extra_args())
         else:
             f = self.nep.f_[0].reshape(-1,dim,dim)
             self.e = np.zeros((len(model),dim,dim),dtype=model.dtype)
             self.ehat = np.zeros((len(model),dim,dim),dtype=model.dtype)
             phi0 = model.phi0()
-            self.eval = _esolve_mat(self.e, self.dm, f, phi0.reshape(-1,dim,dim), len(model), self.maxiter, self.accuracy)
-            self.eval2 = _ehatsolve_mat(self.ehat, self.dmhat, f, phi0.reshape(-1,dim,dim), len(model), self.maxiter, self.accuracy)
+            self.eval = _esolve_mat(self.e, self.dm, f, phi0.reshape(-1,dim,dim), len(model), self.maxiter, self.accuracy, *self.nep.model.kernel_extra_args())
+            self.eval2 = _ehatsolve_mat(self.ehat, self.dmhat, f, phi0.reshape(-1,dim,dim), len(model), self.maxiter, self.accuracy, *self.nep.model.kernel_extra_args())
 
         if self.eval > 0:
             dq = model.dq()
@@ -258,7 +258,7 @@ class eigenvalue (object):
             self.ehat = self.ehat * nr/(nl*nl)
             #self.lam = np.dot(self.ehat, (1-f)*self.dm2(f,self.e)*(1-f))
             L = np.zeros_like(self.e)
-            self.dm2(L,f,self.e)
+            self.dm2(L,f,self.e,*self.nep.model.kernel_extra_args())
             if model.scalar():
                 self.lam = np.dot(dq * self.ehat, L)
             else:
