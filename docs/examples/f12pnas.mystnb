@@ -4,13 +4,11 @@ jupytext:
     extension: .mystnb
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.16.4
+    jupytext_version: 1.19.5
 kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
   name: python3
-mystnb:
-  execution_timeout: -1
 ---
 
 # F12 Model with Shear
@@ -22,6 +20,7 @@ import matplotlib.pyplot as plt
 import scipy.linalg as la
 import itertools
 from tqdm.auto import tqdm
+import time
 ```
 
 ```{code-cell} ipython3
@@ -63,6 +62,7 @@ sigma = np.zeros((gammadot.shape[0], 3, 3))
 This code calculates the flow curve for the "upper convected" F12 model in simple shear:
 
 ```{code-cell} ipython3
+t0 = time.time()
 v1c, v2c = 2*(np.sqrt(2.)-1), 2.0
 v1, v2 = v1c - 1e-3/(np.sqrt(2)-1), v2c
 for i,gdot in enumerate(gammadot):
@@ -74,6 +74,41 @@ for i,gdot in enumerate(gammadot):
     #dB_ = np.array([dB(kappa0,gdot,t) for t in phi.t]).reshape(-1,3,3)
     #sigma[i] = scipy.integrate.trapezoid(dB_ * phi.phi[:,0,None,None]**2, x=phi.t, axis=0)
     sigma[i] = scipy.integrate.trapezoid(phi.shear_modulus(lc=False), x=phi.t, axis=0)
+print (f'took {time.time()-t0:.2f} seconds')
+```
+
+```{code-cell} ipython3
+t0 = time.time()
+v1c, v2c = 2*(np.sqrt(2.)-1), 2.0
+v1, v2 = v1c - 1e-3/(np.sqrt(2)-1), v2c
+model = mct.f12gammadot_tensorial_model (v1, v2, gammadot=gdot, gammac=0.1,
+                                         use_hhat=True, nu=1.0, kappa=kappa0)
+for i,gdot in enumerate(gammadot):
+    model.gammadot = gdot
+    phi = mct.correlator (model = model, store = True)
+    correlators = mct.CorrelatorStack([phi])
+    correlators.solve_all(stop_on_zero=True)
+    #dB_ = np.array([dB(kappa0,gdot,t) for t in phi.t]).reshape(-1,3,3)
+    #sigma[i] = scipy.integrate.trapezoid(dB_ * phi.phi[:,0,None,None]**2, x=phi.t, axis=0)
+    sigma[i] = scipy.integrate.trapezoid(phi.shear_modulus(lc=False), x=phi.t, axis=0)
+print (f'took {time.time()-t0:.2f} seconds')
+```
+
+```{code-cell} ipython3
+t0 = time.time()
+v1c, v2c = 2*(np.sqrt(2.)-1), 2.0
+v1, v2 = v1c - 1e-3/(np.sqrt(2)-1), v2c
+model = mct.f12gammadot_model (v1, v2, gammadot=0., gammac=0.1)
+for i,gdot in enumerate(gammadot):
+    model.gammadot = gdot
+    phi = mct.correlator (model = model, store = True)
+    correlators = mct.CorrelatorStack([phi])
+    correlators.solve_all(stop_on_zero=True)
+    #dB_ = np.array([dB(kappa0,gdot,t) for t in phi.t]).reshape(-1,3,3)
+    #sigma[i] = scipy.integrate.trapezoid(dB_ * phi.phi[:,0,None,None]**2, x=phi.t, axis=0)
+    #sigma[i] = scipy.integrate.trapezoid(phi.shear_modulus(lc=False), x=phi.t, axis=0)
+    sigma[i] = scipy.integrate.trapezoid(phi.shear_modulus(), x=phi.t, axis=0)
+print (f'took {time.time()-t0:.2f} seconds')
 ```
 
 Here is the flow curve (multiplied with a factor 100 that matches the convention used in a number of MCT papers, to get the values to reasonable magnitude).
@@ -84,6 +119,88 @@ plt.xscale('log')
 plt.yscale('log')
 plt.xlabel(r'$\dot\gamma$')
 plt.ylabel(r'$\sigma$')
+plt.show()
+```
+
+```{code-cell} ipython3
+gammadot = 10**np.linspace(0,-9,40)
+epsvals = np.sort(np.outer(10**np.linspace(-1,-4,7),[-1,1]).flatten())
+sigma = np.zeros((gammadot.shape[0],epsvals.shape[0]))
+tau = np.zeros_like(sigma)
+tau_eq = np.zeros_like(epsvals)
+```
+
+```{code-cell} ipython3
+epsvals
+```
+
+```{code-cell} ipython3
+t0 = time.time()
+v1c, v2c = 2*(np.sqrt(2.)-1), 2.0
+v1, v2 = v1c - 1e-3/(np.sqrt(2)-1), v2c
+model = mct.f12gammadot_model (v1, v2, gammadot=0., gammac=0.1)
+for j,eps in enumerate(epsvals):
+    v1 = v1c - eps/(np.sqrt(2)-1)
+    model.v1 = v1
+    model.gammadot = 0
+    phi = mct.correlator (model = model, store = True)
+    correlators = mct.CorrelatorStack([phi])
+    correlators.solve_all(stop_on_zero=True)
+    tau_indices = phi.phi.shape[0] - np.sum(phi.phi<=0.1,axis=0)
+    tau_indices[tau_indices>=phi.phi.shape[0]] = -1
+    tau_eq[j] = phi.t[tau_indices][0]
+print (f'took {time.time()-t0:.2f} seconds')
+```
+
+```{code-cell} ipython3
+t0 = time.time()
+v1c, v2c = 2*(np.sqrt(2.)-1), 2.0
+v1, v2 = v1c - 1e-3/(np.sqrt(2)-1), v2c
+model = mct.f12gammadot_model (v1, v2, gammadot=0., gammac=0.1)
+for j,eps in enumerate(epsvals):
+    v1 = v1c - eps/(np.sqrt(2)-1)
+    model.v1 = v1
+    for i,gdot in enumerate(gammadot):
+        model.gammadot = gdot
+        phi = mct.correlator (model = model, store = True)
+        correlators = mct.CorrelatorStack([phi])
+        correlators.solve_all(stop_on_zero=True)
+        tau_indices = phi.phi.shape[0] - np.sum(phi.phi<=0.1,axis=0)
+        tau_indices[tau_indices>=phi.phi.shape[0]] = -1
+        tau[i,j] = phi.t[tau_indices][0]
+        sigma[i,j] = scipy.integrate.trapezoid(phi.shear_modulus(), x=phi.t, axis=0)
+print (f'took {time.time()-t0:.2f} seconds')
+```
+
+```{code-cell} ipython3
+liq = epsvals>0
+```
+
+```{code-cell} ipython3
+plt.plot(gammadot, 500*sigma*(1+100*gammadot[:,None]**2))
+plt.xscale('log')
+plt.yscale('log')
+plt.xlabel(r'$\dot\gamma$')
+plt.ylabel(r'$\sigma$')
+plt.ylim(0.001,100)
+plt.savefig('/tmp/flowcurves.pdf',bbox_inches='tight',transparent=True)
+plt.show()
+```
+
+```{code-cell} ipython3
+liq = epsvals<0
+plt.plot(gammadot[:,None]*tau_eq, 500*sigma*(1+100*gammadot[:,None]**2))
+gr=10**np.linspace(-4,2,100)
+plt.plot(gr, 20*gr/(1+gr/0.04), linestyle='dashed',
+         label=r'$G\frac{\dot\gamma\tau}{1+\dot\gamma\tau/\gamma_c}$')
+plt.xscale('log')
+plt.yscale('log')
+plt.xlabel(r'$\dot\gamma\tau$')
+plt.ylabel(r'$\sigma$')
+plt.xlim(0.0001,100)
+plt.ylim(0.001,10)
+plt.legend()
+plt.savefig('/tmp/flowcurves_master.pdf',bbox_inches='tight',transparent=True)
 plt.show()
 ```
 

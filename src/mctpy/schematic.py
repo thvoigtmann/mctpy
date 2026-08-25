@@ -208,16 +208,28 @@ class f12gammadot_model (f12model):
         f12model.__init__(self, v1, v2)
         self.gammadot = gammadot
         self.gammac = gammac
+    def kernel_extra_args (self):
+        return [self.v1,self.v2,self.gammadot/self.gammac]
     def make_kernel (self):
-        v1 = self.v1
-        v2 = self.v2
+        #v1 = self.v1
+        #v2 = self.v2
         gammadot = self.gammadot
         gammac = self.gammac
         @njit
-        def ker(m, phi, i, t):
-            gt = gammadot*t / gammac
+        def ker(m, phi, i, t, v1, v2, gdot):
+            gt = gdot*t
             m[:] = (v1*phi + v2*phi*phi) * 1.0/(1.0 + gt*gt)
         return ker
+    def shear_modulus (self, phi, t):
+        """Return shear modulus.
+
+        Parameters
+        ----------
+        phi, t : array_like
+            Solution array as set by the solver.
+        """
+        return self.gammadot * phi[:,0]**2
+
 
 class f12gammadot_tensorial_model (f12gammadot_model):
     r"""Schematic F12-gammadot model, tensorial version.
@@ -254,13 +266,13 @@ class f12gammadot_tensorial_model (f12gammadot_model):
         self.use_hhat = use_hhat
         self.nu = nu
     def make_kernel (self):
-        v1 = self.v1
-        v2 = self.v2
-        gammadot = self.gammadot
-        gammac = self.gammac
-        nu = self.nu
+        #v1 = self.v1
+        #v2 = self.v2
+        #gammadot = self.gammadot
+        #gammac = self.gammac
+        #nu = self.nu
         @njit
-        def ker(m, phi, i, t):
+        def ker(m, phi, i, t, v1, v2, gdot):
             with objmode(ht='float64'):
                 ht = self.hhat(t)
             m[:] = (v1*phi + v2*phi*phi) * ht
