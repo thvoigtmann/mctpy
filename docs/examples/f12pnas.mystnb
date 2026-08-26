@@ -57,46 +57,32 @@ kappa0 = np.array([[0,1,0],[0,0,0],[0,0,0]])
 Define a set of flow rates and prepare an array to store the stress tensors:
 
 ```{code-cell} ipython3
-gammadot = 10**np.linspace(0,-9,10)
-sigma = np.zeros((gammadot.shape[0], 3, 3))
+gammadot = 10**np.linspace(0,-9,40)
+sigma_s = np.zeros((gammadot.shape[0], 3, 3))
 ```
 
-This code calculates the flow curve for the "upper convected" F12 model in simple shear:
-
-```{code-cell} ipython3
-t0 = time.time()
-v1c, v2c = 2*(np.sqrt(2.)-1), 2.0
-v1, v2 = v1c - 1e-3/(np.sqrt(2)-1), v2c
-for i,gdot in enumerate(gammadot):
-    model = mct.f12gammadot_tensorial_model (v1, v2, gammadot=gdot, gammac=0.1,
-                                             use_hhat=True, nu=1.0, kappa=kappa0)
-    phi = mct.correlator (model = model, store = True)
-    correlators = mct.CorrelatorStack([phi])
-    correlators.solve_all(stop_on_zero=True)
-    #dB_ = np.array([dB(kappa0,gdot,t) for t in phi.t]).reshape(-1,3,3)
-    #sigma[i] = scipy.integrate.trapezoid(dB_ * phi.phi[:,0,None,None]**2, x=phi.t, axis=0)
-    sigma[i] = scipy.integrate.trapezoid(phi.shear_modulus(lc=False), x=phi.t, axis=0)
-print (f'took {time.time()-t0:.2f} seconds')
-```
+This code calculates the flow curve for the "upper convected" F12 model in simple shear: this is the tensorial version so that we can also get the normal-stress differences easily.
+We make use of the model being able to adapt the memory kernel parameters on-the-fly: one could instantiate the model instance inside the loop, but then the numba JIT would run afresh every time, which is significantly slower.
 
 ```{code-cell} ipython3
 t0 = time.time()
 v1c, v2c = 2*(np.sqrt(2.)-1), 2.0
 v1, v2 = v1c - 1e-3/(np.sqrt(2)-1), v2c
 model = mct.f12gammadot_tensorial_model (v1, v2, gammadot=gdot, gammac=0.1,
-                                         use_hhat=True, nu=1.0, kappa=kappa0)
+                                         use_hhat=False, nu=1.0, kappa=kappa0)
 for i,gdot in enumerate(gammadot):
     model.gammadot = gdot
     phi = mct.correlator (model = model, store = True)
     correlators = mct.CorrelatorStack([phi])
     correlators.solve_all(stop_on_zero=True)
-    #dB_ = np.array([dB(kappa0,gdot,t) for t in phi.t]).reshape(-1,3,3)
-    #sigma[i] = scipy.integrate.trapezoid(dB_ * phi.phi[:,0,None,None]**2, x=phi.t, axis=0)
-    sigma[i] = scipy.integrate.trapezoid(phi.shear_modulus(lc=False), x=phi.t, axis=0)
+    sigma_s[i] = scipy.integrate.trapezoid(phi.shear_modulus(lc=False), x=phi.t, axis=0)
 print (f'took {time.time()-t0:.2f} seconds')
 ```
 
+Calculating the shear stress with the simple-shear model is again significantly faster, because our implementation of the Finger-tensor arithmetic isn't optimal for the JIT. But gives us only the shear stress.
+
 ```{code-cell} ipython3
+sigma_scalar = np.zeros_like(gammadot)
 t0 = time.time()
 v1c, v2c = 2*(np.sqrt(2.)-1), 2.0
 v1, v2 = v1c - 1e-3/(np.sqrt(2)-1), v2c
@@ -106,17 +92,15 @@ for i,gdot in enumerate(gammadot):
     phi = mct.correlator (model = model, store = True)
     correlators = mct.CorrelatorStack([phi])
     correlators.solve_all(stop_on_zero=True)
-    #dB_ = np.array([dB(kappa0,gdot,t) for t in phi.t]).reshape(-1,3,3)
-    #sigma[i] = scipy.integrate.trapezoid(dB_ * phi.phi[:,0,None,None]**2, x=phi.t, axis=0)
-    #sigma[i] = scipy.integrate.trapezoid(phi.shear_modulus(lc=False), x=phi.t, axis=0)
-    sigma[i] = scipy.integrate.trapezoid(phi.shear_modulus(), x=phi.t, axis=0)
+    sigma_scalar[i] = scipy.integrate.trapezoid(phi.shear_modulus(), x=phi.t, axis=0)
 print (f'took {time.time()-t0:.2f} seconds')
 ```
 
 Here is the flow curve (multiplied with a factor 100 that matches the convention used in a number of MCT papers, to get the values to reasonable magnitude).
 
 ```{code-cell} ipython3
-plt.plot(gammadot, 100*sigma[:,0,1])
+plt.plot(gammadot, 100*sigma_s[:,0,1])
+plt.plot(gammadot, 100*sigma_scalar)
 plt.xscale('log')
 plt.yscale('log')
 plt.xlabel(r'$\dot\gamma$')
@@ -124,16 +108,27 @@ plt.ylabel(r'$\sigma$')
 plt.show()
 ```
 
+The following is a plot of the viscosity and of the normal-stress coefficient. This figure corresponds to a set of curves in Fig. 1 of the Brader et al. PNAS paper from 2009.
+
 ```{code-cell} ipython3
-gammadot = 10**np.linspace(0,-9,40)
+plt.plot(gammadot, 100*sigma_s[:,0,1]/gammadot, label='viscosity')
+plt.plot(gammadot, 100*sigma_s[:,0,0]/gammadot**2, label='normal stress coefficient')
+plt.xscale('log')
+plt.yscale('log')
+plt.xlabel(r'$\dot\gamma$')
+plt.ylabel(r'$\eta$, $\Psi_1$')
+plt.legend()
+plt.show()
+```
+
+Let us quickly check an entire set of flow curves. For this, we use the scalar model because it is faster. It also allows us to test a scaling plot: the flow curves plotted as functions of $\dot\gamma\tau$, where $\tau$ is the equilibrium relaxation time, should asymptotically approach a master curve of the form $x/(1+c x)$.
+
+```{code-cell} ipython3
+#gammadot = 10**np.linspace(0,-9,40)
 epsvals = np.sort(np.outer(10**np.linspace(-1,-4,7),[-1,1]).flatten())
 sigma = np.zeros((gammadot.shape[0],epsvals.shape[0]))
 tau = np.zeros_like(sigma)
 tau_eq = np.zeros_like(epsvals)
-```
-
-```{code-cell} ipython3
-epsvals
 ```
 
 ```{code-cell} ipython3
@@ -206,20 +201,7 @@ plt.savefig('/tmp/flowcurves_master.pdf',bbox_inches='tight',transparent=True)
 plt.show()
 ```
 
-The following is a plot of the viscosity and of the normal-stress coefficient. This figure corresponds to a set of curves in Fig. 1 of the Brader et al. PNAS paper from 2009.
-
-```{code-cell} ipython3
-plt.plot(gammadot, 100*sigma[:,0,1]/gammadot, label='viscosity')
-plt.plot(gammadot, 100*sigma[:,0,0]/gammadot**2, label='normal stress coefficient')
-plt.xscale('log')
-plt.yscale('log')
-plt.xlabel(r'$\dot\gamma$')
-plt.ylabel(r'$\eta$, $\Psi_1$')
-plt.legend()
-plt.show()
-```
-
-Calculate the stresses in extensional flow:
+Back to tensorial things: for the Trouton ratio we need to compare simple shear with extensional flow. Calculate the stresses in extensional flow:
 
 ```{code-cell} ipython3
 kappa0ext = np.array([[1,0,0],[0,-1,0],[0,0,0]])
@@ -230,13 +212,13 @@ sigmaext_lc = np.zeros((gammadot.shape[0],3,3))
 ```{code-cell} ipython3
 v1c, v2c = 2*(np.sqrt(2.)-1), 2.0
 v1, v2 = v1c - 1e-3/(np.sqrt(2)-1), v2c
+model = mct.f12gammadot_tensorial_model (v1, v2, gammadot=0., gammac=0.1,
+                                         use_hhat=True, nu=1.0, kappa=kappa0ext)
 for i,gdot in enumerate(gammadot):
-    model = mct.f12gammadot_tensorial_model (v1, v2, gammadot=gdot, gammac=0.1,
-                                             use_hhat=True, nu=1.0, kappa=kappa0ext)
+    model.gammadot = gdot
     phi = mct.correlator (model = model, store = True)
     correlators = mct.CorrelatorStack([phi])
     correlators.solve_all(stop_on_zero=True)
-    #dB_ = np.array([dB(kappa0ext,gdot,t) for t in phi.t]).reshape(-1,3,3)
     sigmaext[i] = scipy.integrate.trapezoid(phi.shear_modulus(lc=False), x=phi.t, axis=0)
     sigmaext_lc[i] = scipy.integrate.trapezoid(phi.shear_modulus(lc=True), x=phi.t, axis=0)
 ```
@@ -244,8 +226,8 @@ for i,gdot in enumerate(gammadot):
 This plot shows the Trouton ratio (another figure of the Brader PNAS):
 
 ```{code-cell} ipython3
-plt.plot(gammadot, (sigmaext[:,0,0]-sigmaext[:,1,1])/sigma[:,0,1])
-plt.plot(gammadot, (sigmaext_lc[:,0,0]-sigmaext_lc[:,1,1])/sigma[:,0,1])
+plt.plot(gammadot, (sigmaext[:,0,0]-sigmaext[:,1,1])/sigma_s[:,0,1])
+plt.plot(gammadot, (sigmaext_lc[:,0,0]-sigmaext_lc[:,1,1])/sigma_s[:,0,1])
 plt.xscale('log')
 plt.xlim(1e-9,1e-2)
 plt.ylim(0,4)
