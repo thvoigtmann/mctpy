@@ -86,28 +86,21 @@ class f12model (model_base):
         """Kernel-factory method.
 
         Returns njit-able function to evaluate the F12 model."""
-        #v1 = self.v1
-        #v2 = self.v2
         @njit
         def ker(m, phi, i, t, v1, v2):
             m[:] = v1*phi + v2*phi*phi
         return ker
     def make_dm (self):
-        #v1 = self.v1
-        #v2 = self.v2
         @njit
         def dm(m, phi, dphi, v1, v2):
             m[:] = (1-phi) * (v1 * dphi + 2*v2 * phi*dphi) * (1-phi)
         return dm
     def make_dmhat (self):
-        #v1 = self.v1
-        #v2 = self.v2
         @njit
         def dmhat(m, f, ehat, v1, v2):
             m[:] = (1-f)*(v1*ehat + 2*v2 * f*ehat)*(1-f)
         return dmhat
     def make_dm2 (self):
-        #v2 = self.v2
         @njit
         def dm2(m, phi, dphi, v1, v2):
             m[:] = (1-phi)**2 * v2 * dphi*dphi * (1-phi)**2
@@ -211,10 +204,6 @@ class f12gammadot_model (f12model):
     def kernel_extra_args (self):
         return [self.v1,self.v2,self.gammadot/self.gammac]
     def make_kernel (self):
-        #v1 = self.v1
-        #v2 = self.v2
-        gammadot = self.gammadot
-        gammac = self.gammac
         @njit
         def ker(m, phi, i, t, v1, v2, gdot):
             gt = gdot*t
@@ -265,12 +254,8 @@ class f12gammadot_tensorial_model (f12gammadot_model):
         self.kappa = kappa
         self.use_hhat = use_hhat
         self.nu = nu
+        self.fast_expm = fast_expm
     def make_kernel (self):
-        #v1 = self.v1
-        #v2 = self.v2
-        #gammadot = self.gammadot
-        #gammac = self.gammac
-        #nu = self.nu
         @njit
         def ker(m, phi, i, t, v1, v2, gdot):
             with objmode(ht='float64'):
@@ -317,13 +302,15 @@ class f12gammadot_tensorial_model (f12gammadot_model):
         lc : bool, default: False
             If True, calculate a lower-convected variant of the integral,
             default is to use upper-convected version.
+            This only affects this integral, not the memory kernel
+            itself, although one can imagine that the model parameter
+            `nu` might change accordingly (you have to do that by hand).
         """
         if not lc:
             dB_ = np.array([self.dB(td) for td in t]).reshape(-1,3,3)
         else:
             dB_ = np.array([-self.dBinv(td) for td in t]).reshape(-1,3,3)
         return dB_ * phi[:,0,None,None]**2
-
 
 class sjoegren_model (model_base):
     r"""Sj\ |ouml|\ gren model.
@@ -351,11 +338,10 @@ class sjoegren_model (model_base):
     def hopping (self):
         return self.deltas
     def kernel_extra_args (self):
-        return [self.base.phi]
+        return [self.base.phi, self.vs]
     def make_kernel (self):
-        vs = self.vs
         @njit
-        def ker(ms, phis, i, t, phi):
+        def ker(ms, phis, i, t, phi, vs):
             ms[:] = vs * phi[i] * phis
         return ker
 
@@ -369,11 +355,10 @@ class msd_model (model_base):
     def __len__ (self):
         return 1
     def kernel_extra_args (self):
-        return [self.base.phi]
+        return [self.base.phi, vs]
     def make_kernel (self):
-        vs = self.vs
         @njit
-        def ker(ms, phis, i, t, phi):
+        def ker(ms, phis, i, t, phi, vs):
             ms[:] = vs * phi[i] * phi[i]
         return ker
 
@@ -393,14 +378,12 @@ class bosse_krieger_model (model_base):
     def kernel_extra_args (self):
         return [self.v1,self.v2,self.v3]
     def make_kernel (self):
-        #v1, v2, v3 = self.v1, self.v2, self.v3
         @njit
         def ker (m, phi, i, t, v1, v2, v3):
             m[0] = v1 * phi[0]*phi[0] + v2 * phi[1]*phi[1]
             m[1] = v3 * phi[0]*phi[1]
         return ker
     def make_dm (self):
-        #v1, v2, v3 = self.v1, self.v2, self.v3
         @njit
         def dm (m, phi, dphi, v1, v2, v3):
             dp = (1-phi)**2 * dphi
@@ -408,7 +391,6 @@ class bosse_krieger_model (model_base):
             m[1] = v3 * (phi[0]*dp[1] + phi[1]*dp[0])
         return dm
     def make_dmhat (self):
-        #v1, v2, v3 = self.v1, self.v2, self.v3
         @njit
         def dmhat (m, f, ehat, v1, v2, v3):
             m[0] = 2.*v1*f[0]*ehat[0]*(1-f[0])**2 \
@@ -417,7 +399,6 @@ class bosse_krieger_model (model_base):
                    +v3*f[0]*ehat[1]*(1-f[1])**2
         return dmhat
     def make_dm2 (self):
-        #v1, v2, v3 = self.v1, self.v2, self.v3
         @njit
         def dm2 (m, phi, dphi, v1, v2, v3):
             dp = (1-phi)**2 * dphi
