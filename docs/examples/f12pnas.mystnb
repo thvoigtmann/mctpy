@@ -68,7 +68,7 @@ We make use of the model being able to adapt the memory kernel parameters on-the
 t0 = time.time()
 v1c, v2c = 2*(np.sqrt(2.)-1), 2.0
 v1, v2 = v1c - 1e-3/(np.sqrt(2)-1), v2c
-model = mct.f12gammadot_tensorial_model (v1, v2, gammadot=gdot, gammac=0.1,
+model = mct.f12gammadot_tensorial_model (v1, v2, gammadot=0., gammac=0.1,
                                          use_hhat=False, nu=1.0, kappa=kappa0)
 for i,gdot in enumerate(gammadot):
     model.gammadot = gdot
@@ -100,7 +100,7 @@ Here is the flow curve (multiplied with a factor 100 that matches the convention
 
 ```{code-cell} ipython3
 plt.plot(gammadot, 100*sigma_s[:,0,1])
-plt.plot(gammadot, 100*sigma_scalar)
+plt.plot(gammadot, 100*sigma_scalar, linestyle='dashed')
 plt.xscale('log')
 plt.yscale('log')
 plt.xlabel(r'$\dot\gamma$')
