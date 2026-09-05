@@ -70,6 +70,10 @@ class f12model (model_base):
         Coupling coefficients of the F12 model.
     delta : float, default: None
         Hopping parameter.
+
+    Notes
+    -----
+    The model allows changing `v1` and `v2` on-the-fly.
     """
     def __init__ (self, v1, v2, delta=None):
         model_base.__init__(self)
@@ -132,6 +136,12 @@ class fmnmodel (model_base):
         In the tuples (n,vn) indicate the power and the coupling coefficient.
     delta : float, default: None
         Hopping parameter.
+
+    Notes
+    -----
+    The model allows changing `args` on-the-fly,
+    however the sanity check that the powers are integers is then not
+    performed.
     """
     def __init__ (self, args, delta=None):
         model_base.__init__ (self)
@@ -196,6 +206,10 @@ class f12gammadot_model (f12model):
         The shear rate applied to the model.
     gammac : float, default=0.1
         Parameter setting a strain scale for the loss of correlations.
+
+    Notes
+    -----
+    The model allows changing `v1`, `v2`, `gammadot` and `gammac` on-the-fly.
     """
     def __init__ (self, v1, v2, gammadot=0.0, gammac=0.1):
         f12model.__init__(self, v1, v2)
@@ -246,6 +260,10 @@ class f12gammadot_tensorial_model (f12gammadot_model):
         Mixing parameter determining the fraction of the strain reduction
         that is driven by the first invariant of the Finger tensor over
         the second invariant.
+
+    Notes
+    -----
+    The model allows changing its parameters on the fly.
     """
     def __init__ (self, v1, v2, gammadot=0.0, gammac=0.1,
                   kappa=np.array([[0,1,0],[0,0,0],[0,0,0]],dtype=float),
@@ -256,6 +274,13 @@ class f12gammadot_tensorial_model (f12gammadot_model):
         self.nu = nu
         self.fast_expm = fast_expm
     def make_kernel (self):
+        # note: we need matrix exponentials and matrix inversion
+        # and use scipy.linalg for both here, but this does not work
+        # with numba njit unless we fall back to object mode;
+        # one could implement la.expm njit-able (6th order Pade approximants)
+        # and use np.linalg.inv which has a njit-able implementation,
+        # however some quick tests showed this to be not actually much
+        # faster than the object-mode fallback
         @njit
         def ker(m, phi, i, t, v1, v2, gdot):
             with objmode(ht='float64'):
@@ -327,6 +352,10 @@ class sjoegren_model (model_base):
         The model to couple this to, such as a F12 model.
     deltas : float, default: None
         Hopping parameter.
+
+    Notes
+    -----
+    The model allows changing its parameters on the fly.
     """
     def __init__ (self, vs, base_model, deltas=None):
         model_base.__init__(self)
@@ -367,7 +396,12 @@ class bosse_krieger_model (model_base):
     """Bosse-Krieger model.
 
     A two-correlator model famous for the discussion of higher-order
-    singularities."""
+    singularities.
+
+    Notes
+    -----
+    The model allows changing its parameters on the fly.
+    """
     def __init__ (self, v1, v2, v3):
         model_base.__init__(self)
         self.v1 = v1

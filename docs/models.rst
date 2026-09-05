@@ -424,7 +424,9 @@ Schematic Models for Sheared Systems
     :inherited-members:
 
     This model is the tensorial extension of
-    :py:class:`mctpy.f12gammadot_model`.
+    :py:class:`mctpy.f12gammadot_model`, also called the PNAS model
+    since it was first described in [Brader2009]_ in the journal PNAS.
+
     While it also works under simple shear, it is computationally more
     expensive since it needs to calculate the deformation tensors as
     matrix-exponentials of a given shear-rate tensor.
