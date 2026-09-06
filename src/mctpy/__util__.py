@@ -24,8 +24,35 @@ def void(nparray):
 
 
 class model_base (object):
-    def __init__ (self):
+    def __init__ (self, kernel=None, dm=None, dmhat=None, dm2=None,
+                  setV=None):
+        """Initialize the base features of any MCT model.
+        Parameters:
+        -----------
+        kernel, dm, dmhat, dm2, setV:
+            Should be njit-functions that will be called as the
+            memory kernels. These function entry points will be
+            returned by the `get_kernel` and related methods.
+            If either one is not set, `get_kernel` returns the
+            result of a call to the model's `make_kernel` method
+            (and similar for the others).
+            The setV method will be called just before the first
+            memory-kernel evaluation, once for each time step. This
+            is mostly used by tagged-particle models.
+        """
         self.dtype = np.dtype(float)
+        self.mdispatch = {}
+        if kernel:
+            self.mdispatch['kernel'] = kernel
+        if dm:
+            self.mdispatch['dm'] = dm
+        if dmhat:
+            self.mdispatch['dmhat'] = dmhat
+        if dm2:
+            self.mdispatch['dm2'] = dm2
+        if setV:
+            self.mdispatch['setV'] = setV
+        print(self,self.mdispatch)
     def __len__ (self):
         """The "length" of a model is the number of correlators.
         Typically, they are numbered by wave-number index `q`."""
@@ -75,55 +102,70 @@ class model_base (object):
         shape."""
         return np.ones(len(self)*self.vector_dimension())
     def set_base (self, array):
-        #self.phi = void(array)
+        # old style, baking pointers into njit functions (bad, but shorter
+        # call signatures if that matters at all):
+        #self.phi = void(array) # then to load with nparray(self.phi)
         self.phi = array
-    def cache (self):
-        if 'base' in dir(self): return False
-        return True
 
     def kernel_extra_args (self):
         return []
+    def kernel_extra_args_dm (self):
+        return self.kernel_extra_args()
+    def kernel_extra_args_dmhat (self):
+        return self.kernel_extra_args_dm()
+    def kernel_extra_args_dm2 (self):
+        return self.kernel_extra_args()
+    def set_V_args (self):
+        return ()
 
     def get_kernel (self):
-        if not self.cache() or not '__m__' in dir(self):
-            self.__m__ = self.make_kernel()
-        return self.__m__
+        if not 'kernel' in self.mdispatch:
+            self.mdispatch['kernel'] = self.make_kernel()
+        return self.mdispatch['kernel']
     def get_dm (self):
-        if not self.cache() or not '__dm__' in dir(self):
-            self.__dm__ = self.make_dm()
-        return self.__dm__
+        if not 'dm' in self.mdispatch:
+            self.mdispatch['dm'] = self.make_dm()
+        return self.mdispatch['dm']
     def get_dmhat (self):
-        if not self.cache() or not '__dmhat__' in dir(self):
-            self.__dmhat__ = self.make_dmhat()
-        return self.__dmhat__
+        if not 'dmhat' in self.mdispatch:
+            self.mdispatch['dmhat'] = self.make_dmhat()
+        return self.mdispatch['dmhat']
     def get_dm2 (self):
-        if not self.cache() or not '__dm2__' in dir(self):
-            self.__dm2__ = self.make_dm2()
-        return self.__dm2__
+        if not 'dm2' in self.mdispatch:
+            self.mdispatch['dm2'] = self.make_dm2()
+        return self.mdispatch['dm2']
+    def get_set_V (self):
+        if not 'setV' in self.mdispatch:
+            self.mdispatch['setV'] = self.make_set_V()
+        return self.mdispatch['setV']
 
+    def m (self, f):
+        r"""Short-hand for the memory function.
+        For given `f`, returns `m(f)`, which will be a newly created
+        array of the same shape as `f`.
+
+        Note that this is not intended to be called by the solvers,
+        who will pre-allocate arrays for the memory kernels and fill
+        them in-place. This is just a convenience wrapper."""
+        m_ = np.zeros_like (f)
+        self.get_kernel() (m_, f, 0, 0, *self.kernel_extra_args())
+        return m_
+
+    # TODO document how the signatures should in fact be
     def make_kernel (self):
-        @nb.njit
-        def dummy(m, phi, i, t):
-            return
-        return dummy
+        raise NotImplementedError
     def make_dm (self):
-        @nb.njit
-        def dummy(m, phi, dphi):
-            return
-        return dummy
+        raise NotImplementedError
+    def make_dmhat(self):
+        raise NotImplementedError
+    def make_dm2 (self):
+        raise NotImplementedError
+    # these are allowed to fail silently
+    def make_set_V (self):
+        return model_base_set_V
     def set_C (self, f):
         # can use this to pre-calculate stability matrix before make_dm
         return
-    def make_dmhat(self):
-        @nb.njit
-        def dummy(m, f, ehat):
-            return
-        return dummy
-    def make_dm2 (self):
-        @nb.njit
-        def dummy(m, phi, dphi):
-            return
-        return dummy
 
     def dq (self):
         """Return q-grid spacing.
@@ -134,6 +176,11 @@ class model_base (object):
 
     def h5save (self, fh):
         return
+
+@nb.njit(inline='always')
+def model_base_set_V (i):
+    return
+
 
 class loaded_model(model_base):
     def __init__ (self, h5data):

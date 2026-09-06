@@ -30,7 +30,7 @@ def _decimize (phi, m, dPhi, dM, blocksize):
         m[i] = m[di]
 
 @njit
-def _solve_block (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments, hopping, pre_m, *kernel_args):
+def _solve_block (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments, hopping, pre_m, set_V, kernel_V_args, *kernel_args):
 
     for i in range(istart,iend):
         mpre = pre_m[i-istart]
@@ -64,6 +64,7 @@ def _solve_block (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, kernel, max
         iterations = 0
         converged = False
         newphi = phi[i-1]
+        set_V (i, *kernel_V_args)
         while (not converged and iterations < maxiter):
             phi[i] = newphi
             kernel (m[i], phi[i], i, h*i, *kernel_args)
@@ -340,6 +341,7 @@ class correlator (CorrelatorBase):
 
         self.model = model
         self.jit_kernel = model.get_kernel()
+        self.jit_set_V = model.get_set_V()
 
         self.store = store
         self.solved = -2
@@ -414,6 +416,7 @@ class correlator (CorrelatorBase):
                 for i in range(iend):
                     t = i*self.h0
                     self.phi_[i] = phi0 + tauinv * t - omega * t*t/2
+                    self.jit_set_V (i, *self.model.set_V_args())
                     self.jit_kernel (self.m_[i], self.phi_[i], i, t,
                                      *self.model.kernel_extra_args())
             else:
@@ -421,6 +424,7 @@ class correlator (CorrelatorBase):
                 for i in range(iend):
                     t = i*self.h0
                     self.phi_[i] = phi0 - tauinv * t
+                    self.jit_set_V (i, *self.model.set_V_args())
                     self.jit_kernel (self.m_[i], self.phi_[i], i, t,
                                      *self.model.kernel_extra_args())
         else:
@@ -441,6 +445,7 @@ class correlator (CorrelatorBase):
                 for i in range(iend):
                     t = i*self.h0
                     self.phi_[i] = (phi0 + tauinv*t - omega*t*t/2).reshape(-1)
+                    self.jit_set_V (i, *self.model.set_V_args())
                     self.jit_kernel (self.m_[i].reshape(-1,self.dim,self.dim),
                                      self.phi_[i].reshape(-1,self.dim,self.dim),
                                      i, t, *self.model.kernel_extra_args())
@@ -453,6 +458,7 @@ class correlator (CorrelatorBase):
                 for i in range(iend):
                     t = i*self.h0
                     self.phi_[i] = (phi0 - tauinv * t).reshape(-1)
+                    self.jit_set_V (i, *self.model.set_V_args())
                     self.jit_kernel (self.m_[i].reshape(-1,self.dim,self.dim),
                                      self.phi_[i].reshape(-1,self.dim,self.dim),
                                      i, t, *self.model.kernel_extra_args())
@@ -498,7 +504,7 @@ class correlator (CorrelatorBase):
                 Bq = 0.
             if Xq is None:
                 Xq = 0.
-            _solve_block (istart, iend, self.h, Aq, Bq, self.model.Wq(), Xq, self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2), not (Xq is None), pre_m, *self.model.kernel_extra_args())
+            _solve_block (istart, iend, self.h, Aq, Bq, self.model.Wq(), Xq, self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2), not (Xq is None), pre_m, self.jit_set_V, self.model.set_V_args(), *self.model.kernel_extra_args())
         else:
             if 'kernel_prefactor' in dir(self.model):
                 raise NotImplementedError

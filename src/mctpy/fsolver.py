@@ -83,6 +83,7 @@ class nonergodicity_parameter (object):
         and `m` to the corresponding memory kernel.
         """
         self.model.set_base(self.f_)
+        self.model.get_set_V()(0, *self.model.set_V_args())
         if callback is not None and callback_every>0:
             blocks = self.maxiter//callback_every
             block_iter = callback_every
@@ -231,15 +232,15 @@ class eigenvalue (object):
             f = self.nep.f_[0]
             self.e = np.zeros(msize,dtype=model.dtype)
             self.ehat = np.zeros(msize,dtype=model.dtype)
-            self.eval = _esolve(self.e, self.dm, f, msize, self.maxiter, self.accuracy, *self.nep.model.kernel_extra_args())
-            self.eval2 = _ehatsolve(self.ehat, self.dmhat, f, msize, self.maxiter, self.accuracy, *self.nep.model.kernel_extra_args())
+            self.eval = _esolve(self.e, self.dm, f, msize, self.maxiter, self.accuracy, *self.nep.model.kernel_extra_args_dm())
+            self.eval2 = _ehatsolve(self.ehat, self.dmhat, f, msize, self.maxiter, self.accuracy, *self.nep.model.kernel_extra_args_dmhat())
         else:
             f = self.nep.f_[0].reshape(-1,dim,dim)
             self.e = np.zeros((len(model),dim,dim),dtype=model.dtype)
             self.ehat = np.zeros((len(model),dim,dim),dtype=model.dtype)
             phi0 = model.phi0()
-            self.eval = _esolve_mat(self.e, self.dm, f, phi0.reshape(-1,dim,dim), len(model), self.maxiter, self.accuracy, *self.nep.model.kernel_extra_args())
-            self.eval2 = _ehatsolve_mat(self.ehat, self.dmhat, f, phi0.reshape(-1,dim,dim), len(model), self.maxiter, self.accuracy, *self.nep.model.kernel_extra_args())
+            self.eval = _esolve_mat(self.e, self.dm, f, phi0.reshape(-1,dim,dim), len(model), self.maxiter, self.accuracy, *self.nep.model.kernel_extra_args_dm())
+            self.eval2 = _ehatsolve_mat(self.ehat, self.dmhat, f, phi0.reshape(-1,dim,dim), len(model), self.maxiter, self.accuracy, *self.nep.model.kernel_extra_args_dmhat())
 
         if self.eval > 0:
             dq = model.dq()
@@ -258,7 +259,7 @@ class eigenvalue (object):
             self.ehat = self.ehat * nr/(nl*nl)
             #self.lam = np.dot(self.ehat, (1-f)*self.dm2(f,self.e)*(1-f))
             L = np.zeros_like(self.e)
-            self.dm2(L,f,self.e,*self.nep.model.kernel_extra_args())
+            self.dm2(L,f,self.e,*self.nep.model.kernel_extra_args_dm2())
             if model.scalar():
                 self.lam = np.dot(dq * self.ehat, L)
             else:
@@ -288,8 +289,7 @@ class eigenvalue (object):
         """
         # TODO FIXME currently not implemented for mixtures
         # TODO test for vector-models
-        m = np.zeros_like (self.nep.f)
-        model_nc.make_kernel() (m, self.nep.f, 0, 0)
+        m = model_nc.m(self.nep.f)
         dq = self.nep.model.dq()
         vdim = self.nep.model.vector_dimension()
         if vdim > 1:
