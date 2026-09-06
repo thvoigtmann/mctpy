@@ -381,6 +381,8 @@ Hard-Sphere Mixtures
     Note that in contrast to the one-component HSS-PY structure factor,
     :py:class:`mctpy.structurefactors.hssPY`, we do not work with
     packing fractions here, but with the number densities.
+    See `mctpy.structurefactors.hsm_densities` for utility code to
+    convert between various representations for hard-sphere mixtures.
 
     The implementation is based on analytic expressions that follow from
     Fourier transforming the real-space expressions derived by Baxter
@@ -509,4 +511,8 @@ Hard-Sphere Mixtures
 
     .. [Baxter1970] R. J. Baxter, J. Chem. Phys. 52, 4559 (1970),
        `DOI:10.1063/1.1673684 <https://doi.org/10.1063/1.1673684>`_
+
+.. autoclass:: mctpy.structurefactors.hsm_densities
+    :members:
+    :inherited-members:
 
