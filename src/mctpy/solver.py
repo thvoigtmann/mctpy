@@ -96,65 +96,20 @@ def _solve_block (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, kernel, max
 #
 #
 @njit
-def _solve_block_mat (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, M, kernel, maxiter, accuracy, calc_moments, useA, useB, useX, *kernel_args):
+def _solve_block_mat (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, M, kernel, maxiter, accuracy, calc_moments, useA, useB, useX, set_V, kernel_V_args, *kernel_args):
 
     Ainv = np.zeros_like(Wq,dtype=phi.dtype)
     B = np.zeros_like(Wq,dtype=phi.dtype)
-    B0 = np.zeros_like(Wq,dtype=phi.dtype)
     C = np.zeros_like(Wq,dtype=phi.dtype)
     if useX:
         Cd = np.zeros_like(Wq,dtype=phi.dtype)
 
-    L = (Ainv.shape[1]-1)//2
-    lr = np.arange(-L,L+1)
-
     Ainv = Wq + dM[1] + Bq*1.5/h + Aq*2.0/h**2
-    if useX:
-        AinvX = Wq + dM[1] + Bq*1.5/h + Aq*2.0/h**2 #+ dM[1] @ Xq[q] * 0.5*h
-    Anotinv = Ainv.copy()
-    #X = np.ones((M,2*L+1,2*L+1),dtype=complex)*np.diag(np.ones(2*L+1))
-    Y = np.zeros_like(Ainv)
-    Y[:,L,L] = 1.0 + 0.0j
-    #X = X-Y
-    X = np.zeros_like(Ainv)
-    for l in lr:
-        if l<0:
-            X[:,L+l,L+l] = 1.0 + 0.0j
-        elif l>0:
-            X[:,L+l,L+l] = 1.0 + 0.0j
-    PY = np.zeros((M,2*L+1,1),dtype=phi.dtype)
-    PY[:,L,0] = 1.0
-    PX = np.zeros((M,2*L+1,2*L),dtype=phi.dtype)
-    for l in lr:
-        if l<0:
-            PX[:,L+l,L+l] = 1.0
-        elif l>0:
-            PX[:,L+l,L+l-1] = 1.0
-    A_D = np.zeros((M,1,1),dtype=phi.dtype)
-    A_B = np.zeros((M,2*L,1),dtype=phi.dtype)
-    A_C = np.zeros((M,1,2*L),dtype=phi.dtype)
-    A_A = np.zeros((M,2*L,2*L),dtype=phi.dtype)
-    L_A = np.zeros_like(A_A)
-    L_B = np.zeros_like(A_B)
-    L_C = np.zeros_like(A_C)
-    L_D = np.zeros_like(A_D)
-    schur = np.zeros_like(A_A)
     for q in range(M):
-        AinvX[q] += dM[1,q] @ Xq[q] * 0.5*h
-        A_A[q] = PX[q].T @ AinvX[q] @ PX[q]
-        A_B[q] = PX[q].T @ AinvX[q] @ PY[q]
-        A_C[q] = PY[q].T @ AinvX[q] @ PX[q]
-        A_D[q] = PY[q].T @ AinvX[q] @ PY[q]
-        schur[q] = A_A[q] - A_B[q] @ np.linalg.inv(A_D[q]) @ A_C[q]
-        schur[q] = np.linalg.inv(schur[q])
-        L_A[q] = schur[q]
-        L_B[q] = - schur[q] @ A_B[q] @ np.linalg.inv(A_D[q])
-        L_C[q] = - np.linalg.inv(A_D[q]) @ A_C[q] @ schur[q]
-        L_D[q] = np.linalg.inv(A_D[q]) + np.linalg.inv(A_D[q]) @ A_C[q] @ schur[q] @ A_B[q] @ np.linalg.inv(A_D[q])
+        if useX:
+            Ainv[q] += dM[1,q] @ Xq[q] * 0.5*h
         Ainv[q] = np.linalg.inv(Ainv[q])
-        AinvX[q] = np.linalg.inv(AinvX[q])
         B[q] = -dPhi[1,q] + phi[0,q]
-        B0[q] = -dPhi[1,q] + phi[0,q]
         if useX:
             B[q] -= Xq[q] @ dPhi[1,q] * 0.5*h
 
@@ -179,9 +134,8 @@ def _solve_block_mat (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, M, kern
             if (i-ibar > ibar):
                 for q in range(M):
                     Cd[q] += dM[k,q] @ Xq[q] @ (phi[i-ibar,q] + phi[i-ibar-1,q])
-            # tst
-            #for q in range(M):
-            #    C[q] += 0.5*h*Cd[q]
+            for q in range(M):
+                C[q] += 0.5*h*Cd[q]
 
         for q in range(M):
             C[q] += m[i-ibar,q] @ phi[ibar,q]
@@ -189,60 +143,17 @@ def _solve_block_mat (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, M, kern
                 C[q] += Bq[q] @ (-2*phi[i-1,q] + 0.5*phi[i-2,q]) / h
             if useA:
                 C[q] += Aq[q] @ (-5*phi[i-1,q] + 4*phi[i-2,q] - phi[i-3,q])/h**2
-            #C[q] = Ainv[q] @ C[q]
+            C[q] = Ainv[q] @ C[q]
 
         iterations = 0
         converged = False
         newphi = phi[i-1].copy()
-        newphiY = newphi.copy()
+        set_V (i, *kernel_V_args)
         while (not converged and iterations < maxiter):
             phi[i] = newphi
             kernel (m[i], phi[i], i, h*i, *kernel_args)
             for q in range(M):
-                # 3. strange idea
-                #newphi[q] = AinvX[q] @ (m[i,q] @ Xq[q] @ dPhi[1,q] *0.5*h - Cd[q]*0.5*h)
-                #newphiY[q] = Ainv[q] @ (m[i,q] @ B0[q] - C[q])
-                #newphi[q] = X[q] @ newphi[q] + Y[q] @ newphiY[q]
-                #
-                #newphiY[q] = Ainv[q] @ (m[i,q] @ B[q] - C[q]) - X[q] @ newphi[q] - AinvX[q] @ (Cd[q]*0.5*h + dM[1,q] @ Xq[q]*0.5*h @ phi[i,q])
-                #newphiY[q] = Ainv[q] @ (m[i,q] @ B0[q] - C[q])
-                #newphiY[q] = Ainv[q] @ (m[i,q] @ B0[q] - C[q]) - AinvX[q] @ (dM[1,q] @ Xq[q] @ Ainv[q] @ (m[i,q] @ B0[q] - C[q]) + m[i,q] @ Xq[q] @ dPhi[1,q] + Cd[q])*0.5*h
-                #newphi[q] = AinvX[q] @ (m[i,q] @ X[q] @ B[q] - X[q] @ C[q] - Cd[q]*0.5*h)
-                #newphi[q] = AinvX[q] @ (m[i,q] @ B[q] - C[q] - Cd[q]*0.5*h) - AinvX[q] @ (Anotinv[q] @ Y[q] @ phi[i,q])
-                #newphiY[q] = Ainv[q] @ (m[i,q] @ Y[q] @ B0[q] - Y[q] @ C[q])
-                #newphi[q] = X[q] @ newphi[q] + Y[q] @ newphiY[q]
-                # 2. inversion using Schur complement
-                #tmp = m[i,q] @ B[q] - C[q] - 0.5*h*Cd[q]
-                #tmp_A = PX[q].T @ tmp @ PX[q]
-                #tmp_B = PX[q].T @ tmp @ PY[q]
-                #tmp = m[i,q] @ B0[q] - C[q]
-                #tmp_C = PY[q].T @ tmp @ PX[q]
-                #tmp_D = PY[q].T @ tmp @ PY[q]
-                #newphi_A = L_A[q] @ tmp_A + L_B[q] @ tmp_C
-                #newphi_B = L_A[q] @ tmp_B + L_B[q] @ tmp_D
-                #newphi_C = L_C[q] @ tmp_A + L_D[q] @ tmp_C
-                #newphi_D = L_C[q] @ tmp_B + L_D[q] @ tmp_D
-                #newphi[q] = PX[q] @ newphi_A @ PX[q].T \
-                #          + PX[q] @ newphi_B @ PY[q].T \
-                #          + PY[q] @ newphi_C @ PX[q].T \
-                #          + PY[q] @ newphi_D @ PY[q].T
-                # 0. direct iteration
-                newphi[q] = AinvX[q] @ (m[i,q] @ B[q] - C[q] - Cd[q]*0.5*h)
-                # 1. semi-implicit iteration
-                #newphi[q] = Ainv[q] @ (m[i,q] @ B[q] - C[q] - Cd[q]*0.5*h)
-                #newphi[q] = Ainv[q] @ (m[i,q] @ B[q] - C[q])
-                #if useX:
-                #    newphi[q] -= Ainv[q] @ (Cd[q] + dM[1,q] @ Xq[q] @ phi[i,q]) * 0.5*h
-                #
-                # 3. bisection?
-
-                for l in lr:
-                    for ld in lr:
-                        if not (l-ld)%2: # even
-                            newphi[q,L+l,L+ld] = newphi[q,L+l,L+ld].real + 0.j
-                        else:
-                            newphi[q,L+l,L+ld] = newphi[q,L+l,L+ld].imag*1j + 0.0
-
+                newphi[q] = Ainv[q] @ m[i,q] @ B[q] - C[q]
             iterations += 1
             if np_isclose_all(newphi.reshape(-1), phi[i].reshape(-1),
                           rtol=accuracy, atol=accuracy):
@@ -513,8 +424,11 @@ class correlator (CorrelatorBase):
             if Bq is None:
                 Bq = np.zeros((1,self.dim,self.dim), dtype=self.model.dtype)
             if Xq is None:
+                use_X = False
                 Xq = np.zeros((1,self.dim,self.dim), dtype=self.model.dtype)
-            _solve_block_mat (istart, iend, self.h, Aq, Bq, self.model.Wq().reshape(-1,self.dim,self.dim), Xq, self.phi_.reshape(-1,self.mdimen,self.dim,self.dim), self.m_.reshape(-1,self.mdimen,self.dim,self.dim), self.dPhi_.reshape(-1,self.mdimen,self.dim,self.dim), self.dM_.reshape(-1,self.mdimen,self.dim,self.dim), self.mdimen, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2),not self.brownian,(self.damped or self.brownian),not (Xq is None),*self.model.kernel_extra_args())
+            else:
+                use_X = True
+            _solve_block_mat (istart, iend, self.h, Aq, Bq, self.model.Wq().reshape(-1,self.dim,self.dim), Xq, self.phi_.reshape(-1,self.mdimen,self.dim,self.dim), self.m_.reshape(-1,self.mdimen,self.dim,self.dim), self.dPhi_.reshape(-1,self.mdimen,self.dim,self.dim), self.dM_.reshape(-1,self.mdimen,self.dim,self.dim), self.mdimen, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2),not self.brownian,(self.damped or self.brownian),use_X,self.jit_set_V, self.model.set_V_args(), *self.model.kernel_extra_args())
 
     # new interface with reconstruction of already solved cases
     # does not call the jitted _solve_block directly because
