@@ -42,6 +42,10 @@ class model_base (object):
         """
         self.dtype = np.dtype(float)
         self.mdispatch = {}
+        self.set_kernels (kernel=kernel, dm=dm, dmhat=dmhat, dm2=dm2, setV=setV)
+        print(self,self.mdispatch)
+    def set_kernels (self, kernel=None, dm=None, dmhat=None, dm2=None,
+                     setV=None):
         if kernel:
             self.mdispatch['kernel'] = kernel
         if dm:
@@ -52,7 +56,6 @@ class model_base (object):
             self.mdispatch['dm2'] = dm2
         if setV:
             self.mdispatch['setV'] = setV
-        print(self,self.mdispatch)
     def __len__ (self):
         """The "length" of a model is the number of correlators.
         Typically, they are numbered by wave-number index `q`."""
