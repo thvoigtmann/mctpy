@@ -1,0 +1,145 @@
+---
+jupytext:
+  text_representation:
+    extension: .mystnb
+    format_name: myst
+    format_version: 0.13
+    jupytext_version: 1.19.5
+kernelspec:
+  display_name: Python 3 (ipykernel)
+  language: python
+  name: python3
+---
+
+```{code-cell} ipython3
+import numpy as np
+import matplotlib.pyplot as plt
+```
+
+```{code-cell} ipython3
+from tqdm import tqdm
+```
+
+```{code-cell} ipython3
+import numba
+def numbalog(log):
+    for t,ev in log.buffer:
+        if ev.status==numba.core.event.EventStatus.START:
+            fname = ev.data['dispatcher'].py_func.__name__
+            if ('solve' in fname) or ('ker' in fname) or ('model' in fname):
+                print("*",ev.data['dispatcher'].py_func.__name__,ev.data['args'])
+```
+
+```{code-cell} ipython3
+import mctpy as mct
+```
+
+```{code-cell} ipython3
+delta, xb = 0.6, 0.2
+from mctpy.structurefactors import hsm_densities
+```
+
+```{code-cell} ipython3
+qgrid = np.linspace(0.2,39.8,100)
+#qgrid = np.linspace(0.1,39.9,200)
+d = [1.0, delta]
+varphi = [0.5, 0.52]
+```
+
+```{code-cell} ipython3
+sqlist = []
+cslist = []
+for packing_fraction in varphi:
+    sq = mct.structurefactors.hsmPY(*hsm_densities(d).volume_fractions(phi=packing_fraction, xhat=xb))
+    plt.plot(qgrid, sq.Sq(qgrid)[0][:,0,0])
+    plt.plot(qgrid, sq.Sq(qgrid)[0][:,1,1])
+    plt.plot(qgrid, sq.Sq(qgrid)[0][:,0,1])
+    sqlist.append(sq)
+plt.show()
+```
+
+```{code-cell} ipython3
+model = mct.mixture_model (sq, qgrid)
+```
+
+```{code-cell} ipython3
+nep = mct.nonergodicity_parameter (model = model, accuracy=1e-8)
+nep.solve()
+nep.converged
+```
+
+```{code-cell} ipython3
+ev = mct.eigenvalue (nep)
+ev.solve()
+```
+
+```{code-cell} ipython3
+plt.plot(nep.model.q[1:], nep.f[1:,0,0]/nep.model.sq[1:,0,0], label='f00')
+plt.plot(nep.model.q[1:], nep.f[1:,1,1]/nep.model.sq[1:,1,1], label='f11')
+plt.plot(nep.model.q[1:], nep.f[1:,1,0]/np.sqrt(nep.model.sq[1:,0,0]*nep.model.sq[1:,1,1]), label='f10')
+plt.plot(nep.model.q[1:], nep.f[1:,0,1]/np.sqrt(nep.model.sq[1:,0,0]*nep.model.sq[1:,1,1]), label='f01',
+        linestyle='dashed')
+plt.xlabel(r'$qd$')
+plt.ylabel(r'$f(q)$, $f^s(q)$')
+plt.legend()
+plt.show()
+```
+
+```{code-cell} ipython3
+class evsearch_hsm:
+    def __init__ (self, delta, xbhat):
+        self.model = None
+        self.delta = delta
+        self.xbhat = xbhat
+    def calc_ev (self, phi):
+        Sq = mct.structurefactors.hsmPY(
+            *hsm_densities([1.0,self.delta]).volume_fractions(phi,self.xbhat))
+        #Sq = mct.structurefactors.hsmPY([6/np.pi*phi],[1.0]) # this works, same result as HSS
+        if self.model is None:
+            self.model = mct.mixture_model (Sq, qgrid)
+        else:
+            self.model.reinit (Sq)
+        nep = mct.nonergodicity_parameter (model = self.model, accuracy=1e-5)
+        nep.solve()
+        ev = mct.eigenvalue (nep, maxiter=1500)
+        ev.solve()
+        return ev
+#with numba.core.event.install_listener("numba:compile", numba.core.event.RecordingListener()) as log:
+phis, evs = mct.util.evscan (0.51, 0.52, evsearch_hsm(delta,xb).calc_ev, eps=1e-4)
+#numbalog(log)
+```
+
+```{code-cell} ipython3
+p=np.argmax([ev.eval for ev in evs])
+print("phi_c = {:.8f}(1), lambda = {:.3f}, ev = {:.6f}".format(phis[p],evs[p].lam,evs[p].eval))
+```
+
+```{code-cell} ipython3
+correlators = mct.CorrelatorStack()
+for packing_fraction, sq in zip(varphi, sqlist):
+    model = mct.mixture_model (sq, qgrid)
+    phi = mct.correlator (model = model, store = True, blocks=50)
+    correlators.append(phi)
+```
+
+```{code-cell} ipython3
+pbar = tqdm(total=phi.blocks+1)
+correlators.solve_all(callback=lambda d,bs2,bs,c: pbar.update(1),stop_condition=lambda c:np.isnan(c.phi).any())
+pbar.close()
+```
+
+```{code-cell} ipython3
+qval = 12.2
+qi = np.nonzero(np.isclose(qgrid,qval))[0][0]
+```
+
+```{code-cell} ipython3
+for packing_fraction, phi in zip(varphi, correlators):
+    plt.plot(phi.t, phi.phi[:,qi,0,0])
+plt.xscale('log')
+plt.show()
+```
+
+```{code-cell} ipython3
+
+```
