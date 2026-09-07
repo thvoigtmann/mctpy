@@ -282,23 +282,26 @@ class correlator (CorrelatorBase):
         self.mdimen = len(model)
         self.vdim = model.vector_dimension()
         self.dim = model.matrix_dimension()
-        msize = self.mdimen * self.vdim * self.dim**2
-        self.phi_ = np.zeros((self.blocksize,msize),dtype=model.dtype)
-        self.m_ = np.zeros((self.blocksize,msize),dtype=model.dtype)
-        self.dPhi_ = np.zeros((self.halfblocksize+1,msize),dtype=model.dtype)
-        self.dM_ = np.zeros((self.halfblocksize+1,msize),dtype=model.dtype)
+        if model.scalar():
+            self.shape = (self.mdimen * self.vdim,)
+            if self.vdim > 1:
+                self.phishape = (self.mdimen, self.vdim)
+            else:
+                self.phishape = self.shape
+        else:
+            self.shape = (self.mdimen * self.vdim, self.dim, self.dim)
+            if self.vdim > 1:
+                self.phishape = (self.mdimen, self.vdim, self.dim, self.dim)
+            else:
+                self.phishape = self.shape
+        self.phi_ = np.zeros((self.blocksize,*self.shape),dtype=model.dtype)
+        self.m_ = np.zeros((self.blocksize,*self.shape),dtype=model.dtype)
+        self.dPhi_ = np.zeros((self.halfblocksize+1,*self.shape),dtype=model.dtype)
+        self.dM_ = np.zeros((self.halfblocksize+1,*self.shape),dtype=model.dtype)
         if self.store:
             self.t = np.zeros(self.halfblocksize*(self.blocks+1))
-            if model.scalar():
-                if self.vdim == 1:
-                    self.phi = np.zeros((self.halfblocksize*(self.blocks+1),msize),dtype=model.dtype)
-                    self.m = np.zeros((self.halfblocksize*(self.blocks+1),msize),dtype=model.dtype)
-                else:
-                    self.phi = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen,self.vdim),dtype=model.dtype)
-                    self.m = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen,self.vdim),dtype=model.dtype)
-            else:
-                self.phi = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen*self.vdim,self.dim,self.dim),dtype=model.dtype)
-                self.m = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen*self.vdim,self.dim,self.dim),dtype=model.dtype)
+            self.phi = np.zeros((self.halfblocksize*(self.blocks+1),*self.phishape),dtype=model.dtype)
+            self.m = np.zeros((self.halfblocksize*(self.blocks+1),*self.phishape),dtype=model.dtype)
 
 
 
@@ -313,66 +316,52 @@ class correlator (CorrelatorBase):
         """
         iend = imax
         if (iend >= self.halfblocksize): iend = self.halfblocksize-1
-        phi0 = self.model.phi0()
         self.model.set_base(self.phi_)
-        if self.model.scalar():
-            if not self.brownian:
-                Aq = self.model.Aq()
-                if self.damped:
-                    phi0d = self.model.phi0d()
-                    tauinv = phi0d - self.model.Bq() * phi0d / (2*Aq)
-                else:
-                    tauinv = 0.
-                omega = self.model.Wq() * phi0 / Aq
-                for i in range(iend):
-                    t = i*self.h0
-                    self.phi_[i] = phi0 + tauinv * t - omega * t*t/2
-                    self.jit_set_V (i, *self.model.set_V_args())
-                    self.jit_kernel (self.m_[i], self.phi_[i], i, t,
-                                     *self.model.kernel_extra_args())
+        phi0 = self.model.phi0().reshape(self.shape)
+        if not self.brownian:
+            if self.model.scalar():
+                Aqinv = 1./self.model.Aq().reshape(self.shape)
             else:
-                tauinv = self.model.Wq() * phi0 / self.model.Bq()
-                for i in range(iend):
-                    t = i*self.h0
-                    self.phi_[i] = phi0 - tauinv * t
-                    self.jit_set_V (i, *self.model.set_V_args())
-                    self.jit_kernel (self.m_[i], self.phi_[i], i, t,
-                                     *self.model.kernel_extra_args())
-        else:
-            if not self.brownian:
-                Aqinv = self.model.Aqinv()
-                if self.damped:
-                    phi0d = self.model.phi0d()
-                    Bq = self.model.Bq()
-                    tauinv = np.zeros_like(phi0,dtype=self.model.dtype)
-                    for q in range(self.mdimen):
+                Aqinv = self.movel.Aqinv().reshape(self.shape)
+            if self.damped:
+                phi0d = self.model.phi0d().reshape(self.shape)
+                Bq = self.model.Bq().reshape(self.shape)
+                if self.model.scalar():
+                    tauinv = phi0d - Bq*phi0d / (2*Aq)
+                else:
+                    tauinv = np.zeros(self.shape,dtype=self.model.dtype)
+                    for q in range(self.shape[0]):
                         tauinv[q] = phi0d - Aqinv[q] @ Bq[q] @ phi0d/2
-                else:
-                    tauinv = 0.
-                WqSq = self.model.WqSq()
-                omega = np.zeros_like(phi0,dtype=self.model.dtype)
-                for q in range(self.mdimen*self.vdim):
-                    omega[q] = Aqinv[q] @ WqSq[q]
-                for i in range(iend):
-                    t = i*self.h0
-                    self.phi_[i] = (phi0 + tauinv*t - omega*t*t/2).reshape(-1)
-                    self.jit_set_V (i, *self.model.set_V_args())
-                    self.jit_kernel (self.m_[i].reshape(-1,self.dim,self.dim),
-                                     self.phi_[i].reshape(-1,self.dim,self.dim),
-                                     i, t, *self.model.kernel_extra_args())
             else:
-                tauinv = np.zeros_like(phi0,dtype=self.model.dtype)
-                Bqinv = self.model.Bqinv()
-                WqSq = self.model.WqSq()
-                for q in range(self.mdimen*self.vdim):
+                tauinv = 0.
+            if self.model.scalar():
+                omega = self.model.Wq().reshape(self.shape) * phi0 / Aq
+            else:
+                WqSq = self.model.WqSq().reshape(self.shape)
+                omega = np.zeros(self.shape,dtype=self.model.dtype)
+                for q in range(self.mdimen):
+                    omega[q] = Aqinv[q] @ WqSq[q]
+            for i in range(iend):
+                t = i*self.h0
+                self.phi_[i] = phi0 + tauinv * t - omega * t*t/2
+                self.jit_set_V (i, *self.model.set_V_args())
+                self.jit_kernel (self.m_[i], self.phi_[i], i, t,
+                                 *self.model.kernel_extra_args())
+        else: # self.brownian
+            if self.model.scalar():
+                tauinv = self.model.Wq().reshape(self.shape) * phi0 / self.model.Bq().reshape(self.shape)
+            else:
+                tauinv = np.zeros(self.shape,dtype=self.model.dtype)
+                Bqinv = self.model.Bqinv().reshape(self.shape)
+                WqSq = self.model.WqSq().reshape(self.shape)
+                for q in range(self.shape[0]):
                     tauinv[q] = Bqinv[q] @ WqSq[q]
-                for i in range(iend):
-                    t = i*self.h0
-                    self.phi_[i] = (phi0 - tauinv * t).reshape(-1)
-                    self.jit_set_V (i, *self.model.set_V_args())
-                    self.jit_kernel (self.m_[i].reshape(-1,self.dim,self.dim),
-                                     self.phi_[i].reshape(-1,self.dim,self.dim),
-                                     i, t, *self.model.kernel_extra_args())
+            for i in range(iend):
+                t = i*self.h0
+                self.phi_[i] = phi0 - tauinv * t
+                self.jit_set_V (i, *self.model.set_V_args())
+                self.jit_kernel (self.m_[i], self.phi_[i], i, t,
+                                 *self.model.kernel_extra_args())
         for i in range(1,iend):
             self.dPhi_[i] = 0.5 * (self.phi_[i-1] + self.phi_[i])
             self.dM_[i] = 0.5 * (self.m_[i-1] + self.m_[i])
@@ -395,15 +384,9 @@ class correlator (CorrelatorBase):
         if self.brownian:
             Aq = None
         else:
-            if self.model.scalar():
-                Aq = self.model.Aq()
-            else:
-                Aq = self.model.Aq().reshape(-1,self.dim,self.dim)
+            Aq = self.model.Aq().reshape(self.shape)
         if self.brownian or self.damped:
-            if self.model.scalar():
-                Bq = self.model.Bq()
-            else:
-                Bq = self.model.Bq().reshape(-1,self.dim,self.dim)
+            Bq = self.model.Bq().reshape(self.shape)
         else:
             Bq = None
         Xq = self.model.hopping()
@@ -428,7 +411,7 @@ class correlator (CorrelatorBase):
                 Xq = np.zeros((1,self.dim,self.dim), dtype=self.model.dtype)
             else:
                 use_X = True
-            _solve_block_mat (istart, iend, self.h, Aq, Bq, self.model.Wq().reshape(-1,self.dim,self.dim), Xq, self.phi_.reshape(-1,self.mdimen,self.dim,self.dim), self.m_.reshape(-1,self.mdimen,self.dim,self.dim), self.dPhi_.reshape(-1,self.mdimen,self.dim,self.dim), self.dM_.reshape(-1,self.mdimen,self.dim,self.dim), self.mdimen, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2),not self.brownian,(self.damped or self.brownian),use_X,self.jit_set_V, self.model.set_V_args(), *self.model.kernel_extra_args())
+            _solve_block_mat (istart, iend, self.h, Aq, Bq, self.model.Wq().reshape(-1,self.dim,self.dim), Xq, self.phi_, self.m_, self.dPhi_, self.dM_, self.mdimen, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2),not self.brownian,(self.damped or self.brownian),use_X,self.jit_set_V, self.model.set_V_args(), *self.model.kernel_extra_args())
 
     # new interface with reconstruction of already solved cases
     # does not call the jitted _solve_block directly because
@@ -452,29 +435,13 @@ class correlator (CorrelatorBase):
             if self.store:
                 N2 = self.halfblocksize
                 self.t[:N2] = self.h * np.arange(N2)
-                if self.model.scalar():
-                    if self.vdim == 1:
-                        self.phi[:N2,:] = self.phi_[:N2,:]
-                        self.m[:N2,:] = self.m_[:N2,:]
-                    else:
-                        self.phi[:N2,:] = self.phi_[:N2,:].reshape(N2,self.mdimen,self.vdim)
-                        self.m[:N2,:] = self.m_[:N2,:].reshape(N2,self.mdimen,self.vdim)
-                else:
-                    self.phi[:N2,:] = self.phi_[:N2,:].reshape(N2,self.mdimen,self.dim,self.dim)
-                    self.m[:N2,:] = self.m_[:N2,:].reshape(N2,self.mdimen,self.dim,self.dim)
+                self.phi[:N2,:] = self.phi_[:N2,:].reshape(N2,*self.phishape)
+                self.m[:N2,:] = self.m_[:N2,:].reshape(N2,*self.phishape)
             self.solved = -1
         else:
             N2 = self.halfblocksize
-            if self.model.scalar():
-                if self.vdim == 1:
-                    self.phi_[:N2,:] = self.phi[:N2,:]
-                    self.m_[:N2,:] = self.m[:N2,:]
-                else:
-                    self.phi_[:N2,:] = self.phi[:N2,:].reshape(N2,self.mdimen*self.vdim)
-                    self.m_[:N2,:] = self.m[:N2,:].reshape(N2,self.mdimen*self.vdim)
-            else:
-                self.phi_[:N2,:] = self.phi[:N2,:].reshape(N2,self.mdimen*self.dim**2)
-                self.m_[:N2,:] = self.m[:N2,:].reshape(N2,self.mdimen*self.dim**2)
+            self.phi_[:N2,:] = self.phi[:N2,:].reshape(N2,*self.shape)
+            self.m_[:N2,:] = self.m[:N2,:].reshape(N2,*self.shape)
             self.dPhi_[1:N2,:] = ((self.phi_[:N2-1,:] + self.phi_[1:N2,:])/2.)
             self.dM_[1:N2,:] = ((self.m_[:N2-1,:] + self.m_[1:N2,:])/2.)
     def solve_next (self, d):
@@ -495,30 +462,14 @@ class correlator (CorrelatorBase):
                 N2 = self.halfblocksize
                 N = self.blocksize
                 self.t[d*N2+N2:d*N2+N] = self.h * np.arange(N2,N)
-                if self.model.scalar():
-                    if self.vdim == 1:
-                        self.phi[d*N2+N2:d*N2+N,:] = self.phi_[N2:,:]
-                        self.m[d*N2+N2:d*N2+N,:] = self.m_[N2:,:]
-                    else:
-                        self.phi[d*N2+N2:d*N2+N,:] = self.phi_[N2:,:].reshape(N2,self.mdimen,self.vdim)
-                        self.m[d*N2+N2:d*N2+N,:] = self.m_[N2:,:].reshape(N2,self.mdimen,self.vdim)
-                else:
-                    self.phi[d*N2+N2:d*N2+N,:] = self.phi_[N2:,:].reshape(N2,self.mdimen,self.dim,self.dim)
-                    self.m[d*N2+N2:d*N2+N,:] = self.m_[N2:,:].reshape(N2,self.mdimen,self.dim,self.dim)
+                self.phi[d*N2+N2:d*N2+N,:] = self.phi_[N2:,:].reshape(N2,*self.phishape)
+                self.m[d*N2+N2:d*N2+N,:] = self.m_[N2:,:].reshape(N2,*self.phishape)
             self.solved = d
         else:
             N2 = self.halfblocksize
             N = self.blocksize
-            if self.model.scalar():
-                if self.vdim == 1:
-                    self.phi_[N2:,:] = self.phi[d*N2+N2:d*N2+N,:]
-                    self.m_[N2:,:] = self.m[d*N2+N2:d*N2+N,:]
-                else:
-                    self.phi_[N2:,:] = self.phi[d*N2+N2:d*N2+N,:].reshape(N2,self.mdim*self.vdim)
-                    self.m_[N2:,:] = self.m[d*N2+N2:d*N2+N,:].reshape(N2,self.mdim*self.vdim)
-            else:
-                self.phi_[N2:,:] = self.phi[d*N2+N2:d*N2+N,:].reshape(N2,self.mdimen*self.dim**2)
-                self.m_[N2:,:] = self.m[d*N2+N2:d*N2+N,:].reshape(N2,self.mdimen*self.dim**2)
+            self.phi_[N2:,:] = self.phi[d*N2+N2:d*N2+N,:].reshape(N2,*self.shape)
+            self.m_[N2:,:] = self.m[d*N2+N2:d*N2+N,:].reshape(N2,*self.shape)
 
     def shear_modulus (self, **kwargs):
         """Return the dynamical shear modulus evaluated from the solution.
