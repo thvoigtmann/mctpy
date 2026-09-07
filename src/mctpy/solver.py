@@ -1,14 +1,11 @@
 import numpy as np
 
-from numba import njit
+from numba import njit, literally
 
 import h5py
 
 from .__util__ import model_base, loaded_model, np_isclose_all, h5info
 from .util import exponents, CorrelatorBase
-
-import scipy.sparse.linalg
-from numba import objmode
 
 @njit
 def _decimize (phi, m, dPhi, dM, blocksize):
@@ -78,35 +75,19 @@ def _solve_block (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, kernel, max
                     dPhi[i] = 0.5 * (phi[i-1] + phi[i])
                     dM[i] = 0.5 * (m[i-1] + m[i])
 
-##@njit
-#def __ffunc__ (g, a0, b0):
-#    return 2*b0*g - g*g + a0
-#
-#def __find_f_impl__(x0, x1, a0, b0, accuracy):
-#    raise NotImplementedError
-#@overload(__find_f_impl__)
-#def __find_f_impl_overload__(x0, x1, a0, b0, accuracy):
-#    __rf__ = njit(regula_falsi)
-#    def rf (x0, x1, a0, b0, accuracy):
-#        return __rf__(__ffunc__, x0, x1, accuracy=accuracy, isclose=np_isclose_all, fargs=(a0,b0))
-#    return rf
-#@njit
-#def __find_f__ (x0, x1, a0, b0, accuracy):
-#    return __find_f_impl__(x0, x1, a0, b0, accuracy)
-#
-#
 @njit
 def _solve_block_mat (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, M, kernel, maxiter, accuracy, calc_moments, useA, useB, useX, set_V, kernel_V_args, *kernel_args):
 
+    use_hopping = literally(useX)
     Ainv = np.zeros_like(Wq,dtype=phi.dtype)
     B = np.zeros_like(Wq,dtype=phi.dtype)
     C = np.zeros_like(Wq,dtype=phi.dtype)
-    if useX:
+    if use_hopping:
         Cd = np.zeros_like(Wq,dtype=phi.dtype)
 
     Ainv = Wq + dM[1] + Bq*1.5/h + Aq*2.0/h**2
     for q in range(M):
-        if useX:
+        if use_hopping:
             Ainv[q] += dM[1,q] @ Xq[q] * 0.5*h
         Ainv[q] = np.linalg.inv(Ainv[q])
         B[q] = -dPhi[1,q] + phi[0,q]
@@ -124,7 +105,7 @@ def _solve_block_mat (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, M, kern
         if (i-ibar > ibar):
             for q in range(M):
                 C[q] += dM[k,q] @ (phi[i-ibar,q] - phi[i-ibar-1,q])
-        if useX:
+        if use_hopping:
             for q in range(M):
                 Cd[q] = m[i-1,q] @ Xq[q] @ dPhi[1,q] + dM[1,q] @ Xq[q] @ phi[i-1,q]
             for k in range(2,ibar+1):
@@ -148,7 +129,7 @@ def _solve_block_mat (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, M, kern
         iterations = 0
         converged = False
         newphi = phi[i-1].copy()
-        set_V (i, *kernel_V_args)
+        #set_V (i, *kernel_V_args)
         while (not converged and iterations < maxiter):
             phi[i] = newphi
             kernel (m[i], phi[i], i, h*i, *kernel_args)
@@ -411,7 +392,7 @@ class correlator (CorrelatorBase):
                 Xq = np.zeros((1,self.dim,self.dim), dtype=self.model.dtype)
             else:
                 use_X = True
-            _solve_block_mat (istart, iend, self.h, Aq, Bq, self.model.Wq().reshape(-1,self.dim,self.dim), Xq, self.phi_, self.m_, self.dPhi_, self.dM_, self.mdimen, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2),not self.brownian,(self.damped or self.brownian),use_X,self.jit_set_V, self.model.set_V_args(), *self.model.kernel_extra_args())
+            _solve_block_mat (istart, iend, self.h, Aq, Bq, self.model.Wq().reshape(self.shape), Xq, self.phi_, self.m_, self.dPhi_, self.dM_, self.mdimen, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2),not self.brownian,(self.damped or self.brownian),use_X,self.jit_set_V, self.model.set_V_args(), *self.model.kernel_extra_args())
 
     # new interface with reconstruction of already solved cases
     # does not call the jitted _solve_block directly because
