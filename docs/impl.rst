@@ -7,9 +7,44 @@ Implementing Models
 -------------------
 
 Models that should work with :py:class:`mctpy.correlator` or
-derived time-domain solvers need to implement the following
-methods:
+derived time-domain solvers need to dervice from :py:class:`mctpy.model_base`
+and implement the following methods:
 
+Kernel methods, of course. These include a kernel, i.e. the functional
+:math:`m[f]`, and optionally (if eigenvalue and lambda calculation shall
+be possible for the model) also the linearization of :math:`m[f+\delta f]`
+in :math:`\delta f`, as linear maps both for the right- and
+left-multiplication with :math:`\delta f`, and the second-order them.
+The kernels need to be `numba.njit`-able functions and need to be
+returned by the :py:func:`mctpy.model_base.get_kernel` and related
+methods.
+
+For performance reasons, the kernel methods should thus be defined as
+functions outside of the class (so that `numba` can cache the machine
+code for multiple invocations of the model). In this case, the
+function can be directly passed to :py:func:`mctpy.model_base.__init__` as
+an optional argument. (Note that passing a class-member function won't
+work here, not at least unless you use `jitclass`.)
+Since the compiled kernel will not have the
+model-object variables in scope, all the needed parameters for the
+memory kernel need to be passed as extra argument to the memory kernel.
+For these, a model needs to implement
+:py:func:`mctpy.model_base.kernel_extra_args` and similar.
+
+If for some reason that is not a feasible route, the model can implement
+instead a :py:func:`mctpy.model_base.make_kernel` method (and similar) to
+generate the jit-able function on the fly. There is some performance
+deterioration associated with that. (See :py:class:`mctpy.schematic.generic`
+for an example.)
+
+For models where the memory-kernel coefficients are elaborate vertices
+based on a few model parameters, the model should usually calculate those
+vertices upon initialization, and then pass the vertex array to the
+memory kernel as an extra argument. These models should then implement
+a `reinit` method to allow changing the parameters in an existing model object.
+However, this is no longer considered necessary in most cases.
+
+There are a few helper methods that a model should implement:
 * :py:func:`mctpy.model_base.Aq` to specify the prefactor :math:`A_q`
     in front of the second time derivative in the evolution equation.
     For models implementing Newtonian dynamics, this will be
@@ -30,6 +65,28 @@ methods:
     initial derivative of the function to solve for. This is ignored
     if :math:`A_q` is set to zero (Brownian dynamics), since then
     the derivative is fixed by the other parameters.
+
+Memory layout
+-------------
+
+Correlators are stored in the py:class:`mctpy.correlator` class, in a
+specific form that depends on the used solver. They will usually be
+contiguous arrays whose first dimension corresponds to the number of
+time-grid points or similar.
+
+The remaining dimensions of the array are determined by the model.
+Thus, objects like `mctpy.correlator.phi[0]` or
+`mctpy.nonergodicity_parameter.f` behave like this:
+They are arrays of shape `(M,V)` for models that declare themselves
+to be "scalar", where `M` is the number of correlators (the "size" of
+the model), and `V` is the vector-dimension of the model.
+For matrix-valued models with matrix dimension `S`, the shape is
+`(M,V,S,S)`. The arrays will be flattened along the first two axes,
+into `(M*V,)` respectively `(M*V,S,S)` for the solver. This underlines
+the distinction between "vector" and "matrix" dimensions: we interpret
+the Mori-Zwanzig equations as element-wise along the vector dimensions,
+but using a matrix algebra in the matrix dimensions.
+
 
 Standard "Moment" Solver
 ------------------------
