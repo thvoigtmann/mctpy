@@ -87,6 +87,9 @@ class nonergodicity_parameter (object):
 
         Result: The object's field `f` will be set to the NEP values,
         and `m` to the corresponding memory kernel.
+        If the calculation converged within the set maximum number
+        of iterations, the object's field `converged' will be set to
+        `True`.
         """
         self.model.set_base_phi(self.f_)
         self.model.get_set_V()(0, *self.model.set_V_args())
@@ -239,6 +242,10 @@ class eigenvalue (object):
 
         This calculates the right- and left critical eigenvector, the
         corresponding eigenvalues, and the exponent parameter.
+        The calculation of the "largest eigenvector" is done by an
+        iteration scheme, once for the left and once for the right vector.
+        If both converge within the set limit of maximum iterations,
+        the classes' `converged` field will be set to `True`.
         """
         model = self.nep.model
         dim = model.matrix_dimension()

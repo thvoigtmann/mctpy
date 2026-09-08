@@ -92,6 +92,37 @@ Critical Eigenvector and -value
    :members:
    :inherited-members:
 
+   Normalization of the eigenvectors follows, for scalar models,
+
+   .. math::
+       :nowrap:
+
+       \begin{align}
+       \left(\hat e_q,e_q\right)_q&=1\\
+       \left(\hat e_q,e_q(1-f_q^c)e_q\right)_q&=1
+       \end{align}
+
+   and for matrix-valued models,
+
+   .. math::
+       :nowrap:
+
+       \begin{align}
+       \left(\hat H_q,H_q\right)_q&=1\\
+       \left(\hat H_q,H_q(S_q-F_q^c)^{_1}H_q\right)_q&=1
+       \end{align}
+
+   The normalization of the eigenvectors differs between scalar and
+   matrix models. For historical reasons, they differ by a factor
+   of :math:`(1-f^c(q))^2` because this matches the standard factor
+   taken out in the early MCT literature, while for matrix-valued models
+   working with the unnormalized "raw" matrix prefactors seems to make
+   more sense. Note that for this reason, the :math:`sigma` values
+   calculated for the simple liquid model and the one-component mixture
+   model do not have to agree (the formulations are only equivalent in
+   the leading square-root order of the asymptotic expansion, but not
+   in linear order since here it matters whether changes in the static
+   structure are factored out (as for scalar models) or kept (in mixtures).
 
 Distance parameter
 ==================
