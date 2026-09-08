@@ -1,12 +1,9 @@
 import numpy as np
 
 from numba import njit
-from .__util__ import model_base, void, nparray, np_gradient
+from .__util__ import model_base, void, nparray, np_gradient, _dq
 
 import scipy.integrate
-
-def _dq (q):
-    return np.diff(q, append=2*q[-1]-q[-2])
 
 ## simple_liquid_model kernels for numba
 @njit

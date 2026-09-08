@@ -1,10 +1,7 @@
 import numpy as np
 
 from numba import njit
-from .__util__ import model_base, void, nparray
-
-def _dq (q):
-    return np.diff(q, append=2*q[-1]-q[-2])
+from .__util__ import model_base, void, nparray, _dq
 
 ## mixture_model kernels
 @njit

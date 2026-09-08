@@ -1,12 +1,9 @@
 import numpy as np
 
 from numba import njit
-from .__util__ import model_base
+from .__util__ import model_base, _dq
 
 # TODO mark dates for initial implementation // (tv) 2016-02-10, 2016-02-16
-# TODO also used elsewhere, make it a __util__ function?
-def _dq (q):
-    return np.diff(q, append=2*q[-1]-q[-2])
 
 class scgle_model (model_base):
     """The simple-liquid model of SCGLE.

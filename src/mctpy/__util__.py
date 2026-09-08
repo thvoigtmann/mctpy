@@ -201,6 +201,12 @@ def h5info (h5file):
     grp = h5file.create_group("mctpy")
     grp.attrs['version'] = __version__
 
+
+# below some support functions, mostly for numba
+
+def _dq (q):
+    return np.diff(q, append=2*q[-1]-q[-2])
+
 @nb.njit
 def np_gradient(f,k):
     df_dk = np.zeros_like(f)
