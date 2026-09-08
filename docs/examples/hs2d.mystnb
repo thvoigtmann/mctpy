@@ -1,0 +1,119 @@
+---
+jupytext:
+  text_representation:
+    extension: .mystnb
+    format_name: myst
+    format_version: 0.13
+    jupytext_version: 1.19.5
+kernelspec:
+  display_name: Python 3 (ipykernel)
+  language: python
+  name: python3
+---
+
+# Hard-Disk System (2d)
+
+```{code-cell} ipython3
+import numpy as np
+import matplotlib.pyplot as plt
+```
+
+```{code-cell} ipython3
+from tqdm import tqdm
+import itertools
+```
+
+```{code-cell} ipython3
+import mctpy as mct
+```
+
+## Nonergodicity Parameters
+
+```{code-cell} ipython3
+Sq = mct.structurefactors.hssFMT2d(0.7)
+qgrid = np.linspace(0.2,39.8,100)
+sq,cq = Sq.Sq(qgrid)
+plt.plot(qgrid,sq)
+plt.show()
+```
+
+```{code-cell} ipython3
+model = mct.simple_liquid_model_2d(Sq,qgrid)
+```
+
+```{code-cell} ipython3
+nep = mct.nonergodicity_parameter (model = model, maxiter=1500)
+nep.solve()
+```
+
+```{code-cell} ipython3
+cs = Sq # tagged particle of same type as host
+model_s = mct.tagged_particle_model_2d (model, cs=cs, D0s=1)
+nep_s = mct.nonergodicity_parameter (model = model_s, maxiter=1500)
+nep_s.solve()
+```
+
+```{code-cell} ipython3
+plt.plot(nep.model.q, nep.f)
+plt.plot(nep_s.model.q, nep_s.f)
+plt.show()
+```
+
+## Dynamics
+
+```{code-cell} ipython3
+qgrid=np.linspace(0.2,39.8,100)
+Sq = mct.structurefactors.hssFMT2d(0.685)
+model = mct.simple_liquid_model_2d(Sq,qgrid)
+phi = mct.correlator (model = model, store=True)
+```
+
+```{code-cell} ipython3
+pbar = tqdm(total=phi.blocks+1)
+phi.solve_all(stop_on_zero=True, callback=lambda d,bs2,bs,c: pbar.update(1))
+pbar.close()
+```
+
+```{code-cell} ipython3
+qvals = [3.4,7.4,12.2]
+qis = np.array([np.nonzero(np.isclose(qgrid,qval)) for qval in qvals],dtype=int).reshape(-1)
+```
+
+```{code-cell} ipython3
+#qis=range(qgrid.shape[0])
+for qi in qis:
+    plt.plot(phi.t[phi.t>0], phi.phi[phi.t>0,qi], label=r'$q = {:.1f}$'.format(qgrid[qi]))
+plt.xscale('log')
+plt.legend()
+plt.show()
+```
+
+```{code-cell} ipython3
+cs = Sq
+model_s = mct.tagged_particle_model_2d (model, cs=cs, D0s=1)
+phi_s = mct.correlator (model = model_s, base=phi, store = True)
+correlators = mct.CorrelatorStack([phi,phi_s])
+```
+
+```{code-cell} ipython3
+pbar = tqdm(total=phi.blocks+1)
+correlators.solve_all(callback=lambda d,bs2,bs,c: pbar.update(1))
+pbar.close()
+```
+
+```{code-cell} ipython3
+colors = itertools.cycle(plt.rcParams['axes.prop_cycle'].by_key()['color'])
+for qi in qis:
+    c = next(colors)
+    plt.plot(phi.t,phi.phi[:,qi],color=c,label=r'ISF $q = {:.1f}$'.format(qgrid[qi]))
+    plt.plot(phi_s.t, phi_s.phi[:,qi], label=r'SISF $q = {:.1f}$'.format(qgrid[qi]),linestyle='dashed',color=c)
+    plt.plot(phi.t,np.exp(-qgrid[qi]**2/Sq.Sq(qgrid)[0][qi] * phi.t), color='black', linestyle='dotted')
+plt.xscale('log')
+plt.xlim(1e-6,1e5)
+plt.legend()
+plt.show()
+```
+
+```{code-cell} ipython3
+
+```

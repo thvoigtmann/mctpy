@@ -105,16 +105,41 @@ def g2unsum(f,x,x0,x1):
 
 
 
+@njit
+def simple_liquid_model_2d_kernel (m, phi, i, t, A3, S, q):
+    #for qi in range(M):
+    #    for ki in range(M):
+    #        if ki <= qi:
+    #            pmin = q[qi] - q[ki]
+    #        else:
+    #            pmin = q[ki] - q[qi]
+    #        pmax = q[qi] + q[ki]
+    #        x = (q[qi]**2 + q[ki]**2 - q**2) / (2*q[qi]*q[ki])
+    #        mask = (x>=-1) & (x<=1) & (q>=pmin)
+    #        x = x[mask]
+    #        p = np.arange(M)[mask]
+    #        minval = -1.0
+    #        if pmax > q[-1]:
+    #            minval = x[-1]
+    #        A[qi,ki] = 2*q[qi]**2 * g0(phi[p]*S[p]*c[p]**2,x,1,minval) \
+    #              + 4*q[qi]*q[ki] * g1(phi[p]*S[p]*c[p]*(c[ki]-c[p]),x,1,minval) \
+    #              + 2*q[ki]**2 * g2(phi[p]*S[p]*(c[ki]-c[p])**2,x,1,minval)
+            #assert(not np.isnan(A[qi,ki]))
+    #m[:] = -pre * np.sum((q[:-1]*phi[:-1]*S[:-1]*A[:,:-1] + q[1:]*phi[1:]*S[1:]*A[:,1:])/2 * np.diff(q), axis=-1)
+    Ainner = np.sum(A3*phi,axis=-1)
+    m[:] = -pre * np.sum((q[:-1]*phi[:-1]*S[:-1]*Ainner[:,:-1] + q[1:]*phi[1:]*S[1:]*Ainner[:,1:])/2 * np.diff(q), axis=-1)
+
 class simple_liquid_model_2d (model_base):
     """Simple liquid model, two-dimensional version.
 
     This implements the standard MCT memory kernel in two dimensions,
     with an integration scheme that takes care of the square-root
     singularity arising from the coordinate transform in the inner
-    wave-number integral.
+    wave-number integral. For this, the integrals are evaluated using
+    a Filon-Tuck-type weighted-trapezoidal integration method.
     """
     def __init__ (self, Sq, q, D0=1.0):
-        model_base.__init__(self)
+        model_base.__init__(self, kernel=simple_liquid_model_2d_kernel)
         self.rho = Sq.density()
         self.q = q
         self.sq, self.cq = Sq.Sq(q)
@@ -128,13 +153,13 @@ class simple_liquid_model_2d (model_base):
     def Bq (self):
         return self.sq/self.D0
     def __init_vertices__ (self):
-        #self.__A__ = np.zeros((self.M,self.M))
         self.__A3__ = np.zeros((self.M,self.M,self.M))
         A3 = self.__A3__
         M = self.M
         c = self.cq
         S = self.sq
         q = self.q
+        pre = self.rho*self.sq/(8*np.pi**2)
         for qi in range(M):
             for ki in range(M):
                 if ki <= qi:
@@ -149,54 +174,23 @@ class simple_liquid_model_2d (model_base):
                 minval = -1.0
                 if pmax > q[-1]:
                     minval = x[-1]
-                A3[qi,ki,p] = 2*q[qi]**2 * g0unsum(S[p]*c[p]**2,x,1,minval) \
+                A3[qi,ki,p] = (2*q[qi]**2 * g0unsum(S[p]*c[p]**2,x,1,minval) \
                       + 4*q[qi]*q[ki] * g1unsum(S[p]*c[p]*(c[ki]-c[p]),x,1,minval) \
-                      + 2*q[ki]**2 * g2unsum(S[p]*(c[ki]-c[p])**2,x,1,minval)
-    def make_kernel (self):
-        """Kernel factory, two-dimensional MCT for simple liquids.
+                      + 2*q[ki]**2 * g2unsum(S[p]*(c[ki]-c[p])**2,x,1,minval))\
+                      * pre
+    def kernel_extra_args (self):
+        return [self.__A3__,self.sq,self.q]
 
-        Returns a numba-jit kernel method that implements the integration
-        of the memory kernel, taking care of the Jacobian in two wave-vector
-        dimensions that contains a square-root singularity, treated with
-        a Filon-Tuck-type weighted-trapezoidal integration method.
-        """
-        q = self.q
-        #M = self.M
-        pre = self.rho*self.sq/(8*np.pi**2)
-        #Aqk = void(self.__A__)
-        Aqk3 = void(self.__A3__)
-        c = self.cq
-        S = self.sq
-        @njit
-        def ker (m, phi, i, t):
-            #A = nparray(Aqk)
-            A3 = nparray(Aqk3)
-            #for qi in range(M):
-            #    for ki in range(M):
-            #        if ki <= qi:
-            #            pmin = q[qi] - q[ki]
-            #        else:
-            #            pmin = q[ki] - q[qi]
-            #        pmax = q[qi] + q[ki]
-            #        x = (q[qi]**2 + q[ki]**2 - q**2) / (2*q[qi]*q[ki])
-            #        mask = (x>=-1) & (x<=1) & (q>=pmin)
-            #        x = x[mask]
-            #        p = np.arange(M)[mask]
-            #        minval = -1.0
-            #        if pmax > q[-1]:
-            #            minval = x[-1]
-            #        A[qi,ki] = 2*q[qi]**2 * g0(phi[p]*S[p]*c[p]**2,x,1,minval) \
-            #              + 4*q[qi]*q[ki] * g1(phi[p]*S[p]*c[p]*(c[ki]-c[p]),x,1,minval) \
-            #              + 2*q[ki]**2 * g2(phi[p]*S[p]*(c[ki]-c[p])**2,x,1,minval)
-                    #assert(not np.isnan(A[qi,ki]))
-            #m[:] = -pre * np.sum((q[:-1]*phi[:-1]*S[:-1]*A[:,:-1] + q[1:]*phi[1:]*S[1:]*A[:,1:])/2 * np.diff(q), axis=-1)
-            Ainner = np.sum(A3*phi,axis=-1)
-            m[:] = -pre * np.sum((q[:-1]*phi[:-1]*S[:-1]*Ainner[:,:-1] + q[1:]*phi[1:]*S[1:]*Ainner[:,1:])/2 * np.diff(q), axis=-1)
-        return ker
-
+@njit
+def tagged_particle_model_2d_calc_V (i, A, A3, phi):
+    A[:,:] = np.sum(A3*phi[i],axis=-1)
+@njit
+def tagged_particle_model_2d_kernel (ms, phis, i, t, phi, A, q):
+    ms[:] = -np.sum((q[:-1]*phis[:-1]*A[:,:-1] + q[1:]*phis[1:]*A[:,1:])/2 * np.diff(q), axis=-1)
 class tagged_particle_model_2d (model_base):
     def __init__ (self, base_model, cs, D0s=1.0):
-        model_base.__init__(self)
+        model_base.__init__(self, kernel=tagged_particle_model_2d_kernel,
+                            setV=tagged_particle_model_2d_calc_V)
         self.base = base_model
         self.q = base_model.q
         self.cs = cs.cq(self.q)
@@ -212,34 +206,12 @@ class tagged_particle_model_2d (model_base):
     def __init_vertices__ (self):
         self.__A__ = np.zeros((self.M,self.M))
         self.__A3__ = np.zeros((self.M,self.M,self.M))
-        #Aqk = void(self.__A__)
-        Aqk3 = void(self.__A3__)
         q = self.q
         c = self.cs
         S = self.base.sq
         M = self.M
-        #@njit
-        #def calc_V (V, f):
-        #    A = nparray(Aqk)
-        #    for qi in range(M):
-        #        for ki in range(M):
-        #            if ki <= qi:
-        #                pmin = q[qi] - q[ki]
-        #            else:
-        #                pmin = q[ki] - q[qi]
-        #            pmax = q[qi] + q[ki]
-        #            x = (q[qi]**2 + q[ki]**2 - q**2) / (2*q[qi]*q[ki])
-        #            mask = (x>=-1) & (x<=1) & (q>=pmin)
-        #            x = x[mask]
-        #            p = np.arange(M)[mask]
-        #            minval = -1.0
-        #            if pmax > q[-1]:
-        #                minval = x[-1]
-        #            A[qi,ki] = 2*q[qi]**2 * g0(f[p]*S[p]*c[p]**2,x,1,minval) \
-        #                  - 4*q[qi]*q[ki] * g1(f[p]*S[p]*c[p]**2,x,1,minval) \
-        #                  + 2*q[ki]**2 * g2(f[p]*S[p]*c[p]**2,x,1,minval)
-        #self.__calcV__ = calc_V
         A3 = self.__A3__
+        pre = self.base.rho/(4*np.pi**2)
         for qi in range(M):
             for ki in range(M):
                 if ki <= qi:
@@ -254,27 +226,11 @@ class tagged_particle_model_2d (model_base):
                 minval = -1.0
                 if pmax > q[-1]:
                     minval = x[-1]
-                A3[qi,ki,p] = 2*q[qi]**2 * g0unsum(S[p]*c[p]**2,x,1,minval) \
+                A3[qi,ki,p] = (2*q[qi]**2 * g0unsum(S[p]*c[p]**2,x,1,minval) \
                       - 4*q[qi]*q[ki] * g1unsum(S[p]*c[p]**2,x,1,minval) \
-                      + 2*q[ki]**2 * g2unsum(S[p]*c[p]**2,x,1,minval)
+                      + 2*q[ki]**2 * g2unsum(S[p]*c[p]**2,x,1,minval)) \
+                      * pre
     def kernel_extra_args (self):
-        return [self.base.phi]
-    def make_kernel (self):
-        q = self.q
-        pre = self.base.rho/(4*np.pi**2)
-        Aqk = void(self.__A__)
-        Aqk3 = void(self.__A3__)
-        self.__i__ = np.zeros(1,dtype=int)
-        __i__ = void(self.__i__)
-        #Vfunc = self.__calcV__
-        @njit
-        def ker (ms, phis, i, t, phi):
-            A = nparray(Aqk)
-            A3 = nparray(Aqk3)
-            last_i = nparray(__i__)
-            if last_i[0]==0 or not (i==last_i[0]):
-                #Vfunc(A, phi[i])
-                A[:,:] = np.sum(A3*phi[i],axis=-1)
-                last_i[0] = i
-            ms[:] = -pre * np.sum((q[:-1]*phis[:-1]*A[:,:-1] + q[1:]*phis[1:]*A[:,1:])/2 * np.diff(q), axis=-1)
-        return ker
+        return [self.base.phi, self.__A__, self.q]
+    def set_V_args (self):
+        return [self.__A__, self.__A3__, self.base.phi]
