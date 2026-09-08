@@ -149,6 +149,8 @@ class scgle_model (model_base):
     def set_C (self, f):
         # TODO calculate zeta(F) ??
         self._f_ = f
+    def mrenorm (self, m):
+        return m/self.Wq()
     #def shear_modulus: TODO
     def h5save (self, fh):
         grp = fh.create_group("model")

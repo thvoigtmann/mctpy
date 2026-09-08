@@ -162,6 +162,8 @@ class simple_liquid_model (model_base):
         return [self.__C__,self.dq(),self.q]
     def kernel_extra_args_dm2 (self):
         return [self.a, self.b, self.dq(), self.q]
+    def mrenorm (self, m):
+        return m/self.q**2
     def shear_modulus (self, phi, t):
         r"""Return shear modulus or shear stress, given a solution.
 
@@ -265,6 +267,8 @@ class tagged_particle_model (model_base):
         return (self.__Vqk__, _dq(self.base.q))
     def set_V_args (self):
         return (self.__Vqk__, self.base.phi, self.a, self.b)
+    def mrenorm (self, m):
+        return m/self.q**2
 
     def h5save (self, fh):
         grp = fh.create_group("model")
@@ -298,8 +302,8 @@ class tagged_particle_q0 (model_base):
         sk = self.base.base.sq
         cs = self.base.cs
         self.V = pre * (self.base.q**2 * cs)**2 * sk
-    def set_base (self, array):
-        model_base.set_base (self, array)
+    def set_base_phi (self, array):
+        model_base.set_base_phi (self, array)
     def kernel_extra_args (self):
         return [self.V, self.base.base.phi, self.base.phi]
     def h5save (self, fh):

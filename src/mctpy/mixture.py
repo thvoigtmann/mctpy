@@ -287,3 +287,5 @@ class mixture_model (model_base):
     def kernel_extra_args_dm (self):
         return [self.a1, self.a2, self.a3, self.b1, self.b2, self.b3,
                 self.sqrtrho, self.q, self.dq()]
+    def mrenorm (self, m):
+        return m/self.q[:,None,None]**2

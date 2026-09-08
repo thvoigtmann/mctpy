@@ -234,3 +234,5 @@ class tagged_particle_model_2d (model_base):
         return [self.base.phi, self.__A__, self.q]
     def set_V_args (self):
         return [self.__A__, self.__A3__, self.base.phi]
+    def mrenorm (self, m):
+        return m/self.q**2

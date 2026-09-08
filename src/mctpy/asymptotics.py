@@ -219,7 +219,7 @@ class beta_scaling_function (correlator):
         """Initial values for the beta-correlation functions."""
         iend = imax
         if (iend >= self.halfblocksize): iend = self.halfblocksize-1
-        self.model.set_base(self.phi_)
+        self.model.set_base_phi(self.phi_)
         a, _ = exponents(self.lambda_)
         A1 = 1./(2 * (a * np.pi / np.sin(a*np.pi) - self.lambda_))
         self.phi_[0] = 0.0

@@ -11,6 +11,8 @@ kernelspec:
   name: python3
 ---
 
+# Hard-Sphere Mixture
+
 ```{code-cell} ipython3
 import numpy as np
 import matplotlib.pyplot as plt
@@ -112,6 +114,38 @@ phis, evs = mct.util.evscan (0.51, 0.52, evsearch_hsm(delta,xb).calc_ev, eps=1e-
 ```{code-cell} ipython3
 p=np.argmax([ev.eval for ev in evs])
 print("phi_c = {:.8f}(1), lambda = {:.3f}, ev = {:.6f}".format(phis[p],evs[p].lam,evs[p].eval))
+```
+
+```{code-cell} ipython3
+hsm_c = evs[p]
+phi_c = phis[p]
+```
+
+```{code-cell} ipython3
+m1 = mct.mixture_model(mct.structurefactors.hsmPY([0.,0.],d),qgrid)
+phirange = np.linspace(0.46,0.58,101)
+sigrange = np.zeros_like(phirange)
+for i, phi in enumerate(phirange):
+    m1.reinit (mct.structurefactors.hsmPY(*hsm_densities(d).volume_fractions(phi=phi, xhat=xb)))
+    sigrange[i] = hsm_c.sigma (m1)
+```
+
+```{code-cell} ipython3
+sigrange
+```
+
+```{code-cell} ipython3
+epsrange = (phirange-phi_c)/phi_c
+C = np.interp(0.,epsrange,sigrange/epsrange)
+```
+
+```{code-cell} ipython3
+plt.plot(phirange, sigrange, label='sigma')
+plt.plot(phirange, C*(phirange-phi_c)/phi_c, label=f'C*eps, C={C:.2f}', linestyle='dashed')
+plt.plot([phirange[0],phirange[-1]],[0.,0.],linestyle='dashed',color='black')
+plt.legend()
+plt.xlabel('phi')
+plt.show()
 ```
 
 ```{code-cell} ipython3

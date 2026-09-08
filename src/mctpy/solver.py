@@ -297,7 +297,7 @@ class correlator (CorrelatorBase):
         """
         iend = imax
         if (iend >= self.halfblocksize): iend = self.halfblocksize-1
-        self.model.set_base(self.phi_)
+        self.model.set_base_phi(self.phi_)
         phi0 = self.model.phi0().reshape(self.shape)
         if not self.brownian:
             if self.model.scalar():
@@ -357,7 +357,7 @@ class correlator (CorrelatorBase):
     # core interface, can be reimplemented by derived solvers
     # this is not safe to be reused with save/restore functionality
     def solve_block (self, istart, iend):
-        self.model.set_base(self.phi_)
+        self.model.set_base_phi(self.phi_)
         if 'kernel_prefactor' in dir(self.model):
             pre_m = self.model.kernel_prefactor(np.arange(istart,iend)*self.h)
         else:
@@ -557,7 +557,7 @@ class mean_squared_displacement (correlator):
     def initial_values (self, imax=50):
         iend = imax
         if (iend >= self.halfblocksize): iend = self.halfblocksize-1
-        self.model.set_base(self.phi_)
+        self.model.set_base_phi(self.phi_)
         for i in range(iend):
             t = i*self.h0
             self.phi_[i] = np.ones(self.mdimen*self.vdim,dtype=self.model.dtype)*6.*t/self.model.Bq()
@@ -611,7 +611,7 @@ class non_gaussian_parameter (correlator):
     def initial_values (self, imax=50):
         iend = imax
         if (iend >= self.halfblocksize): iend = self.halfblocksize-1
-        self.model.set_base(self.phi_)
+        self.model.set_base_phi(self.phi_)
         for i in range(iend):
             t = i*self.h0
             self.phi_[i] = np.zeros(self.mdimen*self.vdim, dtype=self.model.dtype)

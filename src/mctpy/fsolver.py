@@ -88,7 +88,7 @@ class nonergodicity_parameter (object):
         Result: The object's field `f` will be set to the NEP values,
         and `m` to the corresponding memory kernel.
         """
-        self.model.set_base(self.f_)
+        self.model.set_base_phi(self.f_)
         self.model.get_set_V()(0, *self.model.set_V_args())
         if callback is not None and callback_every>0:
             blocks = self.maxiter//callback_every
@@ -245,20 +245,33 @@ class eigenvalue (object):
         vdim = model.vector_dimension()
         msize = len(model)*vdim*dim**2
         if model.scalar():
-            f = self.nep.f_[0]
-            self.e = np.zeros(msize,dtype=model.dtype)
-            self.ehat = np.zeros(msize,dtype=model.dtype)
-            self.eval, conv1 = _esolve(self.e, self.dm, f, self.maxiter, self.accuracy, *self.nep.model.kernel_extra_args_dm())
-            self.eval2, conv2 = _ehatsolve(self.ehat, self.dmhat, f, self.maxiter, self.accuracy, *self.nep.model.kernel_extra_args_dmhat())
-            self.converged = conv1 & conv2
+            self.shape = (len(model) * vdim,)
+            if vdim > 1:
+                self.phishape = (len(model), vdim)
+            else:
+                self.phishape = self.shape
         else:
-            f = self.nep.f_[0] #.reshape(-1,dim,dim)
-            self.e = np.zeros((len(model)*vdim,dim,dim),dtype=model.dtype)
-            self.ehat = np.zeros((len(model)*vdim,dim,dim),dtype=model.dtype)
+            self.shape = (len(model) * vdim, dim, dim)
+            if vdim > 1:
+                self.phishape = (len(model), vdim, dim, dim)
+            else:
+                self.phishape = self.shape
+        f = self.nep.f_[0]
+        self.e = np.zeros(self.shape,dtype=model.dtype)
+        self.ehat = np.zeros(self.shape,dtype=model.dtype)
+        if model.scalar():
+            model.set_base_phi(self.e)
+            self.eval, conv1 = _esolve(self.e, self.dm, f, self.maxiter, self.accuracy, *self.nep.model.kernel_extra_args_dm())
+            model.set_base_phi(self.ehat)
+            self.eval2, conv2 = _ehatsolve(self.ehat, self.dmhat, f, self.maxiter, self.accuracy, *self.nep.model.kernel_extra_args_dmhat())
+        else:
             phi0 = model.phi0()
+            model.set_base_phi(self.e)
             self.eval, conv1 = _esolve_mat(self.e, self.dm, f, phi0, self.maxiter, self.accuracy, *self.nep.model.kernel_extra_args_dm())
+            model.set_base_phi(self.ehat)
             self.eval2, conv2 = _ehatsolve_mat(self.ehat, self.dmhat, f, phi0, self.maxiter, self.accuracy, *self.nep.model.kernel_extra_args_dmhat())
-            self.converged = conv1 & conv2
+
+        self.converged = conv1 & conv2
 
         if self.eval > 0:
             dq = model.dq()
@@ -284,14 +297,9 @@ class eigenvalue (object):
                                      S_F, L, S_F)
         else:
             self.lam = 0.0
-        if model.scalar():
-            if vdim > 1:
-                self.e = self.e.reshape(-1,vdim)
-                self.ehat = self.ehat.reshape(-1,vdim)
-        else:
-            if vdim > 1:
-                self.e = self.e.reshape(-1,vdim,dim,dim)
-                self.ehat = self.ehat.reshape(-1,vdim,dim,dim)
+        self.e = self.e.reshape(self.phishape)
+        self.ehat = self.ehat.reshape(self.phishape)
+
     def sigma (self, model_nc):
         """Calculate distance parameter with respect to this state point.
 
@@ -310,13 +318,29 @@ class eigenvalue (object):
         """
         # TODO FIXME currently not implemented for mixtures
         # TODO test for vector-models
-        m = model_nc.m(self.nep.f)
         dq = self.nep.model.dq()
         vdim = self.nep.model.vector_dimension()
         if vdim > 1:
             dq = np.repeat(dq,vdim)
+        e = self.e.reshape(self.shape)
+        ehat = self.ehat.reshape(self.shape)
+        fc = self.nep.f.reshape(self.shape)
+        mc = self.nep.model.mrenorm(self.nep.m.reshape(self.shape))
+        m = model_nc.m(self.nep.f.reshape(self.shape))
+        # TODO divide not by self.nep.model.Wq() but by mrenorm
         if self.nep.model.scalar():
-            norm = np.dot(dq * self.ehat, self.e*self.e * (1-self.nep.f))
-            s = np.dot(dq * self.ehat, (m - self.nep.m)/self.nep.model.Wq())
+            norm = np.dot(dq * ehat, e*e * (1-fc))
+            s = np.dot(dq * self.ehat, (m - mc))
             return s/norm
-
+        else:
+            Sc = self.nep.model.phi0().reshape(self.shape)
+            Scinv = np.linalg.inv(Sc)
+            S = model_nc.phi0().reshape(self.shape)
+            Sc_Fc = Sc - fc
+            S_Fc = S - fc
+            Sc_Fc_inv = np.linalg.inv(Sc_Fc)
+            norm = np.einsum('i,iab,iak,ikl,ilb', dq, ehat, e, Sc_Fc_inv, e)
+            dSM = np.einsum('...ak,...kl,...lb', S, m, S_Fc) \
+                - np.einsum('...ak,...kl,...lb', Sc, mc, Sc_Fc)
+            s = np.einsum('i,iab,iak,ikl,ilb', dq, self.ehat, Sc_Fc, Scinv, dSM)
+            return s/norm

@@ -81,7 +81,7 @@ class model_base (object):
         return None
     def phi0 (self):
         """Return initial value of the correlators of this model.
-        Needs to be a matrix of shape (M*V,) for scalar models,
+        Needs to be an array of shape (M*V,) for scalar models,
         where M is the number of q indices and V the vector dimension.
         For matrix models, needs to be of shape (M*V,S,S) or similar,
         but the implemented default here then won't do."""
@@ -104,7 +104,7 @@ class model_base (object):
         correlator in the equation of motion. See `phi0()` for the expected
         shape."""
         return np.ones(len(self)*self.vector_dimension())
-    def set_base (self, array):
+    def set_base_phi (self, array):
         # old style, baking pointers into njit functions (bad, but shorter
         # call signatures if that matters at all):
         #self.phi = void(array) # then to load with nparray(self.phi)
@@ -149,10 +149,23 @@ class model_base (object):
 
         Note that this is not intended to be called by the solvers,
         who will pre-allocate arrays for the memory kernels and fill
-        them in-place. This is just a convenience wrapper."""
+        them in-place. This is just a convenience wrapper.
+
+        Also, the semantics shall be that this returns the proper
+        memory kernel, while the kernel functions used in the solver
+        can split out prefactors that are absorbed in the other
+        prefactors of the Mori-Zwanzig equation. A typical case is the
+        factor :math:`1/q^2` the is omitted there but should be
+        included here.
+        """
         m_ = np.zeros_like (f)
         self.get_kernel() (m_, f, 0, 0, *self.kernel_extra_args())
-        return m_
+        return self.mrenorm(m_)
+    def mrenorm (self, m):
+        r"""Return that proper memory kernel from a stored memory-kernel
+        array as used by the solver. This is the place where any factors
+        that were taken out need to be factored in again."""
+        return m
 
     # TODO document how the signatures should in fact be
     def make_kernel (self):
