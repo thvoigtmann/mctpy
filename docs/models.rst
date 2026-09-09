@@ -288,6 +288,48 @@ element of the correlator matrix then is the tagged-particle correlator.
        `DOI:10.1103/PhysRevE.67.021502 <https://doi.org/10.1103/PhysRevE.67.021502>`_
 
 
+Tagged particles in mixtures
+----------------------------
+
+.. autoclass:: mctpy.mixture_tagged_particle
+    :members:
+    :inherited-members:
+
+    The memory kernel is written as
+
+    .. math::
+
+        M^s[F,f^s] = \frac{1}{q^2}\int\frac{d^3k}{(2\pi)^3}
+        \sum_{\alpha\beta}(\vec q\vec p)^2\hat c_{s\alpha}(p)\hat c_{s\beta}(p)
+        F_{\alpha\beta}(p)f^s(k) \f]
+
+    where :math:`\hat c_{s\alpha}(q)=\sqrt{\varrho_\alpha}c_{s\alpha}(q)\f`
+    is the tagged-particle direct correlation function. For the expected
+    normalization of :math:`\boldsymbol F`, see the description of class
+    :py:class:`mctpy.mixture_model`.
+
+    The integral is split according to a generalization of Bengtzelius'
+    trick to read (with :math:`\hat M^s_q=q^2M^s_q`
+
+    .. math::
+
+        \hat M^s_q=\frac{(\Delta q)^2}{16\pi^2q^3}\sum_{n=1}^3
+        \sum_k a^{(n)}(k)f^s_k\sum_{p,\alpha\beta} b^{(n)}_{\alpha\beta}(q,p)
+        F_{\alpha\beta}(p) \f]
+
+    with
+
+    .. math::
+        :nowrap
+
+        \begin{align*}
+        a^{(1)}(k)&=k^5 & b^{(1)}(q,p)&=pc_{s\alpha}(p)c_{s\beta}(p) \\
+        a^{(2)}(k)&=-2k^3 & b^{(2)}(q,p)&=p(q^2+p^2)c_{s\alpha}(p)c_{s\beta}(p)\\
+        a^{(3)}(k)&=k & b^{(3)}(q,p)&=p(q^2+p^2)^2c_{s\alpha}(p)c_{s\beta}(p)
+        \end{align*}
+
+
+
 Two-dimensional MCT
 ===================
 

@@ -360,7 +360,8 @@ class mixture_tagged_particle (model_base):
         pq = p_/q_**3 * pre
         qsq_psq = q_**2 + p_**2
         rho_c = np.sqrt(rho) * self.cs
-        cacb = rho_c[:,None,:,None] * rho_c[:,None,None,:]
+        self.rho_csq = rho_c[:,:,None] * rho_c[:,None,:]
+        cacb = self.rho_csq[:,None,:,:]
         self.b[0] = pq * cacb
         self.b[1] = pq * qsq_psq * cacb
         self.b[2] = pq * qsq_psq**2 * cacb

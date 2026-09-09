@@ -246,17 +246,16 @@ class tagged_particle_model (model_base):
     def Bq (self):
         return np.ones(self.M)/self.D0
     def __init_vertices__ (self):
-        pre = (1./(4.*np.pi))**2. * self.base.rho
+        pre = (1./(4.*np.pi))**2.
         q = self.q
-        sp = self.base.sq
-        csp = self.cs
+        self.rho_csq = self.base.rho * self.cs**2 * self.base.sq
         self.a = np.zeros((3,self.M))
         self.b = np.zeros((3,self.M,self.M))
         self.a[0] = q**4 * q
         self.a[1] = - 2 * q**2 * q
         self.a[2] = q
         q_, p_ = np.meshgrid(q,q,indexing='ij')
-        pq = p_/q_**3 * pre * sp * csp**2
+        pq = p_/q_**3 * pre * sp * self.rho_csq
         qsq_psq = q_**2 + p_**2
         self.b[0] = pq
         self.b[1] = pq * qsq_psq
@@ -284,7 +283,8 @@ class tagged_particle_model (model_base):
 
 @njit(inline='always')
 def tagged_particle_q0_kernel (ms0, phis0, i, t, V, phi, phi_s):
-    ms0[:] = np.dot(V,phi[i]*phi_s[i]) # good for one-component only
+    #ms0[:] = np.dot(V,phi[i]*phi_s[i]) # good for one-component only
+    ms0[:] = np.sum((V*phi[i]).T*phi_s[i])
 
 class tagged_particle_q0 (model_base):
     def __init__ (self, base_model, kernel=tagged_particle_q0_kernel):
@@ -299,9 +299,12 @@ class tagged_particle_q0 (model_base):
         return np.ones(len(self))/self.base.D0
     def __init_vertices__ (self):
         pre = 1./(6.*np.pi**2) * _dq(self.base.base.q)[0] * self.base.base.rho
-        sk = self.base.base.sq
-        cs = self.base.cs
-        self.V = pre * (self.base.q**2 * cs)**2 * sk
+        # the double transpose effectively means
+        # "broadcast from left"
+        # coupling to simple liquid, q.shape = (M,), rho_csq.shape = (M,)
+        # but for mixture, rho_csq.shape = (M,S,S,)
+        # resulting V has shape (M,) or (M,S,S,)
+        self.V = pre * (self.base.q**4 * self.base.rho_csq.T).T
     def set_base_phi (self, array):
         model_base.set_base_phi (self, array)
     def kernel_extra_args (self):

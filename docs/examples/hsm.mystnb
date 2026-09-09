@@ -180,6 +180,9 @@ for packing_fraction, phi in zip(varphi, correlators):
     model_s = mct.mixture_tagged_particle (phi.model, cs=cs, D0s=1)
     phi_s = mct.correlator (model = model_s, base=phi, store = True)
     correlators.append(phi_s)
+    model_s0 = mct.tagged_particle_q0 (model_s)
+    msd = mct.mean_squared_displacement (model = model_s0, base=phi_s, store=True)
+    correlators.append(msd)
 ```
 
 ```{code-cell} ipython3
@@ -187,7 +190,22 @@ correlators.solve_all(progress_bar=tqdm)
 ```
 
 ```{code-cell} ipython3
-correlators
+len(correlators)
+```
+
+```{code-cell} ipython3
+for phi_s in correlators[2::2]:
+    plt.plot(phi_s.t,phi_s.phi[:,qi])
+plt.xscale('log')
+plt.show()
+```
+
+```{code-cell} ipython3
+for msd in correlators[3::2]:
+    plt.plot(msd.t, msd.phi)
+plt.xscale('log')
+plt.yscale('log')
+plt.show()
 ```
 
 ```{code-cell} ipython3
