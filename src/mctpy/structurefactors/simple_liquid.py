@@ -144,7 +144,7 @@ class hssPYtagged (simpleLiquidSq):
     def __init__ (self, phi, delta):
         """Direct correlation function of tagged hard-sphere particle (PY).
 
-        This implement the specific case of the Percus-Yevick approximation
+        This implements the specific case of the Percus-Yevick approximation
         of the hard-sphere mixture, where the given particle is a tracer
         in a system of unit-sized spheres.
 

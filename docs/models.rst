@@ -57,8 +57,17 @@ Common Additions to Simple-Liquid Models
 ----------------------------------------
 
 .. autoclass:: mctpy.tagged_particle_model
+    :members:
+    :inherited-members:
 
 .. autoclass:: mctpy.tagged_particle_q0
+    :members:
+    :inherited-members:
+
+    Note that this kernel is to be used with MSD calculations.
+    As a base model, it can accept a simple-liquid tagged-particle model,
+    :py:class:`mctpy.tagged_particle_model`, or a one for mixtures,
+    :py:class:`mctpy.mixture_tagged_particle`.
 
 .. autoclass:: mctpy.tagged_particle_ngp
     :members:
