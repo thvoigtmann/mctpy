@@ -289,3 +289,86 @@ class mixture_model (model_base):
                 self.sqrtrho, self.q, self.dq()]
     def mrenorm (self, m):
         return m/self.q[:,None,None]**2
+
+
+@njit
+def mixture_tagged_calc_V (i, V, phi, a, b):
+    f = phi[i]
+    M = V.shape[0]
+    S = b.shape[-1]
+    for qi in range(M):
+        for ki in range(M):
+            V[qi,ki] = 0.
+        for n in range(3):
+            pi, ki = qi, 0
+            zqk = 0.
+            for alpha in range(S):
+                for beta in range(S):
+                    zqk += b[n,qi,pi,alpha,beta] * f[pi,alpha,beta]
+            V[qi,ki] += a[n,ki] * zqk
+            for ki in range(1,M):
+                if ki <= qi:
+                    pi = qi - ki
+                    for alpha in range(S):
+                        for beta in range(S):
+                            zqk += b[n,qi,pi,alpha,beta] * f[pi,alpha,beta]
+                else:
+                    pi = ki - qi - 1
+                    for alpha in range(S):
+                        for beta in range(S):
+                            zqk -= b[n,qi,pi,alpha,beta] * f[pi,alpha,beta]
+                pi = qi + ki
+                if pi < M:
+                    for alpha in range(S):
+                        for beta in range(S):
+                            zqk += b[n,qi,pi,alpha,beta] * f[pi,alpha,beta]
+                V[qi,ki] += a[n,ki] * zqk
+@njit
+def mixture_tagged_kernel (ms, phis, i, t, V, dq):
+    ms[:] = dq**2 * np.dot(V,phis)
+
+class mixture_tagged_particle (model_base):
+    def __init__ (self, base_model, cs, D0s=1.0):
+        model_base.__init__(self, kernel=mixture_tagged_kernel,
+                            setV=mixture_tagged_calc_V)
+        self.base = base_model
+        self.q = base_model.q
+        self.M = self.q.shape[0]
+        self.S = self.base.S
+        self.reinit (cs, D0s)
+    def reinit (self, cs, D0s=1.0):
+        self.cs = cs.cq(self.q)
+        self.D0 = D0s
+        self.__init_vertices__()
+    def __len__ (self):
+        return self.M
+    def Wq (self):
+        return self.q*self.q
+    def Bq (self):
+        return np.ones(self.M)/self.D0
+    def __init_vertices__ (self):
+        pre = (1./(4.*np.pi))**2.
+        rho = self.base.Sq.densities
+        q = self.q
+        self.a = np.zeros((3,self.M))
+        self.b = np.zeros((3,self.M,self.M,self.S,self.S))
+        self.a[0] = q**4 * q
+        self.a[1] = - 2 * q**2 * q
+        self.a[2] = q
+        q_, p_ = np.meshgrid(q,q,indexing='ij')
+        q_, p_ = q_[:,:,None,None], p_[:,:,None,None]
+        pq = p_/q_**3 * pre
+        qsq_psq = q_**2 + p_**2
+        rho_c = np.sqrt(rho) * self.cs
+        cacb = rho_c[:,None,:,None] * rho_c[:,None,None,:]
+        self.b[0] = pq * cacb
+        self.b[1] = pq * qsq_psq * cacb
+        self.b[2] = pq * qsq_psq**2 * cacb
+        self.__Vqk__ = np.zeros((self.M,self.M))
+    def kernel_extra_args (self):
+        return (self.__Vqk__, _dq(self.base.q))
+    def set_V_args (self):
+        return (self.__Vqk__, self.base.phi, self.a, self.b)
+    def mrenorm (self, m):
+        return m/self.q**2
+    # TODO h5save

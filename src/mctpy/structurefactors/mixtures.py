@@ -76,6 +76,23 @@ class mixtureSq (object):
             res = self._dcq_dq_high(q) if highq else self._dcq_dq_low(q)
         return res
 
+class mixtureTagged (object):
+    def __init__ (self, Sq, s):
+        """Take a mixture structure factor and initialize a view
+        on its DCF as that of a tagged particle of a given species
+        inside that mixture.
+
+        Parameters
+        ----------
+        Sq : mixtureSq
+            Structure factor of the underlying mixture.
+        s : int
+            Species index.
+        """
+        self.Sq = Sq
+        self.s = s
+    def cq (self, q):
+        return self.Sq.cq(q)[:,:,self.s]
 
 
 class hsm_densities (object):

@@ -175,5 +175,21 @@ plt.show()
 ```
 
 ```{code-cell} ipython3
+for packing_fraction, phi in zip(varphi, correlators):
+    cs = mct.structurefactors.mixtureTagged(phi.model.Sq, 0)
+    model_s = mct.mixture_tagged_particle (phi.model, cs=cs, D0s=1)
+    phi_s = mct.correlator (model = model_s, base=phi, store = True)
+    correlators.append(phi_s)
+```
+
+```{code-cell} ipython3
+correlators.solve_all(progress_bar=tqdm)
+```
+
+```{code-cell} ipython3
+correlators
+```
+
+```{code-cell} ipython3
 
 ```
