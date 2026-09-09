@@ -60,15 +60,9 @@ class nonergodicity_parameter (object):
     ----------
     model : object
         MCT model defining the memory kernel for the NEP.
-    accuracy : float, default: 1e-12
-        Accuracy at which to terminate the iterative solution scheme.
-    maxiter : int
-        Maximum number of iterations, to ensure termination.
     """
-    def __init__ (self, model, accuracy=1e-12, maxiter=1000000):
+    def __init__ (self, model):
         self.model = model
-        self.accuracy = accuracy
-        self.maxiter = maxiter
         self.dim = model.matrix_dimension()
         self.vdim = model.vector_dimension()
         self.M = len(model)
@@ -82,10 +76,28 @@ class nonergodicity_parameter (object):
                                dtype=model.dtype)
         self.jit_kernel = model.get_kernel()
 
-    def solve (self, callback=None, callback_every=0):
+    def solve (self, accuracy=1e-12, maxiter=1000000,
+               callback=None, callback_every=0):
         """Solve for the nonergodicity parameter.
+        Parameters
+        ----------
+        accuracy : float, default: 1e-12
+            Accuracy at which to terminate the iterative solution scheme.
+        maxiter : int
+            Maximum number of iterations, to ensure termination.
+        callback : callable or None
+            If set, this is called every `callback_every` iterations,
+            with two parameters, first the iteration count, and second
+            a reference to this object.
+        callback_every : int, default 0
+            How often to call the callback, if defined. A zero value
+            implies on every iteration. If larger than zero, the total
+            number of iterations will be adjusted to be an integer multiple
+            of this number.
 
-        Result: The object's field `f` will be set to the NEP values,
+        Result
+        ------
+        The object's field `f` will be set to the NEP values,
         and `m` to the corresponding memory kernel.
         If the calculation converged within the set maximum number
         of iterations, the object's field `converged' will be set to
@@ -94,18 +106,18 @@ class nonergodicity_parameter (object):
         self.model.set_base_phi(self.f_)
         self.model.get_set_V()(0, *self.model.set_V_args())
         if callback is not None and callback_every>0:
-            blocks = self.maxiter//callback_every
+            blocks = maxiter//callback_every
             block_iter = callback_every
-            if self.maxiter > block_iter*blocks:
+            if maxiter > block_iter*blocks:
                 print ("dropping",self.maxiter-block_iter*blocks,"iterations")
         else:
             blocks = 1
-            block_iter = self.maxiter
+            block_iter = maxiter
         if self.model.scalar():
             f0 = self.model.phi0().copy()
             converged = False
             for b in range(blocks):
-                converged = _fsolve(self.f_, self.m_, self.model.Wq(), f0, self.model.phi0(), self.jit_kernel, self.accuracy, block_iter, *self.model.kernel_extra_args())
+                converged = _fsolve(self.f_, self.m_, self.model.Wq(), f0, self.model.phi0(), self.jit_kernel, accuracy, block_iter, *self.model.kernel_extra_args())
                 if callback is not None:
                     callback(block_iter*(b+1),self)
                 if converged: break
@@ -122,7 +134,7 @@ class nonergodicity_parameter (object):
             f0 = self.model.phi0()
             converged = False
             for b in range(blocks):
-                converged = _fsolve_mat(self.f_, self.m_, self.model.Wq(), f0, self.model.phi0(), self.model.WqSq(), self.jit_kernel, self.accuracy, block_iter, *self.model.kernel_extra_args())
+                converged = _fsolve_mat(self.f_, self.m_, self.model.Wq(), f0, self.model.phi0(), self.model.WqSq(), self.jit_kernel, accuracy, block_iter, *self.model.kernel_extra_args())
                 if callback is not None:
                     callback(block_iter*(b+1),self)
                 if converged: break
@@ -227,17 +239,15 @@ class eigenvalue (object):
     with the matrix-valued models. The latter use a somewhat different
     normalization convention.
     """
-    def __init__ (self, nep, accuracy=1e-12, maxiter=1000000):
+    def __init__ (self, nep):
         self.nep = nep
-        self.accuracy = accuracy
-        self.maxiter = maxiter
         nep.model.set_C (self.nep.f_[0])
         f, m = self.nep.f_[0], self.nep.m_[0]
         self.dm = self.nep.model.get_dm()
         self.dmhat = self.nep.model.get_dmhat()
         self.dm2 = self.nep.model.get_dm2()
 
-    def solve (self):
+    def solve (self, accuracy=1e-12, maxiter=1000):
         """Solve for the critical eigenvectors.
 
         This calculates the right- and left critical eigenvector, the
@@ -268,15 +278,15 @@ class eigenvalue (object):
         self.ehat = np.zeros(self.shape,dtype=model.dtype)
         if model.scalar():
             model.set_base_phi(self.e)
-            self.eval, conv1 = _esolve(self.e, self.dm, f, self.maxiter, self.accuracy, *self.nep.model.kernel_extra_args_dm())
+            self.eval, conv1 = _esolve(self.e, self.dm, f, maxiter, accuracy, *self.nep.model.kernel_extra_args_dm())
             model.set_base_phi(self.ehat)
-            self.eval2, conv2 = _ehatsolve(self.ehat, self.dmhat, f, self.maxiter, self.accuracy, *self.nep.model.kernel_extra_args_dmhat())
+            self.eval2, conv2 = _ehatsolve(self.ehat, self.dmhat, f, maxiter, accuracy, *self.nep.model.kernel_extra_args_dmhat())
         else:
             phi0 = model.phi0()
             model.set_base_phi(self.e)
-            self.eval, conv1 = _esolve_mat(self.e, self.dm, f, phi0, self.maxiter, self.accuracy, *self.nep.model.kernel_extra_args_dm())
+            self.eval, conv1 = _esolve_mat(self.e, self.dm, f, phi0, maxiter, accuracy, *self.nep.model.kernel_extra_args_dm())
             model.set_base_phi(self.ehat)
-            self.eval2, conv2 = _ehatsolve_mat(self.ehat, self.dmhat, f, phi0, self.maxiter, self.accuracy, *self.nep.model.kernel_extra_args_dmhat())
+            self.eval2, conv2 = _ehatsolve_mat(self.ehat, self.dmhat, f, phi0, maxiter, accuracy, *self.nep.model.kernel_extra_args_dmhat())
 
         self.converged = conv1 & conv2
 
