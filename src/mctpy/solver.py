@@ -549,7 +549,7 @@ class correlator (CorrelatorBase):
         return newself
 
 @njit
-def _msd_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments, *kernel_args):
+def _msd_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, d, maxiter, accuracy, calc_moments, *kernel_args):
     A = dM[1] + 1.5*nutmp
 
     for i in range(istart,iend):
@@ -564,7 +564,7 @@ def _msd_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter,
             C += (phi[i-k+1] - phi[i-k]) * dM[k]
         C += m[i-ibar] * phi[ibar]
         C += (-2.0*phi[i-1] + 0.5*phi[i-2]) * nutmp
-        C += -6.0
+        C += -2*d
         C = C/A
 
         phi[i] = - C
@@ -582,7 +582,7 @@ class mean_squared_displacement (correlator):
         self.model.set_base_phi(self.phi_)
         for i in range(iend):
             t = i*self.h0
-            self.phi_[i] = np.ones(self.mdimen*self.vdim,dtype=self.model.dtype)*6.*t/self.model.Bq()
+            self.phi_[i] = np.ones(self.mdimen*self.vdim,dtype=self.model.dtype)*2*self.model.spatial_dimension()*t/self.model.Bq()
             self.jit_kernel (self.m_[i], None, i, t, *self.model.kernel_extra_args())
         for i in range(1,iend):
             self.dPhi_[i] = 0.5 * (self.phi_[i-1] + self.phi_[i])
@@ -592,7 +592,7 @@ class mean_squared_displacement (correlator):
         self.iend = iend
 
     def solve_block (self, istart, iend):
-        _msd_solve_block (istart, iend, self.h, self.model.Bq()/self.h, self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy, (istart<self.blocksize//2), *self.model.kernel_extra_args())
+        _msd_solve_block (istart, iend, self.h, self.model.Bq()/self.h, self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.model.spatial_dimension(), self.maxiter, self.accuracy, (istart<self.blocksize//2), *self.model.kernel_extra_args())
 
     def type (self):
         return 'MSD'

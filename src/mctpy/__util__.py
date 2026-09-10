@@ -77,6 +77,11 @@ class model_base (object):
         where multiplication in the equations of motion is simply
         element-wise."""
         return True
+    def spatial_dimension (self):
+        """Return the spatial dimension of the model. This defaults to
+        three since the original development of MCT was done for it;
+        this influences the calculation of the MSD and NGP."""
+        return 3
     def hopping (self):
         return None
     def phi0 (self):

@@ -148,6 +148,8 @@ class simple_liquid_model_2d (model_base):
         self.D0 = D0
     def __len__ (self):
         return self.M
+    def spatial_dimension (self):
+        return 2
     def Wq (self):
         return self.q*self.q
     def Bq (self):
