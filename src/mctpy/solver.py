@@ -465,12 +465,34 @@ class correlator (CorrelatorBase):
 
         Returns
         -------
-        Gt : array_like
+        G : array_like
             The shear modulus such that integration over time results in
             the stress (tensor).
         """
         if self.store and self.solved>0 and 'shear_modulus' in dir(self.model):
             return self.model.shear_modulus(self.phi, self.t, **kwargs)
+        else:
+            return None
+    def longitudinal_modulus (self, **kwargs):
+        """Returns the longitudinal modulus evaluate from the solution.
+
+        This works if the solutions have been calculated and stored,
+        and the model defines a `longitudinal_modulus` method.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Optional model-dependent arguments.
+
+        Returns
+        -------
+        M : array_like
+            The dynamical longitudinal modulus.
+        """
+        if self.store and self.solved>0 and 'longitudinal_modulus' in dir(self.model):
+            return self.model.longitudinal_modulus(self.phi, self.t, **kwargs)
+        else:
+            return None
 
     def save (self, file):
         """Save the correlator data to the given file.

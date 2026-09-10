@@ -1,4 +1,5 @@
 import numpy as np
+import scipy
 
 from numba import njit
 from .__util__ import model_base, void, nparray, _dq
@@ -289,6 +290,74 @@ class mixture_model (model_base):
                 self.sqrtrho, self.q, self.dq()]
     def mrenorm (self, m):
         return m/self.q[:,None,None]**2
+    def shear_modulus (self, phi, t):
+        r"""Return shear modulus / shear stress, given a solution.
+
+        Parameters
+        ----------
+        phi : array_like
+            Correlator or nonergodicity-parameter values, needs to be
+            in the form matching the current model.
+        t : array_like
+            Time points for the integral (not needed).
+
+        Returns
+        -------
+        G : array_like
+            The shear modulus corresponding to the nonergodicity parameter
+            or the time-dependent shear modulus corresponding to the given
+            time-dependent solution.
+        """
+
+        # phi can be shape (T,M,S,S) or (M,S,S)
+        rho_total = np.sum(self.Sq.densities)
+        # dcq: sqrt(rho_a rho_b) c'_{ab}(q), shape (M,S,S)
+        rho_ab = np.sqrt(np.outer(self.Sq.densities,self.Sq.densities))
+        dcq = rho_ab * self.Sq.dcq_dq(self.q)
+        inner = np.zeros(phi[...,0,0].shape)
+        S = phi.shape[-1]
+        for a in range(S):
+            for b in range(S):
+                for g in range(S):
+                    for d in range(S):
+                        inner += dcq[:,a,b]*dcq[:,g,d]*phi[...,a,g]*phi[...,b,d]
+        return scipy.integrate.trapezoid(self.dq() *
+            self.q**4 * inner) / (60*np.pi**2)/rho_total
+    def longitudinal_modulus (self, phi, t):
+        r"""Return the longitudinal modulus, given a solution.
+
+        Parameters
+        ----------
+        phi : array_like
+            Correlator or nonergodicity-parameter values, needs to be in
+            the form matching the surrent model. Needs to have shape
+            `(...,M,S,S)`.
+        t : array_like
+            Time points for the integral (not needed).
+
+        Returns
+        -------
+        M : array_like
+            The longitudinal modulus corresponding to the input solution.
+        """
+        # phi can be shape (T,M,S,S) or (M,S,S)
+        rho_total = np.sum(self.Sq.densities)
+        # dcq: sqrt(rho_a rho_b) c'_{ab}(q), shape (M,S,S)
+        rho_ab = np.sqrt(np.outer(self.Sq.densities,self.Sq.densities))
+        dcq = rho_ab * self.Sq.dcq_dq(self.q)
+        cq = rho_ab * self.Sq.cq(self.q)
+        inner = np.zeros(phi[...,0,0].shape)
+        S = phi.shape[-1]
+        for a in range(S):
+            for b in range(S):
+                for g in range(S):
+                    for d in range(S):
+                        inner += (cq[:,a,b]*cq[:,g,d] +
+                                  (2./3)*self.q * dcq[:,a,b]*cq[:,g,d] +
+                                  0.2*self.q**2 * dcq[:,a,b]*dcq[:,g,d]) \
+                                 * phi[...,a,g]*phi[...,b,d]
+        return scipy.integrate.trapezoid(self.dq() *
+            self.q**2 * inner) / (4*np.pi**2)/rho_total
 
 
 @njit

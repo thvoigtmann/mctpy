@@ -292,6 +292,33 @@ element of the correlator matrix then is the tagged-particle correlator.
 
     These conventions are consistent throughout the rest of the code.
 
+    In mixtures, the individual elements of the memory kernel all diverge
+    for small :math:`q`. Only certain combinations remain finite, and these
+    define the longitudinal modulus, the interdiffusion coefficient and
+    similar transport coefficients.
+
+    Specifically, we have
+
+    .. math::
+        \hat m_0^l = \lim_{q\to0}\sum_{\alpha\beta}
+                     x_\alpha M_{\alpha\beta}(q) x_\beta
+
+    which is connected to the longitudinal modulus (or viscosity). From the
+    MCT expression, one gets (using the discretized wave-number sums of
+    mixtureKernelBase, :math:`q_i=(\Delta q)(i+1/2)`,
+
+    .. math::
+
+    \hat m_0^l = \frac{\varrho(\Delta q)}{4\pi^2}\sum_k
+      \sum_{\alpha\beta\gamma\delta} \sqrt{x_\alpha x_\beta x_\gamma x_\delta}
+      \left(c_{\alpha\beta}(k)c_{\gamma\delta}(k)+{\textstyle\frac23}
+      kc'_{\alpha\beta}(k)c_{\gamma\delta}(k)+{\textstyle\frac15}
+      kc'_{\alpha\beta}(k)kc'_{\gamma\delta}(k)\right)
+      \tilde F_{\alpha\beta}(k)\tilde F_{\gamma\delta}(k)
+
+    where we recall the normalizations for :math:`\tilde{\boldsymbol F}(q)`
+    used throughout in this code.
+
     .. [Goetze2003] W. G\ |ouml|\ tze and Th. Voigtmann,
        Phys. Rev. E 67, 021502 (2003),
        `DOI:10.1103/PhysRevE.67.021502 <https://doi.org/10.1103/PhysRevE.67.021502>`_

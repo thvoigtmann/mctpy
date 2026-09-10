@@ -131,10 +131,6 @@ for i, phi in enumerate(phirange):
 ```
 
 ```{code-cell} ipython3
-sigrange
-```
-
-```{code-cell} ipython3
 epsrange = (phirange-phi_c)/phi_c
 C = np.interp(0.,epsrange,sigrange/epsrange)
 ```
@@ -206,6 +202,21 @@ for msd in correlators[3::2]:
 plt.xscale('log')
 plt.yscale('log')
 plt.show()
+```
+
+```{code-cell} ipython3
+G = tt.shear_modulus(correlators[0].phi,correlators[0].t)
+```
+
+```{code-cell} ipython3
+for phi in correlators[:2]:
+    plt.plot(phi.t,phi.shear_modulus())
+plt.xscale('log')
+plt.show()
+```
+
+```{code-cell} ipython3
+help(correlators[0])
 ```
 
 ```{code-cell} ipython3
