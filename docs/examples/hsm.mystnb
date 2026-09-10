@@ -216,7 +216,53 @@ plt.show()
 ```
 
 ```{code-cell} ipython3
-help(correlators[0])
+import scipy
+```
+
+```{code-cell} ipython3
+model = correlators[0].model
+rho_total = np.sum(model.Sq.densities)
+rho_ab = np.sqrt(np.outer(model.Sq.densities,model.Sq.densities))
+dcq = rho_ab * model.Sq.dcq_dq(model.q)
+```
+
+```{code-cell} ipython3
+phi = correlators[0].phi
+inner = np.zeros(phi[...,0,0].shape)
+S = phi.shape[-1]
+for a in range(S):
+    for b in range(S):
+        for g in range(S):
+            for d in range(S):
+                inner += dcq[:,a,b]*dcq[:,g,d]*phi[...,a,g]*phi[...,b,d]
+scipy.integrate.trapezoid(model.dq() *
+    model.q**4 * inner) / (60*np.pi**2)/rho_total
+```
+
+```{code-cell} ipython3
+inner = np.einsum('...ab,...gd,...ag,...bd',dcq,dcq,phi,phi)
+scipy.integrate.trapezoid(model.dq() *
+    model.q**4 * inner) / (60*np.pi**2)/rho_total
+```
+
+```{code-cell} ipython3
+cq = model.Sq.cq(model.q)
+rho = rho_ab
+```
+
+```{code-cell} ipython3
+sum1 = '...gd,...ag,...bd,...ab,...gd->...ab'
+sum2 = '...gd,...ag,...bd,...ag,...bd->...ab'
+inner = np.einsum(sum1,rho,cq,cq,phi,phi) - np.einsum(sum2,rho,cq,cq,phi,phi)
+qw = model.dq() * model.q**2
+mcc = scipy.integrate.trapezoid(
+        qw[...,None,None] * inner, axis=-3) / (6.*np.pi**2)
+```
+
+```{code-cell} ipython3
+plt.plot(correlators[0].t,mcc[:,1,1])
+plt.xscale('log')
+plt.show()
 ```
 
 ```{code-cell} ipython3

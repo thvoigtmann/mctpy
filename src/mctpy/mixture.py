@@ -314,13 +314,15 @@ class mixture_model (model_base):
         # dcq: sqrt(rho_a rho_b) c'_{ab}(q), shape (M,S,S)
         rho_ab = np.sqrt(np.outer(self.Sq.densities,self.Sq.densities))
         dcq = rho_ab * self.Sq.dcq_dq(self.q)
-        inner = np.zeros(phi[...,0,0].shape)
-        S = phi.shape[-1]
-        for a in range(S):
-            for b in range(S):
-                for g in range(S):
-                    for d in range(S):
-                        inner += dcq[:,a,b]*dcq[:,g,d]*phi[...,a,g]*phi[...,b,d]
+        # C-style, "by hand":
+        #inner = np.zeros(phi[...,0,0].shape)
+        #for a in range(S):
+        #    for b in range(S):
+        #        for g in range(S):
+        #            for d in range(S):
+        #                inner += dcq[:,a,b]*dcq[:,g,d]*phi[...,a,g]*phi[...,b,d]
+        # or, the wonderful numpy.einsum at work:
+        inner = np.einsum('...ab,...gd,...ag,...bd',dcq,dcq,phi,phi)
         return scipy.integrate.trapezoid(self.dq() *
             self.q**4 * inner) / (60*np.pi**2)/rho_total
     def longitudinal_modulus (self, phi, t):
@@ -346,18 +348,21 @@ class mixture_model (model_base):
         rho_ab = np.sqrt(np.outer(self.Sq.densities,self.Sq.densities))
         dcq = rho_ab * self.Sq.dcq_dq(self.q)
         cq = rho_ab * self.Sq.cq(self.q)
-        inner = np.zeros(phi[...,0,0].shape)
-        S = phi.shape[-1]
-        for a in range(S):
-            for b in range(S):
-                for g in range(S):
-                    for d in range(S):
-                        inner += (cq[:,a,b]*cq[:,g,d] +
-                                  (2./3)*self.q * dcq[:,a,b]*cq[:,g,d] +
-                                  0.2*self.q**2 * dcq[:,a,b]*dcq[:,g,d]) \
-                                 * phi[...,a,g]*phi[...,b,d]
+        summation = '...ab,...gd,...ag,...bd'
+        inner = np.einsum(summation,cq,cq,phi,phi) \
+          + (2./3)*self.q*np.einsum(summation,dcq,cq,phi,phi) \
+          + 0.2*self.q**2*np.einsum(summation,dcq,dcq,phi,phi)
         return scipy.integrate.trapezoid(self.dq() *
             self.q**2 * inner) / (4*np.pi**2)/rho_total
+    def cc_modulus (self, phi, t):
+        rho = np.sqrt(np.outer(self.Sq.densities,self.Sq.densities))
+        cq = self.Sq.cq(self.q)
+        sum1 = '...gd,...ag,...bd,...ab,...gd->...ab'
+        sum2 = '...gd,...ag,...bd,...ag,...bd->...ab'
+        inner = np.einsum(sum1,rho,cq,cq,phi,phi) - np.einsum(sum2,rho,cq,cq,phi,phi)
+        qw = self.dq() * self.q**2
+        return scipy.integrate.trapezoid(
+                qw[...,None,None] * inner, axis=-3) / (6.*np.pi**2)
 
 
 @njit

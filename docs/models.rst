@@ -319,6 +319,30 @@ element of the correlator matrix then is the tagged-particle correlator.
     where we recall the normalizations for :math:`\tilde{\boldsymbol F}(q)`
     used throughout in this code.
 
+    The relevant memory kernel from which to extract the interdiffusion
+    matrix is, using :math:`q_i=(\Delta q)(i+1/2)` and
+    :math:`\tilde{\boldsymbol\Phi}` and :math:`\tilde{\boldsymbol M}`,
+
+    .. math::
+
+      \tilde M_{\alpha\beta}(0) = \frac{\varrho(\Delta q)}{6\pi^2}
+      \sum_k \sum_{\alpha'\beta'} k^4 c_{\alpha\alpha'}(k)c_{\beta\beta'}(k)
+      \sqrt{x_{\alpha'}x_{\beta'}}
+      \Delta\tilde F_{\alpha\beta\alpha'\beta'}(k)
+
+    where we have defined
+
+    .. math::
+
+    \Delta\tilde F_{\alpha\beta\alpha'\beta'}(k)=
+        \tilde F_{\alpha\beta}(k)\tilde F_{\alpha'\beta'}(k)
+        -\tilde F_{\alpha'\beta}(k)\tilde F_{\alpha\beta'}(k)
+
+    The implementation :py:func:`mctpy.mixture_model.cc_modulus` returns
+    a symmetric matrix of dimension :math:`S\times S`, which a priori
+    should have :math:`S(S+1)/2` elements. however, due to conservation
+    laws, only :math:`S(S-1)/2` of these are independent.
+
     .. [Goetze2003] W. G\ |ouml|\ tze and Th. Voigtmann,
        Phys. Rev. E 67, 021502 (2003),
        `DOI:10.1103/PhysRevE.67.021502 <https://doi.org/10.1103/PhysRevE.67.021502>`_
