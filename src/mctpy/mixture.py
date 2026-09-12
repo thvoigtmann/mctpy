@@ -369,10 +369,10 @@ class mixture_model (model_base,
     def cc_modulus (self, phi, t):
         rho = np.sqrt(np.outer(self.densities,self.densities))
         cq = self.Sq.cq(self.q)
-        sum1 = '...gd,...ag,...bd,...ab,...gd->...ab'
-        sum2 = '...gd,...ag,...bd,...ag,...bd->...ab'
+        sum1 = 'gd,...ag,...bd,...ab,...gd->...ab'
+        sum2 = 'gd,...ag,...bd,...gb,...ad->...ab'
         inner = np.einsum(sum1,rho,cq,cq,phi,phi) - np.einsum(sum2,rho,cq,cq,phi,phi)
-        qw = self.dq() * self.q**2
+        qw = self.dq() * self.q**4
         return scipy.integrate.trapezoid(
                 qw[...,None,None] * inner, axis=-3) / (6.*np.pi**2)
 

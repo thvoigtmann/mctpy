@@ -286,10 +286,6 @@ for phi in correlators:
 ```
 
 ```{code-cell} ipython3
-tagged_correlators[0].model.base.Sq.densities
-```
-
-```{code-cell} ipython3
 tagged_correlators.solve_all(progress_bar=tqdm)
 ```
 
@@ -298,6 +294,8 @@ msds.solve_all(progress_bar=tqdm)
 ```
 
 ```{code-cell} ipython3
+qval = 12.2
+qi = np.nonzero(np.isclose(qgrid,qval))[0][0]
 for phi_s in tagged_correlators:
     plt.plot(phi_s.t,phi_s.phi[:,qi])
 plt.xscale('log')
@@ -313,63 +311,57 @@ plt.show()
 ```
 
 ```{code-cell} ipython3
-G = tt.shear_modulus(correlators[0].phi,correlators[0].t)
-```
-
-```{code-cell} ipython3
-for phi in correlators[:2]:
+for phi in correlators:
     plt.plot(phi.t,phi.shear_modulus())
 plt.xscale('log')
 plt.show()
 ```
 
 ```{code-cell} ipython3
-import scipy
+def cc_modulus (self, phi, t):
+    import scipy
+    rho = np.sqrt(np.outer(self.densities,self.densities))
+    cq = self.Sq.cq(self.q)
+    sum1 = 'gd,...ag,...bd,...ab,...gd->...ab'
+    sum2 = 'gd,...ag,...bd,...gb,...ad->...ab'
+    inner = np.einsum(sum1,rho,cq,cq,phi,phi) - np.einsum(sum2,rho,cq,cq,phi,phi)
+    qw = self.dq() * self.q**4
+    return scipy.integrate.trapezoid(
+            qw[...,None,None] * inner, axis=-3) / (6.*np.pi**2)
 ```
 
 ```{code-cell} ipython3
-model = correlators[0].model
-rho_total = np.sum(model.Sq.densities)
-rho_ab = np.sqrt(np.outer(model.Sq.densities,model.Sq.densities))
-dcq = rho_ab * model.Sq.dcq_dq(model.q)
-```
-
-```{code-cell} ipython3
-phi = correlators[0].phi
-inner = np.zeros(phi[...,0,0].shape)
-S = phi.shape[-1]
-for a in range(S):
-    for b in range(S):
-        for g in range(S):
-            for d in range(S):
-                inner += dcq[:,a,b]*dcq[:,g,d]*phi[...,a,g]*phi[...,b,d]
-scipy.integrate.trapezoid(model.dq() *
-    model.q**4 * inner) / (60*np.pi**2)/rho_total
-```
-
-```{code-cell} ipython3
-inner = np.einsum('...ab,...gd,...ag,...bd',dcq,dcq,phi,phi)
-scipy.integrate.trapezoid(model.dq() *
-    model.q**4 * inner) / (60*np.pi**2)/rho_total
-```
-
-```{code-cell} ipython3
-cq = model.Sq.cq(model.q)
-rho = rho_ab
-```
-
-```{code-cell} ipython3
-sum1 = '...gd,...ag,...bd,...ab,...gd->...ab'
-sum2 = '...gd,...ag,...bd,...ag,...bd->...ab'
-inner = np.einsum(sum1,rho,cq,cq,phi,phi) - np.einsum(sum2,rho,cq,cq,phi,phi)
-qw = model.dq() * model.q**2
-mcc = scipy.integrate.trapezoid(
-        qw[...,None,None] * inner, axis=-3) / (6.*np.pi**2)
-```
-
-```{code-cell} ipython3
-plt.plot(correlators[0].t,mcc[:,1,1])
+for phi in correlators:
+    Mcc = cc_modulus(phi.model,phi.phi,phi.t)
+    x = phi.model.densities/phi.model.rho
+    plt.plot(phi.t,Mcc[:,0,0]*x[0],linestyle='solid')
+    plt.plot(phi.t,Mcc[:,1,1]*x[1],linestyle='dashed')
+    plt.plot(phi.t,-Mcc[:,0,1]*np.sqrt(x[0]*x[1]),linestyle='dotted')
 plt.xscale('log')
+plt.show()
+```
+
+```{code-cell} ipython3
+import scipy
+for phi in correlators:
+    Mcc = cc_modulus(phi.model,phi.phi,phi.t)
+    x = phi.model.densities/phi.model.rho
+    Laa = x[1]/scipy.integrate.trapezoid(Mcc[:,0,0],x=phi.t)
+    Lbb = x[0]/scipy.integrate.trapezoid(Mcc[:,1,1],x=phi.t)
+    Lab = -np.sqrt(x[0]*x[1])/scipy.integrate.trapezoid(Mcc[:,0,1],x=phi.t)
+    print(Laa,Lbb,Lab)
+```
+
+```{code-cell} ipython3
+philist = []
+xblist = np.linspace(0,1,11)
+for xb in xblist:
+    sq = mct.structurefactors.hsmPY(*hsm_densities(d).volume_fractions(phi=packing_fraction, xhat=xb))
+    x = sq.densities/np.sum(sq.densities)
+    s0, _ = sq.Sq(0)
+    Phiinv = x[1]*s0[0,0] + x[0]*s0[1,1] - 2*np.sqrt(x[0]*x[1])*s0[0,1]
+    philist.append(1./Phiinv)
+plt.plot(xblist,philist)
 plt.show()
 ```
 
