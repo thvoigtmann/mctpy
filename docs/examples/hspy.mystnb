@@ -215,6 +215,9 @@ for i, qi in enumerate(qis):
 plt.show()
 ```
 
+The following plot picks up an idea of Daniele Coslovich [check citation, 2026], of taking the derivative $ \frac{\partial}{\partial\ln t}\phi(t) $. For a KWW function, we can see that this yields
+$$ \frac{\partial}{\partial\ln t}e^{-(t/\tau)^\beta}=-\beta\left(\frac{t}{\tau}\right)^\beta e^{-(t/\tau)^\beta}$$ which has a minimum at $t=\tau$ where it yields the value $-\beta/e$. The minimum of the real correlator thus should be a nice way of figuring out both $\beta$ and $\tau$.
+
 ```{code-cell} ipython3
 fig, ax = plt.subplots(nrows=2, ncols=1)
 for i, qi in enumerate(qis):
