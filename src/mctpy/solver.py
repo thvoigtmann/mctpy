@@ -212,7 +212,9 @@ class correlator (CorrelatorBase):
                   maxinit=50, maxiter=10000, accuracy=1e-9, store=False,
                   model = None, base = None,
                   motion_type = "brownian"):
-        if base is None:
+
+        #if base is None:
+        if not model.get_bases():
             self.h0 = h
             self.halfblocksize = (blocksize//4)*2
             self.blocksize = self.halfblocksize * 2
@@ -222,10 +224,17 @@ class correlator (CorrelatorBase):
             else:
                 self.blocks = blocks
         else:
-            self.h0 = base.h0
-            self.blocks = base.blocks
-            self.blocksize = base.blocksize
-            self.halfblocksize = blocksize//2
+            for base in model.get_bases():
+                if not base.correlator:
+                    # TODO could auto-create a suitable solver here
+                    # would need to give each solver a type ("phi", "msd", ...)
+                    # and each model a corresponding type (have that already?)
+                    raise
+                # TODO check if multiple bases define conflicting values
+                self.h0 = base.correlator.h0
+                self.blocks = base.correlator.blocks
+                self.blocksize = base.correlator.blocksize
+                self.halfblocksize = blocksize//2
             #self.base = base
         self.h = self.h0
         self.maxinit = maxinit
