@@ -36,6 +36,25 @@ def numbalog(log):
 import mctpy as mct
 ```
 
+## Check One-Component Case
+
++++
+
+If in a binary mixture, one partial density is zero, we should get the one-component result together with the tagged particle for free. We check this for the nonergodicity parameters.
+
+```{code-cell} ipython3
+for xb in [0.0,1.0]:
+    sq = mct.structurefactors.hsmPY(*hsm_densities([1.0,0.6]).volume_fractions(phi=0.52,xhat=xb))
+    model = mct.mixture_model (sq, qgrid)
+    nep = mct.nonergodicity_parameter (model = model)
+    nep.solve(accuracy=1e-8)
+    plt.plot(qgrid, nep.f[:,0,0])
+    plt.plot(qgrid*0.6, nep.f[:,1,1])
+plt.show()
+```
+
+## Binary Mixture: Nonergodicity Parameters and Eigenvalues
+
 ```{code-cell} ipython3
 delta, xb = 0.6, 0.2
 from mctpy.structurefactors import hsm_densities
@@ -43,7 +62,7 @@ from mctpy.structurefactors import hsm_densities
 
 ```{code-cell} ipython3
 qgrid = np.linspace(0.2,39.8,100)
-#qgrid = np.linspace(0.1,39.9,200)
+qgrid = np.linspace(0.2,39.9*2,200)
 d = [1.0, delta]
 varphi = [0.5, 0.52]
 ```
@@ -65,8 +84,8 @@ model = mct.mixture_model (sq, qgrid)
 ```
 
 ```{code-cell} ipython3
-nep = mct.nonergodicity_parameter (model = model, accuracy=1e-8)
-nep.solve()
+nep = mct.nonergodicity_parameter (model = model)
+nep.solve(accuracy=1e-8)
 nep.converged
 ```
 
@@ -74,6 +93,8 @@ nep.converged
 ev = mct.eigenvalue (nep)
 ev.solve()
 ```
+
+These are the nonergodicity parameters normalized to the structure factors, using $f_{\alpha\beta}(q)=F_{\alpha\beta}(q)/\sqrt{S_{\alpha\alpha}(q)S_{\beta\beta}(q)}$
 
 ```{code-cell} ipython3
 plt.plot(nep.model.q[1:], nep.f[1:,0,0]/nep.model.sq[1:,0,0], label='f00')
@@ -87,7 +108,10 @@ plt.legend()
 plt.show()
 ```
 
+Here we calculate the glass-transition line for $\delta=0.6$. The calculation requires a bit of time, so we save the result for future reference, or just load it if `load_from_file` is `True`.
+
 ```{code-cell} ipython3
+load_from_file = True
 class evsearch_hsm:
     def __init__ (self, delta, xbhat):
         self.model = None
@@ -101,103 +125,187 @@ class evsearch_hsm:
             self.model = mct.mixture_model (Sq, qgrid)
         else:
             self.model.reinit (Sq)
-        nep = mct.nonergodicity_parameter (model = self.model, accuracy=1e-5)
-        nep.solve()
-        ev = mct.eigenvalue (nep, maxiter=1500)
-        ev.solve()
+        nep = mct.nonergodicity_parameter (model = self.model)
+        nep.solve(accuracy=1e-8)
+        ev = mct.eigenvalue (nep)
+        ev.solve(maxiter=1500)
         return ev
 #with numba.core.event.install_listener("numba:compile", numba.core.event.RecordingListener()) as log:
-phis, evs = mct.util.evscan (0.51, 0.52, evsearch_hsm(delta,xb).calc_ev, eps=1e-4)
+if not load_from_file:
+    hsm_c = {}
+    for xb in np.linspace(0,1,11):
+        phis, evs = mct.util.evscan (0.51, 0.56, evsearch_hsm(delta,xb).calc_ev, eps=1e-6)
+        p = np.argmax([ev.eval for ev in evs])
+        hsm_c[xb] = {phis[p]: evs[p]}
+        print(f"xb = {xb:.2f}  phi_c = {phis[p]:.8f}, lambda = {evs[p].lam:.3f}, ev = {evs[p].eval:.6f}")
+    mct.h5.save_file('/tmp/test.h5', hsm_c)
+else:
+    hsm_c = mct.h5.load_file('/tmp/test.h5')
 #numbalog(log)
 ```
 
+Glass transition line and lambda values for $\delta=0.6$, compare to [Goetze/Voigtmann PRE 2003], Figs. 1 and 13.
+
 ```{code-cell} ipython3
-p=np.argmax([ev.eval for ev in evs])
-print("phi_c = {:.8f}(1), lambda = {:.3f}, ev = {:.6f}".format(phis[p],evs[p].lam,evs[p].eval))
+xblist = []
+phiclist = []
+lamlist = []
+for xb, res in hsm_c.items():
+    for k,v in res.items():
+        phi_c = float(k)
+        ev_c = v
+    xblist.append(float(xb))
+    phiclist.append(phi_c)
+    lamlist.append(ev_c.lam)
+fig,ax = plt.subplots()
+ax.plot(xblist, phiclist, label='phic')
+ax2=ax.twinx()
+ax2.plot(xblist,lamlist,color='green', label='lambda')
+plt.xlabel('xhat')
+ax.set_ylabel('phi_c')
+ax2.set_ylabel('lambda')
+plt.show()
+```
+
+Plot of the nonergodicity parameters, compare to Fig. 6 in [Goetze/Voigtmann PRE 2003].
+
+```{code-cell} ipython3
+xblist = []
+phiclist = []
+lamlist = []
+fig, ax = plt.subplots(nrows=2, sharex=True)
+for xb, res in hsm_c.items():
+    for k,v in res.items():
+        phi_c = float(k)
+        ev_c = v
+    for i in range(2):
+        ax[i].plot(qgrid[2:], ev_c.nep.f[2:,i,i]/ev_c.nep.model.sq[2:,i,i])
+ax[0].set_xlim(0,30)
+plt.show()
+```
+
+In the following, we demonstrate the calculation of the shear and longitudinal moduli at the glass transition. Compare this to Fig. 7 in [Götze and Voigtmann, PRE 67, 021502 (2003)].
+
+```{code-cell} ipython3
+xblist = []
+Glist = []
+Mlist = []
+M0list = []
+for xb, res in hsm_c.items():
+    for k,v in res.items():
+        phi_c = float(k)
+        ev_c = v
+    xblist.append(float(xb))
+    sq = mct.structurefactors.hsmPY(ev_c.nep.model.densities,[1.0,0.6])
+    ev_c.nep.model.Sq = sq
+    Glist.append(ev_c.nep.model.shear_modulus(ev_c.nep.f,0.))
+    Mlist.append(ev_c.nep.model.longitudinal_modulus(ev_c.nep.f,0.))
+    M0list.append(np.einsum('a,iab,b',np.sqrt(sq.densities),np.linalg.inv(ev_c.nep.model.sq),np.sqrt(sq.densities))[0]/np.sum(sq.densities)**1)
+    lamlist.append(ev_c.lam)
+fig,ax = plt.subplots()
+ax.plot(xblist, Glist, label='G')
+ax.plot(xblist, Mlist, label='M')
+ax.plot(xblist, M0list, label='M0')
+ax.set_xlabel('xhat')
+ax.set_ylabel('moduli in units of (rho kT)')
+plt.legend()
+plt.show()
+```
+
+Calculate the true distance parameter $\sigma$: compare the following to Figure 4.20 in [Voigtmann, PhD thesis 2003].
+
+```{code-cell} ipython3
+sigrange = {}
+C = {}
+phi_c = {}
+for xbstr in ['0.0','0.1','0.2']:
+    m1 = mct.mixture_model(mct.structurefactors.hsmPY([0.,0.],d),qgrid)
+    phirange = np.linspace(0.51,0.53,51)
+    sigrange[xbstr] = np.zeros_like(phirange)
+    xb = float(xbstr)
+    phi_c_str = list(hsm_c[xbstr].keys())[0]
+    phi_c[xbstr] = float(phi_c_str)
+    for i, phi in enumerate(phirange):
+        m1.reinit (mct.structurefactors.hsmPY(*hsm_densities(d).volume_fractions(phi=phi, xhat=xb)))
+        ev = hsm_c[xbstr][phi_c_str]
+        sigrange[xbstr][i] = ev.sigma (m1)
+    epsrange = (phirange - phi_c[xbstr]) / phi_c[xbstr]
+    C[xbstr] = np.interp(0., epsrange, sigrange[xbstr]/epsrange)
 ```
 
 ```{code-cell} ipython3
-hsm_c = evs[p]
-phi_c = phis[p]
-```
-
-```{code-cell} ipython3
-m1 = mct.mixture_model(mct.structurefactors.hsmPY([0.,0.],d),qgrid)
-phirange = np.linspace(0.46,0.58,101)
-sigrange = np.zeros_like(phirange)
-for i, phi in enumerate(phirange):
-    m1.reinit (mct.structurefactors.hsmPY(*hsm_densities(d).volume_fractions(phi=phi, xhat=xb)))
-    sigrange[i] = hsm_c.sigma (m1)
-```
-
-```{code-cell} ipython3
-epsrange = (phirange-phi_c)/phi_c
-C = np.interp(0.,epsrange,sigrange/epsrange)
-```
-
-```{code-cell} ipython3
-plt.plot(phirange, sigrange, label='sigma')
-plt.plot(phirange, C*(phirange-phi_c)/phi_c, label=f'C*eps, C={C:.2f}', linestyle='dashed')
+for xbstr in sigrange:
+    plt.plot(phirange, sigrange[xbstr], label='sigma')
+    plt.plot(phirange, C[xbstr]*(phirange-phi_c[xbstr])/phi_c[xbstr], label=f'C*eps, C={C[xbstr]:.2f}', linestyle='dashed')
 plt.plot([phirange[0],phirange[-1]],[0.,0.],linestyle='dashed',color='black')
 plt.legend()
 plt.xlabel('phi')
 plt.show()
 ```
 
+## Binary Mixture Dynamics
+
 ```{code-cell} ipython3
 correlators = mct.CorrelatorStack()
-for packing_fraction, sq in zip(varphi, sqlist):
+packing_fraction = 0.515
+for xb in [0., 0.05, 0.1, 0.2]:
+    sq = mct.structurefactors.hsmPY(*hsm_densities(d).volume_fractions(phi=packing_fraction, xhat=xb))
     model = mct.mixture_model (sq, qgrid)
     phi = mct.correlator (model = model, store = True, blocks=50)
     correlators.append(phi)
+correlators.solve_all(progress_bar=tqdm,stop_condition=lambda c:np.isnan(c.phi).any())
 ```
 
 ```{code-cell} ipython3
-pbar = tqdm(total=phi.blocks+1)
-correlators.solve_all(callback=lambda d,bs2,bs,c: pbar.update(1),stop_condition=lambda c:np.isnan(c.phi).any())
-pbar.close()
-```
-
-```{code-cell} ipython3
-qval = 12.2
+qval = 5.4
 qi = np.nonzero(np.isclose(qgrid,qval))[0][0]
 ```
 
+Compare this plot to Fig. 9 of [Goetze/Voigtmann PRE 2003].
+
 ```{code-cell} ipython3
-for packing_fraction, phi in zip(varphi, correlators):
-    plt.plot(phi.t, phi.phi[:,qi,0,0])
+fig, ax = plt.subplots(nrows=2, sharex=True)
+for phi in correlators:
+    for i in range(2):
+        ax[i].plot(phi.t, phi.phi[:,qi,i,i]/phi.phi[0,qi,i,i])
 plt.xscale('log')
 plt.show()
 ```
 
 ```{code-cell} ipython3
-for packing_fraction, phi in zip(varphi, correlators):
+tagged_correlators = mct.CorrelatorStack()
+msds = mct.CorrelatorStack()
+for phi in correlators:
     cs = mct.structurefactors.mixtureTagged(phi.model.Sq, 0)
     model_s = mct.mixture_tagged_particle (phi.model, cs=cs, D0s=1)
     phi_s = mct.correlator (model = model_s, base=phi, store = True)
-    correlators.append(phi_s)
+    tagged_correlators.append(phi_s)
     model_s0 = mct.tagged_particle_q0 (model_s)
     msd = mct.mean_squared_displacement (model = model_s0, base=phi_s, store=True)
-    correlators.append(msd)
+    msds.append(msd)
 ```
 
 ```{code-cell} ipython3
-correlators.solve_all(progress_bar=tqdm)
+tagged_correlators[0].model.base.Sq.densities
 ```
 
 ```{code-cell} ipython3
-len(correlators)
+tagged_correlators.solve_all(progress_bar=tqdm)
 ```
 
 ```{code-cell} ipython3
-for phi_s in correlators[2::2]:
+msds.solve_all(progress_bar=tqdm)
+```
+
+```{code-cell} ipython3
+for phi_s in tagged_correlators:
     plt.plot(phi_s.t,phi_s.phi[:,qi])
 plt.xscale('log')
 plt.show()
 ```
 
 ```{code-cell} ipython3
-for msd in correlators[3::2]:
+for msd in msds:
     plt.plot(msd.t, msd.phi)
 plt.xscale('log')
 plt.yscale('log')
