@@ -495,28 +495,14 @@ class correlator (CorrelatorBase):
         else:
             return None
 
-    def save (self, file):
-        """Save the correlator data to the given file.
-
-        The data will be stored in the mctpy h5 file format.
-
-        Parameters
-        ----------
-        file : str
-            Filename.
-        """
-        if not self.store or not self.solved > -2:
-            return # should throw an exception
-        with h5py.File(file, 'w') as f:
-            h5info (f)
-            self.h5save (f.create_group('correlator'))
-            self.model.h5save (f)
-    def h5save (self, grp):
+    def h5save (self, h5file):
+        grp = h5file.create_group('correlator')
         grp.attrs['type'] = self.type()
         grp2 = grp.create_group("time_domain")
-        grp2.create_dataset("t",data=self.t)
-        grp2.create_dataset("phi",data=self.phi)
-        grp2.create_dataset("m",data=self.m)
+        if self.store and self.solved > -2:
+            grp2.create_dataset("t",data=self.t)
+            grp2.create_dataset("phi",data=self.phi)
+            grp2.create_dataset("m",data=self.m)
         grp2.attrs['solver'] = 'moment'
         grp2.attrs['h0'] = self.h0
         grp2.attrs['blocks'] = self.blocks
@@ -524,10 +510,11 @@ class correlator (CorrelatorBase):
         grp2.attrs['blocksize'] = self.blocksize
         grp2.attrs['maxiter'] = self.maxiter
         grp2.attrs['accuracy'] = self.accuracy
+        self.model.h5save (grp)
     def type (self):
         return 'phi'
     @staticmethod
-    def load (file):
+    def h5load (h5file):
         """Load correlator from h5 file.
 
         This is a static method that returns a newly created
@@ -535,17 +522,19 @@ class correlator (CorrelatorBase):
         used as a base correlator object for the calculation of
         models that need the loaded data as a reference.
         """
-        with h5py.File(file, 'r') as f:
-            attrs = f['correlator/time_domain'].attrs
-            newself = correlator(
-                blocksize=attrs['blocksize'], h=attrs['h0'],
-                blocks=attrs['blocks'], maxiter=attrs['maxiter'],
-                accuracy=attrs['accuracy'], model = loaded_model(f))
-            newself.t = np.array(f['correlator/time_domain/t'])
-            newself.phi = np.array(f['correlator/time_domain/phi'], dtype=newself.model.dtype)
-            newself.m = np.array(f['correlator/time_domain/m'], dtype=newself.model.dtype)
-            newself.store = True
-            newself.solved = attrs['solved_blocks']
+        h5grp = h5file['correlator']
+        attrs = h5grp['time_domain'].attrs
+        model = loaded_model(h5grp['model']) # TODO load real model
+        newself = correlator(
+            blocksize=attrs['blocksize'], h=attrs['h0'],
+            blocks=attrs['blocks'], maxiter=attrs['maxiter'],
+            accuracy=attrs['accuracy'], model = model)
+        # TODO avoid errors if empty correlator saved
+        newself.t = np.array(h5grp['time_domain/t'])
+        newself.phi = np.array(h5grp['time_domain/phi'], dtype=newself.model.dtype)
+        newself.m = np.array(h5grp['time_domain/m'], dtype=newself.model.dtype)
+        newself.store = True
+        newself.solved = attrs['solved_blocks']
         return newself
 
 @njit

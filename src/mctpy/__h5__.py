@@ -19,7 +19,8 @@ class LoadableModel:
             newself.__dict__[field] = np.array(val)
         newself.reinit()
         return newself
-    def h5save (self, h5grp):
+    def h5save (self, h5file):
+        h5grp = h5file.create_group('model')
         h5grp.attrs['model_name'] = self.model_name
         for field in self.stored_fields:
             h5grp.create_dataset(field, data=self.__dict__[field])
@@ -62,9 +63,10 @@ def h5info (h5file):
     grp.attrs['version'] = __version__
 
 def load_model (h5file):
-    model_name = h5file.attrs.get('model_name','')
+    h5grp = h5file['model']
+    model_name = h5grp.attrs.get('model_name','')
     # we just try the factory, it will raise an exception if the model
     # cannot be loaded, user needs to catch that
     # empty string (if model_name is missing) will load loaded_model
-    return ModelFactory.get(model_name, h5file)
+    return ModelFactory.get(model_name, h5grp)
 

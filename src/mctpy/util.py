@@ -391,3 +391,5 @@ def filon_sin_transform(f,x,w):
     """
     return filon_integrate(f,x,lambda x:-np.cos(w*x)/w,
                                lambda x:-x*np.cos(w*x)/w+np.sin(w*x)/w**2)
+
+

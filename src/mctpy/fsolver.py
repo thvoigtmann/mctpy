@@ -1,10 +1,10 @@
 import numpy as np
 
 from numba import njit
-import h5py
+#import h5py
 
 from .__util__ import void
-from .__h5__ import h5info, load_model
+from .__h5__ import load_model
 
 @njit
 def _fsolve (f, m, W, f0, phi0, kernel, accuracy, maxiter, *kernel_args):
@@ -134,41 +134,38 @@ class nonergodicity_parameter (object):
         self.m = self.m_[0].reshape(self.phishape)
         self.solved = True
         self.accuracy = accuracy
-    def save (self, file):
-        """Save the nonergodicity parameters to a file.
-
-        Data will be stored in the mctpy h5 file format.
-
-        Parameters
-        ----------
-        file : str
-            Filename
-        """
-        if not self.solved:
-            return # TODO throw exception?
-        with h5py.File(file, 'w') as f:
-            h5info(f)
-            self.h5save (f.create_group('nonergodicity_parameter'))
-    def h5save (self, grp):
-        grp.create_dataset("f", data=self.f)
-        grp.create_dataset("m", data=self.m)
-        grp.attrs['converged'] = self.converged
-        grp.attrs['accuracy'] = self.accuracy
-        self.model.h5save (grp.create_group('model'))
+    def h5save (self, h5file):
+        grp = h5file.create_group('nonergodicity_parameter')
+        if self.solved:
+            grp.create_dataset("f", data=self.f)
+            grp.create_dataset("m", data=self.m)
+            grp.attrs['converged'] = self.converged
+            grp.attrs['accuracy'] = self.accuracy
+        self.model.h5save (grp)
+    #@staticmethod
+    #def load (file):
+    #    """Load nonergodicity parameter from h5 file.
+    #
+    #    This returns a newly created nonergodicity_parameter object.
+    #    """
+    #    with h5py.File(file, 'r') as f:
+    #        nep = nonergodicity_parameter.h5load(f)
+    #    return nep
     @staticmethod
-    def load (file):
-        """Load nonergodicity parameter from h5 file.
-
-        This returns a newly created nonergodicity_parameter object.
-        """
-        with h5py.File(file, 'r') as f:
-            nep = f['nonergodicity_parameter']
-            model = load_model(nep['model'])
-            newself = nonergodicity_parameter(model)
-            newself.f = np.array(nep['f'], dtype=model.dtype)
-            newself.m = np.array(nep['m'], dtype=model.dtype)
+    def h5load (h5file):
+        h5grp = h5file['nonergodicity_parameter']
+        model = load_model(h5grp)
+        newself = nonergodicity_parameter(model)
+        if 'f' in h5grp:
+            newself.f = np.array(h5grp['f'], dtype=model.dtype)
+            newself.m = np.array(h5grp['m'], dtype=model.dtype)
             newself.solved = True
-            newself.converged = nep.attrs['converged']
+            newself.converged = h5grp.attrs['converged']
+            newself.accuracy = h5grp.attrs['accuracy']
+            newself.f_ = newself.f.reshape((1,*newself.shape))
+            newself.m_ = newself.m.reshape((1,*newself.shape))
+        else:
+            newself.solved = False
         return newself
 
 
@@ -265,8 +262,6 @@ class eigenvalue (object):
     """
     def __init__ (self, nep):
         self.nep = nep
-        nep.model.set_C (self.nep.f_[0])
-        f, m = self.nep.f_[0], self.nep.m_[0]
         self.dm = self.nep.model.get_dm()
         self.dmhat = self.nep.model.get_dmhat()
         self.dm2 = self.nep.model.get_dm2()
@@ -297,6 +292,7 @@ class eigenvalue (object):
                 self.phishape = (len(model), vdim, dim, dim)
             else:
                 self.phishape = self.shape
+        self.nep.model.set_C (self.nep.f_[0])
         f = self.nep.f_[0]
         self.e = np.zeros(self.shape,dtype=model.dtype)
         self.ehat = np.zeros(self.shape,dtype=model.dtype)
@@ -340,6 +336,8 @@ class eigenvalue (object):
             self.lam = 0.0
         self.e = self.e.reshape(self.phishape)
         self.ehat = self.ehat.reshape(self.phishape)
+        self.solved = True
+        self.accuracy = accuracy
 
     def sigma (self, model_nc):
         """Calculate distance parameter with respect to this state point.
@@ -357,7 +355,6 @@ class eigenvalue (object):
         sigma : float
             MCT distance parameter.
         """
-        # TODO FIXME currently not implemented for mixtures
         # TODO test for vector-models
         dq = self.nep.model.dq()
         vdim = self.nep.model.vector_dimension()
@@ -385,3 +382,32 @@ class eigenvalue (object):
                 - np.einsum('...ak,...kl,...lb', Sc, mc, Sc_Fc)
             s = np.einsum('i,iab,iak,ikl,ilb', dq, self.ehat, Sc_Fc, Scinv, dSM)
             return s/norm
+    def h5save (self, h5file):
+        grp = h5file.create_group('eigenvalue')
+        if self.solved:
+            grp.create_dataset("e", data=self.e)
+            grp.create_dataset("ehat", data=self.ehat)
+            grp.attrs['eval'] = self.eval
+            grp.attrs['eval2'] = self.eval2
+            grp.attrs['lambda'] = self.lam
+            grp.attrs['converged'] = self.converged
+            grp.attrs['accuracy'] = self.accuracy
+        self.nep.h5save (grp)
+    @staticmethod
+    def h5load (h5file):
+        h5grp = h5file['eigenvalue']
+        nep = nonergodicity_parameter.h5load (h5grp)
+        newself = eigenvalue(nep)
+        if 'e' in h5grp:
+            model = nep.model
+            newself.e = np.array(h5grp['e'], dtype=model.dtype)
+            newself.ehat = np.array(h5grp['ehat'], dtype=model.dtype)
+            newself.solved = True
+            newself.converged = h5grp.attrs['converged']
+            newself.accuracy = h5grp.attrs['accuracy']
+            newself.lam = h5grp.attrs['lambda']
+            newself.eval = h5grp.attrs['eval']
+            newself.eval2 = h5grp.attrs['eval2']
+        else:
+            newself.solved = False
+        return newself

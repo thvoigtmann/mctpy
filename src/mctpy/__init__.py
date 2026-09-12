@@ -16,5 +16,7 @@ import mctpy.scgle
 
 import mctpy.structurefactors
 
+import mctpy.h5
+
 from importlib.metadata import version
 __version__ = version("mctpy")
