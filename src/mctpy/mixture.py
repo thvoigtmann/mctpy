@@ -230,6 +230,7 @@ class mixture_model (model_base,
         self.Sq = Sq
         if not Sq is None:
             self.densities = Sq.densities
+            self.rho = Sq.density() # used by tagged_q0
             self.sq, self.cq = Sq.Sq(self.q)
             if isinstance(D0, (list, np.ndarray)):
                 self.D0 = np.array(D0)
@@ -425,6 +426,8 @@ class mixture_tagged_particle (model_base):
         self.cs = cs.cq(self.q)
         self.D0 = D0s
         self.__init_vertices__()
+    def get_bases (self):
+        return [self.base]
     def __len__ (self):
         return self.M
     def Wq (self):

@@ -210,7 +210,7 @@ class correlator (CorrelatorBase):
     """
     def __init__ (self, blocksize=256, h=1e-9, blocks=60, Tend=0.0,
                   maxinit=50, maxiter=10000, accuracy=1e-9, store=False,
-                  model = model_base(), base = None,
+                  model = None, base = None,
                   motion_type = "brownian"):
         if base is None:
             self.h0 = h
@@ -233,6 +233,7 @@ class correlator (CorrelatorBase):
         self.accuracy = accuracy
 
         self.model = model
+        self.model.correlator = self
         self.jit_kernel = model.get_kernel()
         self.jit_set_V = model.get_set_V()
 
@@ -411,6 +412,7 @@ class correlator (CorrelatorBase):
         are already in memory, and only calls the `solve_block` if needed.
         """
         self.h = self.h0
+        self.model.set_base_phi(self.phi_)
         if not self.store or not self.solved >= -1:
             self.initial_values (self.maxinit)
             self.solve_block (self.iend, self.halfblocksize)
@@ -438,6 +440,13 @@ class correlator (CorrelatorBase):
         If `store` is True, the solver keeps track of whether the solutions
         are already in memory, and only calls the `solve_block` if needed.
         """
+        # TODO check this should be sufficient once at the beginning?!
+        # looks almost redundant since we now also set self.model.correlator
+        # to ourselves, but do we want the field phi_ to be exposed
+        # in the API, or what?
+        # what is currently completely missing is a compatility check
+        # for solvers
+        self.model.set_base_phi(self.phi_)
         if not self.store or not self.solved >= d:
             self.solve_block (self.halfblocksize, self.blocksize)
             if self.store:

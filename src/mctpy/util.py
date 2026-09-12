@@ -60,17 +60,35 @@ class CorrelatorStack(list):
         blockrange = range(blocks)
         if progress_bar is not None:
             blockrange = progress_bar(blockrange)
+
+        def recurse_append_bases (solvedict, z, corr):
+            if corr is None:
+                raise
+            # even if corr already present: add it with higher precedence
+            # if we found it at the base of another model
+            solvedict[corr] = z
+            for base in corr.model.get_bases():
+                recurse_append_bases (solvedict, z-1, base.correlator)
+        solvedict = {}
         for _phi_ in self:
+            recurse_append_bases (solvedict, 0, _phi_)
+        # sort such that most negative z-order appears first
+        solvelist = sorted(solvedict, key=lambda c:solvedict[c])
+        print("SL",solvelist)
+
+        for _phi_ in solvelist:
+            print("_phi_",_phi_,_phi_.solved)
             _phi_.solve_first()
         if callback is not None:
             callback (0, 0, halfblocksize, self)
         for d in blockrange:
-            for _phi_ in self:
+            for _phi_ in solvelist:
+                print("_phi_",_phi_,_phi_.solved)
                 _phi_.solve_next (d)
             if callback is not None:
                 callback (d, halfblocksize, blocksize, self)
             stop = 0
-            for _phi_ in self:
+            for _phi_ in solvelist:
                 _phi_.decimize ()
                 if stop_on_zero \
                     and np.isclose(_phi_.phi_[halfblocksize],0).all() \
@@ -92,6 +110,16 @@ class CorrelatorBase (CorrelatorStack):
         return 1
     def __iter__ (self):
         yield self
+    def __repr__ (self):
+        # needed to make this print like usual objects, not empty list
+        return object.__repr__ (self)
+    def __eq__ (self, other):
+        # needed to make "corr in [corr1,corr2]" work
+        # should compare like objects, not empty lists
+        return object.__eq__ (self, other)
+    def __hash__ (self):
+        # needed to allow dict() with correlators as keys
+        return object.__hash__ (self)
 
 
 def regula_falsi(f,x0,x1,accuracy=1e-8,maxiter=10000,isclose=np.isclose,fargs=()):

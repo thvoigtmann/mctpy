@@ -239,6 +239,8 @@ class tagged_particle_model (model_base):
         self.cs = cs.cq(self.q)
         self.D0 = D0s
         self.__init_vertices__()
+    def get_bases (self):
+        return [self.base]
     def __len__ (self):
         return self.M
     def Wq (self):
@@ -293,6 +295,8 @@ class tagged_particle_q0 (model_base):
         self.reinit()
     def reinit(self):
         self.__init_vertices__()
+    def get_bases (self):
+        return [self.base, self.base.base]
     def __len__ (self):
         return 1
     def Bq (self):

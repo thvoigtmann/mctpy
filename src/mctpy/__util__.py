@@ -43,7 +43,13 @@ class model_base (object):
         self.dtype = np.dtype(float)
         self.mdispatch = {}
         self.set_kernels (kernel=kernel, dm=dm, dmhat=dmhat, dm2=dm2, setV=setV)
-        print(self,self.mdispatch)
+        # the following fields will be populated by the respective solvers
+        # to allow back-linking of a model to the solver that solved it
+        # this is needed for the construction of dependency lists
+        # of coupled models
+        self.correlator = None
+        self.nep = None
+        self.ev = None
     def set_kernels (self, kernel=None, dm=None, dmhat=None, dm2=None,
                      setV=None):
         if kernel:
@@ -109,6 +115,9 @@ class model_base (object):
         correlator in the equation of motion. See `phi0()` for the expected
         shape."""
         return np.ones(len(self)*self.vector_dimension())
+    def get_bases (self):
+        """Return the list of base correlators needed for this one."""
+        return []
     def set_base_phi (self, array):
         # old style, baking pointers into njit functions (bad, but shorter
         # call signatures if that matters at all):

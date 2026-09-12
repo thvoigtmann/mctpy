@@ -199,6 +199,8 @@ class tagged_particle_model_2d (model_base):
         self.M = self.q.shape[0]
         self.__init_vertices__()
         self.D0 = D0s
+    def get_bases (self):
+        return [self.base]
     def __len__ (self):
         return self.M
     def Wq (self):
