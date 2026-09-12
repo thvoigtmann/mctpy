@@ -265,6 +265,8 @@ class eigenvalue (object):
         self.dm = self.nep.model.get_dm()
         self.dmhat = self.nep.model.get_dmhat()
         self.dm2 = self.nep.model.get_dm2()
+        self.shape = self.nep.shape
+        self.phishape = self.nep.phishape
 
     def solve (self, accuracy=1e-12, maxiter=1000):
         """Solve for the critical eigenvectors.
@@ -277,21 +279,7 @@ class eigenvalue (object):
         the classes' `converged` field will be set to `True`.
         """
         model = self.nep.model
-        dim = model.matrix_dimension()
         vdim = model.vector_dimension()
-        msize = len(model)*vdim*dim**2
-        if model.scalar():
-            self.shape = (len(model) * vdim,)
-            if vdim > 1:
-                self.phishape = (len(model), vdim)
-            else:
-                self.phishape = self.shape
-        else:
-            self.shape = (len(model) * vdim, dim, dim)
-            if vdim > 1:
-                self.phishape = (len(model), vdim, dim, dim)
-            else:
-                self.phishape = self.shape
         self.nep.model.set_C (self.nep.f_[0])
         f = self.nep.f_[0]
         self.e = np.zeros(self.shape,dtype=model.dtype)
