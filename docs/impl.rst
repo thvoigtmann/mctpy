@@ -44,6 +44,23 @@ memory kernel as an extra argument. These models should then implement
 a `reinit` method to allow changing the parameters in an existing model object.
 However, this is no longer considered necessary in most cases.
 
+For models whose vertices reference another correlator, for example in
+the tagged-particle case that references a base correlator, a reference
+to the base-model object should be stored, as its member `phi`
+will be set by the solvers to point to the relevant memory array.
+In particular, the `set_V` and `set_C` methods will be called just before
+the memory kernel, respectively the stability matrix, will be evaluated.
+The methods are called for each time step once before the iteration,
+allowing to cache tagged-particle vertices.
+
+If you want to make add save/reload functionality to the model, derive
+it from `LoadableModel` as a second base class, and define fields and
+attributes to be saved and reloaded. Then you only need to make sure
+that both the constructor and the reinit method can be called without
+any arguments. (In this case they will find the specified fields and
+attributes already pre-filled and should call the vertex initialization
+or whatever is needed. The vertices will usually not be stored.)
+
 There are a few helper methods that a model should implement:
 * :py:func:`mctpy.model_base.Aq` to specify the prefactor :math:`A_q`
     in front of the second time derivative in the evolution equation.
@@ -65,6 +82,7 @@ There are a few helper methods that a model should implement:
     initial derivative of the function to solve for. This is ignored
     if :math:`A_q` is set to zero (Brownian dynamics), since then
     the derivative is fixed by the other parameters.
+
 
 Memory layout
 -------------
