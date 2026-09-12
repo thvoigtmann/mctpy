@@ -66,7 +66,10 @@ class CorrelatorStack(list):
                 raise
             # even if corr already present: add it with higher precedence
             # if we found it at the base of another model
-            solvedict[corr] = z
+            if not (corr in solvedict):
+                solvedict[corr] = z
+            else:
+                solvedict[corr] = min(solvedict[corr],z)
             for base in corr.model.get_bases():
                 recurse_append_bases (solvedict, z-1, base.correlator)
         solvedict = {}
@@ -74,16 +77,13 @@ class CorrelatorStack(list):
             recurse_append_bases (solvedict, 0, _phi_)
         # sort such that most negative z-order appears first
         solvelist = sorted(solvedict, key=lambda c:solvedict[c])
-        print("SL",solvelist)
 
         for _phi_ in solvelist:
-            print("_phi_",_phi_,_phi_.solved)
             _phi_.solve_first()
         if callback is not None:
             callback (0, 0, halfblocksize, self)
         for d in blockrange:
             for _phi_ in solvelist:
-                print("_phi_",_phi_,_phi_.solved)
                 _phi_.solve_next (d)
             if callback is not None:
                 callback (d, halfblocksize, blocksize, self)
