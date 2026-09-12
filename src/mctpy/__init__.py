@@ -9,8 +9,6 @@ from .shear import isotropically_sheared_model
 from .abp import abp_model_2d
 from .util import CorrelatorStack, exponents, evscan, filon_integrate, filon_cos_transform, filon_sin_transform
 
-from .__util__ import model_base
-
 import mctpy.granular
 import mctpy.scgle
 
