@@ -4,7 +4,8 @@ from numba import njit, literally
 
 import h5py
 
-from .__util__ import model_base, loaded_model, np_isclose_all, h5info
+from .__util__ import model_base, np_isclose_all
+from .__h5__ import h5info, loaded_model
 from .util import exponents, CorrelatorBase
 
 @njit
@@ -508,10 +509,9 @@ class correlator (CorrelatorBase):
             return # should throw an exception
         with h5py.File(file, 'w') as f:
             h5info (f)
-            self.h5save (f)
+            self.h5save (f.create_group('correlator'))
             self.model.h5save (f)
-    def h5save (self, base):
-        grp = base.create_group("correlator")
+    def h5save (self, grp):
         grp.attrs['type'] = self.type()
         grp2 = grp.create_group("time_domain")
         grp2.create_dataset("t",data=self.t)

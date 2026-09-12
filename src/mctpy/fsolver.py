@@ -1,8 +1,10 @@
 import numpy as np
 
 from numba import njit
+import h5py
 
 from .__util__ import void
+from .__h5__ import h5info, load_model
 
 @njit
 def _fsolve (f, m, W, f0, phi0, kernel, accuracy, maxiter, *kernel_args):
@@ -63,22 +65,24 @@ class nonergodicity_parameter (object):
     """
     def __init__ (self, model):
         self.model = model
-        self.dim = model.matrix_dimension()
-        self.vdim = model.vector_dimension()
-        self.M = len(model)
+        dim = model.matrix_dimension()
+        vdim = model.vector_dimension()
+        M = len(model)
         if self.model.scalar():
-            self.f_ = np.zeros((1,self.M*self.vdim),dtype=model.dtype)
-            self.m_ = np.zeros((1,self.M*self.vdim),dtype=model.dtype)
+            self.shape = (M * vdim,)
+            self.phishape = (M, vdim) if vdim > 1 else self.shape
         else:
-            self.f_ = np.zeros((1,self.M*self.vdim,self.dim,self.dim),
-                               dtype=model.dtype)
-            self.m_ = np.zeros((1,self.M*self.vdim,self.dim,self.dim),
-                               dtype=model.dtype)
+            self.shape = (M * vdim, dim, dim)
+            self.phishape = (M, vdim, dim, dim) if vdim > 1 else self.shape
+        self.f_ = np.zeros((1,*self.shape),dtype=model.dtype)
+        self.m_ = np.zeros((1,*self.shape),dtype=model.dtype)
         self.jit_kernel = model.get_kernel()
+        self.solved = False
 
     def solve (self, accuracy=1e-12, maxiter=1000000,
                callback=None, callback_every=0):
         """Solve for the nonergodicity parameter.
+
         Parameters
         ----------
         accuracy : float, default: 1e-12
@@ -113,40 +117,60 @@ class nonergodicity_parameter (object):
         else:
             blocks = 1
             block_iter = maxiter
-        if self.model.scalar():
-            f0 = self.model.phi0().copy()
-            converged = False
-            for b in range(blocks):
+        f0 = self.model.phi0().copy() # TODO do we need copy() ?
+        converged = False
+        for b in range(blocks):
+            if self.model.scalar():
                 converged = _fsolve(self.f_, self.m_, self.model.Wq(), f0, self.model.phi0(), self.jit_kernel, accuracy, block_iter, *self.model.kernel_extra_args())
-                if callback is not None:
-                    callback(block_iter*(b+1),self)
-                if converged: break
-                if b < blocks-1:
-                    f0 = self.f_[0]
-            self.converged = converged
-            if self.vdim > 1:
-                self.f = self.f_[0].reshape(-1,self.vdim)
-                self.m = self.m_[0].reshape(-1,self.vdim)
             else:
-                self.f = self.f_[0]
-                self.m = self.m_[0]
-        else:
-            f0 = self.model.phi0()
-            converged = False
-            for b in range(blocks):
                 converged = _fsolve_mat(self.f_, self.m_, self.model.Wq(), f0, self.model.phi0(), self.model.WqSq(), self.jit_kernel, accuracy, block_iter, *self.model.kernel_extra_args())
-                if callback is not None:
-                    callback(block_iter*(b+1),self)
-                if converged: break
-                if b < blocks-1:
-                    f0 = self.f_[0]
-            self.converged = converged
-            if self.vdim > 1:
-                self.f = self.f_[0].reshape(-1,self.vdim,self.dim,self.dim)
-                self.m = self.m_[0].reshape(-1,self.vdim,self.dim,self.dim)
-            else:
-                self.f = self.f_[0].reshape(-1,self.dim,self.dim)
-                self.m = self.m_[0].reshape(-1,self.dim,self.dim)
+            if callback is not None:
+                callback(block_iter*(b+1),self)
+            if converged: break
+            if b < blocks-1:
+                f0 = self.f_[0]
+        self.converged = converged
+        self.f = self.f_[0].reshape(self.phishape)
+        self.m = self.m_[0].reshape(self.phishape)
+        self.solved = True
+        self.accuracy = accuracy
+    def save (self, file):
+        """Save the nonergodicity parameters to a file.
+
+        Data will be stored in the mctpy h5 file format.
+
+        Parameters
+        ----------
+        file : str
+            Filename
+        """
+        if not self.solved:
+            return # TODO throw exception?
+        with h5py.File(file, 'w') as f:
+            h5info(f)
+            self.h5save (f.create_group('nonergodicity_parameter'))
+    def h5save (self, grp):
+        grp.create_dataset("f", data=self.f)
+        grp.create_dataset("m", data=self.m)
+        grp.attrs['converged'] = self.converged
+        grp.attrs['accuracy'] = self.accuracy
+        self.model.h5save (grp.create_group('model'))
+    @staticmethod
+    def load (file):
+        """Load nonergodicity parameter from h5 file.
+
+        This returns a newly created nonergodicity_parameter object.
+        """
+        with h5py.File(file, 'r') as f:
+            nep = f['nonergodicity_parameter']
+            model = load_model(nep['model'])
+            newself = nonergodicity_parameter(model)
+            newself.f = np.array(nep['f'], dtype=model.dtype)
+            newself.m = np.array(nep['m'], dtype=model.dtype)
+            newself.solved = True
+            newself.converged = nep.attrs['converged']
+        return newself
+
 
 
 @njit

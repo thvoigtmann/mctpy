@@ -195,29 +195,9 @@ class model_base (object):
         when an integral over the q-indices is performed."""
         return 1.0
 
-    def h5save (self, fh):
-        return
-
 @nb.njit(inline='always')
 def model_base_set_V (i):
     return
-
-
-class loaded_model(model_base):
-    def __init__ (self, h5data):
-        model_definition = h5data['model']
-        for attr,val in model_definition.attrs.items():
-            self.__dict__[attr] = val
-        for field,val in model_definition.items():
-            self.__dict__[field] = np.array(val)
-    def __len__ (self):
-        return self.M
-    # TODO should we define vector_dimension and matrix_dimension here??
-
-def h5info (h5file):
-    from . import __version__
-    grp = h5file.create_group("mctpy")
-    grp.attrs['version'] = __version__
 
 
 # below some support functions, mostly for numba

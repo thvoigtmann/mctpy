@@ -3,6 +3,7 @@ import scipy
 
 from numba import njit
 from .__util__ import model_base, void, nparray, _dq
+from .__h5__ import LoadableModel
 
 ## mixture_model kernels
 @njit
@@ -194,7 +195,8 @@ def mixture_model_dm2 (m, f, h, a1, a2, a3, b1, b2, b3, sr, q, dq):
     mixture_model_kernel (m, h, 0, 0.0, a1, a2, a3, b1, b2, b3, sr, q, dq)
     m[:] = m/q[:,None,None]**2
 
-class mixture_model (model_base):
+class mixture_model (model_base,
+                     LoadableModel, fields=['q','sq','cq','densities','D0']):
     """MCT model for simple-liquid mixtures.
 
     Parameters
@@ -209,23 +211,30 @@ class mixture_model (model_base):
         length matches the number of species defined in the structure
         factor, or a scalar value that will be applied to all species.
     """
-    def __init__ (self, Sq, q, D0=1.0):
+    def __init__ (self, Sq=None, q=None, D0=1.0):
         model_base.__init__(self, kernel=mixture_model_kernel,
                             dm=mixture_model_dm,
                             dmhat=mixture_model_dmhat,
                             dm2=mixture_model_dm2)
-        self.q = q
-        self.M = q.shape[0]
-        self.S = Sq.densities.shape[0]
-        self.reinit (Sq, D0)
-    def reinit (self, Sq, D0=1.0):
+        if not Sq is None:
+            self.q = q
+            self.reinit (Sq, D0)
+    def reinit (self, Sq=None, D0=1.0):
+        # constructor and reinit: both should allow no-argument version
+        # for the h5loader !?
+        # TODO document: for LoadableClass we need those and a reinit()
+        #
+        # TODO storing Sq is currently needed for the moduli since only
+        # there do we access dcq_cq, for a loaded model we wouldn't have this
+        # idea: create a fallback there using np_gradient if self.Sq is None?
         self.Sq = Sq
-        self.rho = Sq.density()
-        self.sq, self.cq = Sq.Sq(self.q)
-        if isinstance(D0, (list, np.ndarray)):
-          self.D0 = np.array(D0)
-        else:
-          self.D0 = np.ones(self.S)*D0
+        if not Sq is None:
+            self.densities = Sq.densities
+            self.sq, self.cq = Sq.Sq(self.q)
+            if isinstance(D0, (list, np.ndarray)):
+                self.D0 = np.array(D0)
+            else:
+                self.D0 = np.ones(self.densities.shape[0])*D0
         self.__init_vertices__ ()
     def __len__ (self):
         return self.M
@@ -247,6 +256,8 @@ class mixture_model (model_base):
         return _dq(self.q)
     def __init_vertices__ (self):
         q = self.q
+        self.M = self.q.shape[0]
+        self.S = self.densities.shape[0]
         self.a1 = np.zeros((3,self.M))
         self.a2 = np.zeros((3,self.M,self.S,self.S))
         self.a3 = np.zeros((3,self.M,self.S,self.S,self.S,self.S))
@@ -281,7 +292,7 @@ class mixture_model (model_base):
         self.b3[0] = pcpcp
         self.b3[1] = (q_**2 + p_**2) * pcpcp
         self.b3[2] = (q_**2 + p_**2)**2 * pcpcp
-        self.sqrtrho = np.sqrt(self.Sq.densities)
+        self.sqrtrho = np.sqrt(self.densities)
     def kernel_extra_args (self):
         return [self.a1, self.a2, self.a3, self.b1, self.b2, self.b3,
                 self.sqrtrho, self.q, self.dq()]
@@ -310,9 +321,9 @@ class mixture_model (model_base):
         """
 
         # phi can be shape (T,M,S,S) or (M,S,S)
-        rho_total = np.sum(self.Sq.densities)
+        rho_total = np.sum(self.densities)
         # dcq: sqrt(rho_a rho_b) c'_{ab}(q), shape (M,S,S)
-        rho_ab = np.sqrt(np.outer(self.Sq.densities,self.Sq.densities))
+        rho_ab = np.sqrt(np.outer(self.densities,self.densities))
         dcq = rho_ab * self.Sq.dcq_dq(self.q)
         # C-style, "by hand":
         #inner = np.zeros(phi[...,0,0].shape)
@@ -343,9 +354,9 @@ class mixture_model (model_base):
             The longitudinal modulus corresponding to the input solution.
         """
         # phi can be shape (T,M,S,S) or (M,S,S)
-        rho_total = np.sum(self.Sq.densities)
+        rho_total = np.sum(self.densities)
         # dcq: sqrt(rho_a rho_b) c'_{ab}(q), shape (M,S,S)
-        rho_ab = np.sqrt(np.outer(self.Sq.densities,self.Sq.densities))
+        rho_ab = np.sqrt(np.outer(self.densities,self.densities))
         dcq = rho_ab * self.Sq.dcq_dq(self.q)
         cq = rho_ab * self.Sq.cq(self.q)
         summation = '...ab,...gd,...ag,...bd'
@@ -355,7 +366,7 @@ class mixture_model (model_base):
         return scipy.integrate.trapezoid(self.dq() *
             self.q**2 * inner) / (4*np.pi**2)/rho_total
     def cc_modulus (self, phi, t):
-        rho = np.sqrt(np.outer(self.Sq.densities,self.Sq.densities))
+        rho = np.sqrt(np.outer(self.densities,self.densities))
         cq = self.Sq.cq(self.q)
         sum1 = '...gd,...ag,...bd,...ab,...gd->...ab'
         sum2 = '...gd,...ag,...bd,...ag,...bd->...ab'
