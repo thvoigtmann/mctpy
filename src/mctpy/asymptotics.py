@@ -71,7 +71,7 @@ def __find_g__ (x0, x1, a0, b0, accuracy):
 
 # beta-scaling solver implementation
 @njit
-def _solve_block_g (istart, iend, h, Bq, Wq, g, dG, lambda_, sigma, delta, maxiter, accuracy, calc_moments, *kernel_args):
+def _solve_block_g (istart, iend, h, g, dG, lambda_, sigma, delta, maxiter, accuracy, calc_moments):
 
     for i in range(istart,iend):
 
@@ -93,7 +93,7 @@ def _solve_block_g (istart, iend, h, Bq, Wq, g, dG, lambda_, sigma, delta, maxit
 
 # SBR solver implementation
 @njit
-def _solve_block_g_iter (istart, iend, h, Bq, Wq, g, dG, lambda_, sigma, delta, maxiter, accuracy, calc_moments, M, dim, alpha, dx, *kernel_args):
+def _solve_block_g_iter (istart, iend, h, g, dG, lambda_, sigma, delta, maxiter, accuracy, calc_moments, M, dim, alpha, dx):
 
     for i in range(istart,iend):
 
@@ -186,7 +186,7 @@ class beta_scaling_function (correlator):
         self.dim = dim
         correlator.__init__ (self, blocksize=blocksize, h=h, blocks=blocks,
             Tend=Tend, maxinit=maxinit, maxiter=maxiter, accuracy=accuracy,
-            store=store, model=model_base(), base=None)
+            store=store, model=None, base=None)
         self.lambda_ = lam
         self.sigma = sigma
         self.delta = delta
@@ -206,20 +206,18 @@ class beta_scaling_function (correlator):
                 s += sigma - np.mean(s)
                 self.sigma = s
     def __alloc__ (self):
-        self.phi_ = np.zeros((self.blocksize,*(self.M,)*self.dim))
-        self.dPhi_ = np.zeros((self.halfblocksize+1,*(self.M,)*self.dim))
-        self.m_ = np.zeros((self.blocksize,1))
-        self.dM_ = np.zeros((self.halfblocksize+1,1))
+        self.shape = (self.M,)*self.dim
+        self.phishape = self.shape
+        self.phi_ = np.zeros((self.blocksize,*self.shape))
+        self.dPhi_ = np.zeros((self.halfblocksize+1,*self.shape))
         if self.store:
             self.t = np.zeros(self.halfblocksize*(self.blocks+1))
-            self.phi = np.zeros((self.halfblocksize*(self.blocks+1),*(self.M,)*self.dim))
-            self.m = np.zeros((self.halfblocksize*(self.blocks+1),1))
+            self.phi = np.zeros((self.halfblocksize*(self.blocks+1),*self.shape))
 
     def initial_values (self, imax=50):
         """Initial values for the beta-correlation functions."""
         iend = imax
         if (iend >= self.halfblocksize): iend = self.halfblocksize-1
-        self.model.set_base_phi(self.phi_)
         a, _ = exponents(self.lambda_)
         A1 = 1./(2 * (a * np.pi / np.sin(a*np.pi) - self.lambda_))
         self.phi_[0] = 0.0
@@ -239,16 +237,30 @@ class beta_scaling_function (correlator):
 
     def solve_block (self, istart, iend):
         if self.M == 1:
-            _solve_block_g (istart, iend, self.h, self.model.Bq()/self.h, self.model.Wq(), self.phi_, self.dPhi_, self.lambda_, self.sigma, self.delta, self.maxiter, self.accuracy, (istart<self.blocksize//2), *self.model.kernel_extra_args())
+            _solve_block_g (istart, iend, self.h, self.phi_, self.dPhi_, self.lambda_, self.sigma, self.delta, self.maxiter, self.accuracy, (istart<self.blocksize//2))
         else:
-            _solve_block_g_iter (istart, iend, self.h, self.model.Bq()/self.h, self.model.Wq(), self.phi_, self.dPhi_, self.lambda_, self.sigma, self.delta, self.maxiter, self.accuracy, (istart<self.blocksize//2), self.M, self.dim, self.alpha, self.dx, *self.model.kernel_extra_args())
+            _solve_block_g_iter (istart, iend, self.h, self.phi_, self.dPhi_, self.lambda_, self.sigma, self.delta, self.maxiter, self.accuracy, (istart<self.blocksize//2), self.M, self.dim, self.alpha, self.dx)
 
     def type (self):
         return 'g'
 
     def h5save (self, base):
-        super(beta_scaling_function,self).h5save(base)
-        grp = base.create_group("model").create_group("beta_scaling")
+        grp = h5file.create_group('beta_scaling_function')
+        grp.attrs['type'] = self.type()
+        grp2 = grp.create_group("time_domain")
+        if self.store and self.solved > -2:
+            grp2.create_dataset("t",data=self.t)
+            grp2.create_dataset("phi",data=self.phi)
+        grp2.attrs['solver'] = 'moment'
+        grp2.attrs['h0'] = self.h0
+        grp2.attrs['blocks'] = self.blocks
+        grp2.attrs['solved_blocks'] = self.solved
+        grp2.attrs['blocksize'] = self.blocksize
+        grp2.attrs['maxiter'] = self.maxiter
+        grp2.attrs['accuracy'] = self.accuracy
+
+        grp = grp.create_group("model") #.create_group("beta_scaling")
+        grp.attrs['model_name'] = 'beta_scaling'
         if self.M==1:
             grp.attrs['sigma'] = self.sigma
         else:
@@ -266,25 +278,23 @@ class beta_scaling_function (correlator):
             grp.attrs['dx'] = 1.
 
     @staticmethod
-    def load (file):
-        with h5py.File(file, 'r') as f:
-            attrs = f['correlator/time_domain'].attrs
-            gattrs = f['model/beta_scaling'].attrs
-            newself = beta_scaling_function(
-                blocksize = attrs['blocksize'], h=attrs['h0'],
+    def h5load (h5file):
+        h5grp = h5file['beta_scaling_function']
+        attrs = h5grp['time_domain'].attrs
+        gattrs = h5grp['model'].attrs
+        newself = beta_scaling_function(
+                blocksize=attrs['blocksize'], h=attrs['h0'],
                 blocks=attrs['blocks'], maxiter=attrs['maxiter'],
                 accuracy=attrs['accuracy'],
                 lam=gattrs['lambda'], sigma=0.,
-                delta=gattrs['delta'], t0=gattrs['t0'],
-                M=gattrs['M'], dim=gattrs['dim'],
+                delta=gattrs['delta'], dim=gattrs['dim'],
                 alpha=gattrs['alpha'], dx=gattrs['dx'])
-            newself.t = np.array(f['correlator/time_domain/t'])
-            newself.phi = np.array(f['correlator/time_domain/phi'], dtype=newself.model.dtype)
-            newself.m = np.array(f['correlator/time_domain/m'], dtype=newself.model.dtype)
-            newself.store = True
-            newself.solved = attrs['solved_blocks']
-            if newself.M>1:
-                newself.sigma = np.array(f['model/beta_scaling/sigma'])
-            else:
-                newself.sigma = gattrs['sigma']
+        newself.t = np.array(h5grp['time_domain/t'])
+        newself.phi = np.array(h5grp['time_domain/phi'])
+        newself.store = True
+        newself.solved = attrs['solved_blocks']
+        if newself.M>1:
+            newself.sigma = np.array(h5grp['model/sigma'])
+        else:
+            newself.sigma = gattrs['sigma']
         return newself

@@ -9,23 +9,23 @@ from .__h5__ import h5info, loaded_model
 from .util import exponents, CorrelatorBase
 
 @njit
-def _decimize (phi, m, dPhi, dM, blocksize):
+def _decimize (f, dF, blocksize):
     halfblocksize = blocksize//2
     imid = halfblocksize//2
     for i in range(1,imid):
         di = i+i
-        dPhi[i] = 0.5 * (dPhi[di-1] + dPhi[di])
-        dM[i] = 0.5 * (dM[di-1] + dM[di])
+        dF[i] = 0.5 * (dF[di-1] + dF[di])
     for i in range(imid,halfblocksize):
         di = i+i
-        dPhi[i] = 0.25 * (phi[di-2] + 2*phi[di-1] + phi[di])
-        dM[i] = 0.25 * (m[di-2] + 2*m[di-1] + m[di])
-    dPhi[halfblocksize] = phi[blocksize-1]
-    dM[halfblocksize] = m[blocksize-1]
+        dF[i] = 0.25 * (f[di-2] + 2*f[di-1] + f[di])
+    # TODO rethink, maybe accuracy can be improved here
+    # if i==halfblocksize, di==blocksize, this is too much
+    # but we could use a backwards integral rule utilizing
+    # di-1 and di-2 instead of just di-1
+    dF[halfblocksize] = f[blocksize-1]
     for i in range(halfblocksize):
         di = i+i
-        phi[i] = phi[di]
-        m[i] = m[di]
+        f[i] = f[di]
 
 @njit
 def _solve_block (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments, hopping, pre_m, set_V, kernel_V_args, *kernel_args):
@@ -186,6 +186,10 @@ class correlator (CorrelatorBase):
         at least the function returning the value of the memory kernel
         given the current correlator values and will be repeatedly
         called during the iteration for each time step.
+        Note that this defaults to `None` which will crash because
+        apart from the initialization, the methods of this class assume
+        `model` to be reasonably set. The default can be useful in derived
+        classes though, for example for the beta-scaling equations.
     base : correlator, optional
         In case of models that refer to underlying base models, the
         memory-kernel implementation usually assumes the underlying model
@@ -207,14 +211,17 @@ class correlator (CorrelatorBase):
     to contain the solutions. They have shape (T,M) for scalar models,
     shape (T,M,V) for vectorial models, and shape (T,M,S,S) for matrix-valued
     models.
+
+    :ivar shape: Shape of the correlation functions if stored.
+    :ivar phishape: Internal shape of the memory for the solver.
+    :ivar model: Instance of the model being solved.
     """
     def __init__ (self, blocksize=256, h=1e-9, blocks=60, Tend=0.0,
                   maxinit=50, maxiter=10000, accuracy=1e-9, store=False,
                   model = None, base = None,
                   motion_type = "brownian"):
 
-        #if base is None:
-        if not model.get_bases():
+        if model is None or not model.get_bases():
             self.h0 = h
             self.halfblocksize = (blocksize//4)*2
             self.blocksize = self.halfblocksize * 2
@@ -242,9 +249,10 @@ class correlator (CorrelatorBase):
         self.accuracy = accuracy
 
         self.model = model
-        self.model.correlator = self
-        self.jit_kernel = model.get_kernel()
-        self.jit_set_V = model.get_set_V()
+        if model is not None:
+            self.model.correlator = self
+            self.jit_kernel = model.get_kernel()
+            self.jit_set_V = model.get_set_V()
 
         self.store = store
         self.solved = -2
@@ -270,6 +278,8 @@ class correlator (CorrelatorBase):
         self.__alloc__ ()
 
     def __alloc__ (self):
+        if self.model is None:
+            return
         model = self.model
         self.mdimen = len(model)
         self.vdim = model.vector_dimension()
@@ -294,7 +304,6 @@ class correlator (CorrelatorBase):
             self.t = np.zeros(self.halfblocksize*(self.blocks+1))
             self.phi = np.zeros((self.halfblocksize*(self.blocks+1),*self.phishape),dtype=model.dtype)
             self.m = np.zeros((self.halfblocksize*(self.blocks+1),*self.phishape),dtype=model.dtype)
-
 
 
     def initial_values (self, imax):
@@ -327,7 +336,7 @@ class correlator (CorrelatorBase):
             else:
                 tauinv = 0.
             if self.model.scalar():
-                omega = self.model.Wq().reshape(self.shape) * phi0 / Aq
+                omega = self.model.Wq().reshape(self.shape) * phi0 * Aqinv
             else:
                 WqSq = self.model.WqSq().reshape(self.shape)
                 omega = np.zeros(self.shape,dtype=self.model.dtype)
@@ -362,7 +371,9 @@ class correlator (CorrelatorBase):
         self.iend = iend
 
     def decimize (self):
-        _decimize (self.phi_, self.m_, self.dPhi_, self.dM_, self.blocksize)
+        _decimize (self.phi_, self.dPhi_, self.blocksize)
+        if 'm' in self.__dict__:
+            _decimize (self.m_, self.dM_, self.blocksize)
         self.h = self.h * 2.0
 
     # core interface, can be reimplemented by derived solvers
@@ -421,7 +432,8 @@ class correlator (CorrelatorBase):
         are already in memory, and only calls the `solve_block` if needed.
         """
         self.h = self.h0
-        self.model.set_base_phi(self.phi_)
+        if self.model is not None:
+            self.model.set_base_phi(self.phi_)
         if not self.store or not self.solved >= -1:
             self.initial_values (self.maxinit)
             self.solve_block (self.iend, self.halfblocksize)
@@ -429,14 +441,16 @@ class correlator (CorrelatorBase):
                 N2 = self.halfblocksize
                 self.t[:N2] = self.h * np.arange(N2)
                 self.phi[:N2,:] = self.phi_[:N2,:].reshape(N2,*self.phishape)
-                self.m[:N2,:] = self.m_[:N2,:].reshape(N2,*self.phishape)
+                if 'm' in self.__dict__:
+                    self.m[:N2,:] = self.m_[:N2,:].reshape(N2,*self.phishape)
             self.solved = -1
         else:
             N2 = self.halfblocksize
             self.phi_[:N2,:] = self.phi[:N2,:].reshape(N2,*self.shape)
-            self.m_[:N2,:] = self.m[:N2,:].reshape(N2,*self.shape)
             self.dPhi_[1:N2,:] = ((self.phi_[:N2-1,:] + self.phi_[1:N2,:])/2.)
-            self.dM_[1:N2,:] = ((self.m_[:N2-1,:] + self.m_[1:N2,:])/2.)
+            if 'm' in self.__dict__:
+                self.m_[:N2,:] = self.m[:N2,:].reshape(N2,*self.shape)
+                self.dM_[1:N2,:] = ((self.m_[:N2-1,:] + self.m_[1:N2,:])/2.)
     def solve_next (self, d):
         """Solver interface, solve in a given block.
 
@@ -455,7 +469,8 @@ class correlator (CorrelatorBase):
         # in the API, or what?
         # what is currently completely missing is a compatility check
         # for solvers
-        self.model.set_base_phi(self.phi_)
+        if self.model is not None:
+            self.model.set_base_phi(self.phi_)
         if not self.store or not self.solved >= d:
             self.solve_block (self.halfblocksize, self.blocksize)
             if self.store:
@@ -463,13 +478,15 @@ class correlator (CorrelatorBase):
                 N = self.blocksize
                 self.t[d*N2+N2:d*N2+N] = self.h * np.arange(N2,N)
                 self.phi[d*N2+N2:d*N2+N,:] = self.phi_[N2:,:].reshape(N2,*self.phishape)
-                self.m[d*N2+N2:d*N2+N,:] = self.m_[N2:,:].reshape(N2,*self.phishape)
+                if 'm' in self.__dict__:
+                    self.m[d*N2+N2:d*N2+N,:] = self.m_[N2:,:].reshape(N2,*self.phishape)
             self.solved = d
         else:
             N2 = self.halfblocksize
             N = self.blocksize
             self.phi_[N2:,:] = self.phi[d*N2+N2:d*N2+N,:].reshape(N2,*self.shape)
-            self.m_[N2:,:] = self.m[d*N2+N2:d*N2+N,:].reshape(N2,*self.shape)
+            if 'm' in self.__dict__:
+                self.m_[N2:,:] = self.m[d*N2+N2:d*N2+N,:].reshape(N2,*self.shape)
 
     def shear_modulus (self, **kwargs):
         """Return the dynamical shear modulus evaluated from the solution.

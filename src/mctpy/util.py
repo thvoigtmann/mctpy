@@ -70,8 +70,9 @@ class CorrelatorStack(list):
                 solvedict[corr] = z
             else:
                 solvedict[corr] = min(solvedict[corr],z)
-            for base in corr.model.get_bases():
-                recurse_append_bases (solvedict, z-1, base.correlator)
+            if corr.model is not None:
+                for base in corr.model.get_bases():
+                    recurse_append_bases (solvedict, z-1, base.correlator)
         solvedict = {}
         for _phi_ in self:
             recurse_append_bases (solvedict, 0, _phi_)
