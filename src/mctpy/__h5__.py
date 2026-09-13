@@ -5,6 +5,24 @@ from .__util__ import model_base
 # for the registry mechanism, see
 # https://stackoverflow.com/questions/9575409/calling-parent-class-init-with-multiple-inheritance-whats-the-right-way
 class LoadableModel:
+    r"""Loadable model base class.
+
+    This implements a basic save/load mechanism into h5 data files
+    for models. In order to implement this for a given model, derive
+    this model both from `model_base` and from `LoadableModel`,
+    and set `fields` and `attrs` to lists containing the names of
+    the object data fields that you need to store and restore.
+    (The splitting into fields and attributes follows the usual guideline
+    for h5 files: larger data arrays should be stored as fields,
+    single values and small chunks can be stored as attributes.)
+    Then also implement a `reinit` method that can be called without
+    any parameters once upon loading all the fields and attributes have
+    been set, to perform calculation of cached data that is not stored.
+
+    Using this base class automatically registers the model in a global
+    registry, so that the proper model type can be instantiated upon
+    loading. The name will be the class name by default, but can be
+    overridden by the `name` attribute."""
     def __init_subclass__ (cls, name : str | None=None, fields=[], attrs=[]):
         cls.stored_fields = set(fields)
         cls.stored_attrs = set(attrs)
@@ -25,7 +43,8 @@ class LoadableModel:
         for field in self.stored_fields:
             h5grp.create_dataset(field, data=self.__dict__[field])
         for attr in self.stored_attrs:
-            h5grp.attrs[attr] = self.__dict__[attr]
+            if not self.__dict__[attr] is None:
+                h5grp.attrs[attr] = self.__dict__[attr]
 
 class ModelFactory:
     _registry = {}
@@ -40,20 +59,14 @@ class ModelFactory:
         cls._registry[name] = loadable_cls
 
 class loaded_model(model_base, LoadableModel, name=""):
+    """Empty fallback class for models that have been loaded but are
+    not recognized (for example because they did not register as a
+    `LoadableModel` class."""
     def __init__ (self):
         self.M = 0
     def __len__ (self):
         return self.M
     # TODO should we define vector_dimension and matrix_dimension here??
-    #@staticmethod
-    #def load (h5data):
-    #    newself = loaded_model()
-    #    model_definition = h5data
-    #    for attr,val in model_definition.attrs.items():
-    #        newself.__dict__[attr] = val
-    #    for field,val in model_definition.items():
-    #        newself.__dict__[field] = np.array(val)
-    #    return newself
 
 
 

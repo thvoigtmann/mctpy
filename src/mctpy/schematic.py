@@ -4,6 +4,7 @@ import scipy.linalg as la
 from numba import njit, carray, objmode
 from inspect import signature
 from .__util__ import nparray, model_base, void
+from .__h5__ import LoadableModel
 
 class generic (model_base):
     r"""Generic schematic model.
@@ -70,7 +71,7 @@ def f12model_dmhat(m, f, ehat, v1, v2):
 @njit(inline='always')
 def f12model_dm2(m, phi, dphi, v1, v2):
     m[:] = (1-phi)**2 * v2 * dphi*dphi * (1-phi)**2
-class f12model (model_base):
+class f12model (model_base, LoadableModel, attrs=['v1','v2','delta']):
     r"""The schematic F12 model of mode-coupling theory.
 
     Declares a single memory kernel of the form
@@ -87,28 +88,27 @@ class f12model (model_base):
     -----
     The model allows changing `v1` and `v2` on-the-fly.
     """
-    def __init__ (self, v1, v2, delta=None):
+    def __init__ (self, v1=0., v2=0., delta=None):
         model_base.__init__(self, kernel=f12model_kernel,
                             dm=f12model_dm, dmhat=f12model_dmhat,
                             dm2=f12model_dm2)
         self.v1 = v1
         self.v2 = v2
         self.delta = delta
+    def reinit (self):
+        """Reinitialization after loading.
+
+        For the schematic model, this does not do anything useful,
+        but this is a callback point for the generic loader from h5
+        data files."""
+        if not 'delta' in self.__dict__:
+            self.delta = None
     def __len__ (self):
         return 1
     def hopping (self):
         return self.delta
     def kernel_extra_args (self):
         return [self.v1,self.v2]
-    def h5save (self, fh):
-        # FIXME make this more generic in parent model, check what to save
-        # where is the information on the dynamics?
-        grp = fh.create_group("model")
-        grp.attrs['type'] = 'f12model'
-        grp.attrs['v1'] = self.v1
-        grp.attrs['v2'] = self.v2
-        if self.delta is not None:
-            grp.attrs['delta'] = self.delta
 
 @njit
 def fmnmodel_kernel (m, phi, i, t, *args):
@@ -135,7 +135,7 @@ def fmnmodel_dm2 (m, phi, dphi, *args):
         if n>1:
             res += (1-phi)**2 * n*(n-1)*vn * phi**(n-2) * dphi**2 * (1-phi)**2
     m[:] = res
-class fmnmodel (model_base):
+class fmnmodel (model_base, LoadableModel, fields=['args']):
     r"""Schematic Fmn model.
 
     Declares a single memory kernel of polynomial form,
@@ -167,6 +167,9 @@ class fmnmodel (model_base):
         for n,vn in args:
             assert n == int(n)
         self.delta = delta
+    def reinit (self):
+        if not delta in self.__dict__:
+            self.delta = None
     def __len__ (self):
         return 1
     def hopping (self):
@@ -348,6 +351,8 @@ class sjoegren_model (model_base):
         self.vs = vs
         self.deltas = deltas
         self.base = base_model
+    def get_bases (self):
+        return [self.base]
     def __len__ (self):
         return 1
     def hopping (self):
@@ -362,6 +367,8 @@ class msd_model (model_base):
         model_base.__init__(self)
         self.vs = vs
         self.base = base_model
+    def get_bases (self):
+        return [self.base]
     def __len__ (self):
         return 1
     def kernel_extra_args (self):

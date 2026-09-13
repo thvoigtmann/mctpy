@@ -99,8 +99,8 @@ class nonergodicity_parameter (object):
             number of iterations will be adjusted to be an integer multiple
             of this number.
 
-        Result
-        ------
+        Notes 
+        -----
         The object's field `f` will be set to the NEP values,
         and `m` to the corresponding memory kernel.
         If the calculation converged within the set maximum number
