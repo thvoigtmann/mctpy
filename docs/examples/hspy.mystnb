@@ -27,16 +27,6 @@ from tqdm.auto import tqdm
 import mctpy as mct
 ```
 
-```{code-cell} ipython3
-import numba
-def numbalog(log):
-    for t,ev in log.buffer:
-        if ev.status==numba.core.event.EventStatus.START:
-            fname = ev.data['dispatcher'].py_func.__name__
-            if ('solve' in fname) or ('ker' in fname) or ('model' in fname):
-                print("*",ev.data['dispatcher'].py_func.__name__,ev.data['args'])
-```
-
 ## Nonergodicity Parameter
 
 +++
@@ -58,21 +48,17 @@ model = mct.simple_liquid_model(Sq,qgrid)
 ```
 
 ```{code-cell} ipython3
-with numba.core.event.install_listener("numba:compile", numba.core.event.RecordingListener()) as log:
-    nep = mct.nonergodicity_parameter (model = model, maxiter=1500)
-    nep.solve()
-    numbalog(log)
+nep = mct.nonergodicity_parameter (model = model)
+nep.solve()
 ```
 
 We also attach a tagged-particle model to calculate its NEP. Note that the direct correlation function is taken from `mctpy.structurefactors.hssPYtagged` which allows to specify a different size of the tracer. Since we do not use that here, we could have also just specified the same structure-factor object as above.
 
 ```{code-cell} ipython3
-with numba.core.event.install_listener("numba:compile", numba.core.event.RecordingListener()) as log:
-    cs = mct.structurefactors.hssPYtagged(phi=Sq.phi,delta=1)
-    model_s = mct.tagged_particle_model (model, cs=cs, D0s=1)
-    nep_s = mct.nonergodicity_parameter (model = model_s, maxiter=1500)
-    nep_s.solve()
-    numbalog(log)
+cs = mct.structurefactors.hssPYtagged(phi=Sq.phi,delta=1)
+model_s = mct.tagged_particle_model (model, cs=cs, D0s=1)
+nep_s = mct.nonergodicity_parameter (model = model_s)
+nep_s.solve()
 ```
 
 Plot the nonergodicity parameters of the hard-sphere model. Note that we omit the first point, since it is known empirically that for the standard wave-number grid in bipolar coordinates, the first few points are rather inaccurate.
@@ -107,9 +93,7 @@ class evsearch_hss:
         ev = mct.eigenvalue (nep)
         ev.solve()
         return ev
-with numba.core.event.install_listener("numba:compile", numba.core.event.RecordingListener()) as log:
-    phis, evs = mct.util.evscan (0.51, 0.52, evsearch_hss().calc_ev, eps=1e-8)
-    numbalog(log)
+phis, evs = mct.util.evscan (0.51, 0.52, evsearch_hss().calc_ev, eps=1e-8)
 ```
 
 The value of the critical point given in Franosch et al 1997 is $\varphi_c=0.51591213(1)$.
@@ -139,14 +123,12 @@ plt.show()
 With the critical point determined, we can calculate the distance parameter $\sigma$.
 
 ```{code-cell} ipython3
-with numba.core.event.install_listener("numba:compile", numba.core.event.RecordingListener()) as log:
-    m1 = mct.simple_liquid_model(mct.structurefactors.hssPY(0.),qgrid)
-    phirange = np.linspace(0.46,0.58,101)
-    sigrange = np.zeros_like(phirange)
-    for i, phi in enumerate(phirange):
-        m1.reinit (mct.structurefactors.hssPY(phi))
-        sigrange[i] = hss_c.sigma (m1)
-    numbalog(log)
+m1 = mct.simple_liquid_model(mct.structurefactors.hssPY(0.),qgrid)
+phirange = np.linspace(0.46,0.58,101)
+sigrange = np.zeros_like(phirange)
+for i, phi in enumerate(phirange):
+    m1.reinit (mct.structurefactors.hssPY(phi))
+    sigrange[i] = hss_c.sigma (m1)
 ```
 
 Close to the critical point, $\sigma = C\,\epsilon$ holds, where $\epsilon=(\varphi-\varphi_c)/\varphi_c$ is the relative packing-fraction distance to the critical one. The number $C$ has to be determined by fitting.
@@ -186,9 +168,7 @@ for n in nlist:
 ```
 
 ```{code-cell} ipython3
-with numba.core.event.install_listener("numba:compile", numba.core.event.RecordingListener()) as log:
-    philist.solve_all(progress_bar=tqdm)
-    numbalog(log)
+philist.solve_all(progress_bar=tqdm)
 ```
 
 Pick a few typical wave numbers and plot the result:
@@ -215,7 +195,7 @@ for i, qi in enumerate(qis):
 plt.show()
 ```
 
-The following plot picks up an idea of Daniele Coslovich [check citation, 2026], of taking the derivative $ \frac{\partial}{\partial\ln t}\phi(t) $. For a KWW function, we can see that this yields
+The following plot picks up an idea of Daniele Coslovich [Coslovich et al, J. Chem. Phys. 162, 061102 (2025)], of taking the derivative $ \frac{\partial}{\partial\ln t}\phi(t) $. For a KWW function, we can see that this yields
 $$ \frac{\partial}{\partial\ln t}e^{-(t/\tau)^\beta}=-\beta\left(\frac{t}{\tau}\right)^\beta e^{-(t/\tau)^\beta}$$ which has a minimum at $t=\tau$ where it yields the value $-\beta/e$. The minimum of the real correlator thus should be a nice way of figuring out both $\beta$ and $\tau$.
 
 ```{code-cell} ipython3

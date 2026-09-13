@@ -4,16 +4,18 @@ jupytext:
     extension: .mystnb
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.16.4
+    jupytext_version: 1.19.5
 kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
   name: python3
-mystnb:
-  execution_timeout: -1
 ---
 
 # F12 and Sjögren Model
+
++++
+
+In this notebook, we demonstrate the simplest version of MCT, solving schematic models. This also demonstrates some ways of checking the accuracy of solutions easily.
 
 ```{code-cell} ipython3
 import numpy as np
@@ -30,9 +32,9 @@ import mctpy as mct
 ```
 
 The F12 model is perhaps the most famous schematic model of MCT. It is defined by the memory kernel
-\begin{equation} m[f]=v_1f+v_2f^2 \end{equation}
+$$ m[f]=v_1f+v_2f^2 $$
 and contains a line of glass transitions at
-\begin{align} v_2^c&=1/\lambda^2 & v_1^c&=(2\lambda-1)/\lambda^2 \end{align}
+\begin{align*} v_2^c&=1/\lambda^2 & v_1^c&=(2\lambda-1)/\lambda^2 \end{align*}
 with exponent parameter $\lambda\in[1/2,1[$ (and in addition a continuous transition line for $v_1^c=1$ and $v_2\le1$.
 
 ```{code-cell} ipython3
@@ -59,7 +61,7 @@ phi = mct.correlator (model=model, store=True)
 ```
 
 We are going to solve this correlator with a coupled model, the one defined by Sjögren: it defines a second correlator with memory kernel
-\begin{equation} m^s[f,f^s]=v_sff^s \end{equation}
+$$ m^s[f,f^s]=v_sff^s $$
 that represents "tagged-particle" motion.
 
 ```{code-cell} ipython3
@@ -135,13 +137,9 @@ plt.show()
 +++
 
 The Fourier transform allows to perform a consistency check of the algorithm: note that the Mori-Zwanzig equation transforms to
-\begin{equation}
--1 + s\hat\phi(s) + \hat\phi(s) + \hat m(s)(-1 + s\hat\phi(s)) = 0
-\end{equation}
+$$ -1 + s\hat\phi(s) + \hat\phi(s) + \hat m(s)(-1 + s\hat\phi(s)) = 0 $$
 and thus we can obtain $\hat\phi(s)$ from the Fourier transform of the memory kernel, $\hat m(s)$ as
-\begin{equation}
-\hat\phi(s)=\frac{1+\hat m(s)}{1 + s(1+\hat m(s))}
-\end{equation}
+$$ \hat\phi(s)=\frac{1+\hat m(s)}{1 + s(1+\hat m(s))} $$
 
 ```{code-cell} ipython3
 m_w = FT (phi.m[:,0], phi.t, w)
@@ -162,9 +160,9 @@ plt.show()
 ```
 
 Alternatively, we obtain the Fourier-transformed memory kernel from the Fourier-transformed correlator,
-\begin{equation}
+$$
 -1+\frac{\hat\phi(s)}{1-s\hat\phi(s)}=\hat m(s)=-1-\frac{\hat\phi(s)}{\hat{\dot\phi}(s)}
-\end{equation}
+$$
 where it depends on the frequency range whether it is numerically advantageous to separately transform the numerical derivative of the correlator or not.
 
 ```{code-cell} ipython3

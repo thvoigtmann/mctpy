@@ -10,5 +10,7 @@ Examples
    examples/asymptotics.mystnb
    examples/sbr.mystnb
    examples/f12pnas.mystnb
+   examples/hsm.mystnb
+   examples/hs2d.mystnb
    examples/granular.mystnb
    examples/structure-factors.mystnb

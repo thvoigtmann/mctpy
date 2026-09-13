@@ -1,6 +1,9 @@
 Features
 ========
 
+Implementation table
+--------------------
+
 The following is a list of features of the `mctpy` code that are currently being
 implemented, some of them at the end rather aspirational. (The two-time code will
 not be part of public production code for a while yet.)

@@ -103,6 +103,7 @@ particular acknowledged from
    impl
    features
    examples
+   example_status
 
 
 Indices and tables

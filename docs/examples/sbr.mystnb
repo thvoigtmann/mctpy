@@ -4,7 +4,7 @@ jupytext:
     extension: .mystnb
     format_name: myst
     format_version: 0.13
-    jupytext_version: 1.17.3
+    jupytext_version: 1.19.5
 kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 ```
 
 ```{code-cell} ipython3
-from tqdm import tqdm
+from tqdm.auto import tqdm
 ```
 
 ```{code-cell} ipython3
@@ -35,8 +35,8 @@ rng = np.random.default_rng()
 +++
 
 The equations that we solve are
-\begin{equation} \sigma(x) + \alpha\nabla^2 g(x,t) + \lambda g(x,t)^2
-    = \frac{d}{dt}\int_0^tg(x,t-t')g(x,t')\,dt' \end{equation}
+$$ \sigma(x) + \alpha\nabla^2 g(x,t) + \lambda g(x,t)^2
+    = \frac{d}{dt}\int_0^tg(x,t-t')g(x,t')\,dt' $$
 
 +++
 

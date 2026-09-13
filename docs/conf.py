@@ -28,6 +28,7 @@ extensions = [
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', '.jupyter_cache' ]
 
+
 nb_custom_formats = {
   ".mystnb": [ "jupytext.reads", { "fmt": "mystnb" } ]
 }
@@ -36,6 +37,7 @@ myst_enable_extensions = [
 ]
 nb_execution_mode = 'cache'
 nb_execution_cache_path = ".jupyter_cache"
+nb_execution_timeout = 180
 
 autodoc_member_order = 'bysource'
 

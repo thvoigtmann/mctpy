@@ -309,7 +309,7 @@ element of the correlator matrix then is the tagged-particle correlator.
 
     .. math::
 
-    \hat m_0^l = \frac{\varrho(\Delta q)}{4\pi^2}\sum_k
+      \hat m_0^l = \frac{\varrho(\Delta q)}{4\pi^2}\sum_k
       \sum_{\alpha\beta\gamma\delta} \sqrt{x_\alpha x_\beta x_\gamma x_\delta}
       \left(c_{\alpha\beta}(k)c_{\gamma\delta}(k)+{\textstyle\frac23}
       kc'_{\alpha\beta}(k)c_{\gamma\delta}(k)+{\textstyle\frac15}

@@ -1,7 +1,11 @@
 .. include:: <isolat1.txt>
 
+======================
 Implementation Details
 ======================
+
+Technical Notes
+===============
 
 Implementing Models
 -------------------
@@ -62,26 +66,27 @@ attributes already pre-filled and should call the vertex initialization
 or whatever is needed. The vertices will usually not be stored.)
 
 There are a few helper methods that a model should implement:
+
 * :py:func:`mctpy.model_base.Aq` to specify the prefactor :math:`A_q`
-    in front of the second time derivative in the evolution equation.
-    For models implementing Newtonian dynamics, this will be
-    For models implementing Brownian dynamics, this should return the
-    symbol `None`.
+  in front of the second time derivative in the evolution equation.
+  For models implementing Newtonian dynamics, this will be
+  For models implementing Brownian dynamics, this should return the
+  symbol `None`.
 * :py:func:`mctpy.model_base.Bq` to specify the prefactor :math:`B_q`
-    in front of the first time derivative in the evolution equation.
-    For models implementing Brownian dynamics, this will be
+  in front of the first time derivative in the evolution equation.
+  For models implementing Brownian dynamics, this will be
 * Optionally, :py:func:`mctpy.model_base.Bqinv` can be implemented
-    to avoid numerical inversion of :math:`B_q`.
+  to avoid numerical inversion of :math:`B_q`.
 * :py:func:`mctpy.model_base.Wq` to specify the prefactor :math:`W_q`
-    in front of the correlator itself in the evolution equation.
+  in front of the correlator itself in the evolution equation.
 * Optionally, :py:func:`mctpy.model_base.WqSq` can be implemented
-    to return the product :math:`W_q \phi_{q,0}` directly.
+  to return the product :math:`W_q \phi_{q,0}` directly.
 * :py:func:`mctpy.model_base.phi0` to return the initial values of
-    the function to solve for.
+  the function to solve for.
 * Optionally, :py:func:`mctpy.model_base.phi0d` can return the
-    initial derivative of the function to solve for. This is ignored
-    if :math:`A_q` is set to zero (Brownian dynamics), since then
-    the derivative is fixed by the other parameters.
+  initial derivative of the function to solve for. This is ignored
+  if :math:`A_q` is set to zero (Brownian dynamics), since then
+  the derivative is fixed by the other parameters.
 
 
 Memory layout
@@ -105,6 +110,36 @@ the distinction between "vector" and "matrix" dimensions: we interpret
 the Mori-Zwanzig equations as element-wise along the vector dimensions,
 but using a matrix algebra in the matrix dimensions.
 
+Numba Debugging
+---------------
+
+Not strictly related to `mctpy`, but in general useful when debugging
+numba performance, is to figure out when (and how often) the compiler
+gets called. For this, you can use `numba.core.event` hooks: define a
+little helper to print out events related to functions with specific
+names (those that we expect ours to have):
+
+.. code-block:: python
+
+   def numbalog(log):
+       for t,ev in log.buffer:
+           if ev.status == numba.core.event.EvenStatus.START:
+               fname = ev.data['dispatcher'].py_func.__name__
+               if ('solve' in fname) or ('ker' in fname) or ('model' in fname):
+                   print ("*", fname, ev.data['args'])
+
+And then wrap the code in
+
+.. code-block:: python
+
+   with numba.core.event.install_listener("numba:compile",
+           numba.core.event.RecordingListener()) as log:
+       my_python_code()
+       numbalog(log)
+
+
+Numerical Methods
+=================
 
 Standard "Moment" Solver
 ------------------------
@@ -116,6 +151,7 @@ convolution integral over slowly varying functions at some half-way
 time point according to
 
 .. math::
+   :nowrap:
 
     \begin{align}
     I&=\frac{d}{dt}\int_0^tm(t-t')F(t')dt'\\
@@ -136,6 +172,7 @@ where the second part of this expression is referred to as the
 The MCT equations are typically of the form
 
 .. math::
+   :nowrap:
 
     \begin{align}
     A_q\frac{d^2}{dt^2}\phi_q(t) &+B_q\frac{d}{dt}\phi_q(t)
@@ -150,6 +187,7 @@ Specifically, one writes the above convolution integral containing
 the n-th derivative of :math:`\phi_q` as
 
 .. math::
+   :nowrap:
 
     \begin{align}
     I&=\int_0^{\bar t}\left[\partial_t^{(n)}m(t-t')\right]\phi(t')\,dt'\\
@@ -160,7 +198,7 @@ the n-th derivative of :math:`\phi_q` as
 
 where boundary terms
 :math:`B^{(1)}(t,\bar t)=m(t-\bar t)\phi(\bar t)-m(t)\phi(0)`
-arise only for :math:`$n=1`, and
+arise only for :math:`n=1`, and
 :math:`\bar t=\bar\imath h_d` with :math:`\bar\imath=\lfloor i/2\rfloor`.
 Under some assumptions (that are not always fulfilled if oscillations are
 present in the integrand, but are approximately true if
@@ -179,7 +217,7 @@ where "moments" have been introduced,
 
     dF_k:=\frac1{h_d}\int_{t_{k-1}}^{t_k}f(t')\,dt'
 
-The unknown midvalue points :math:`t_k^*` and `t_k^{m*}` are then
+The unknown midvalue points :math:`t_k^*` and :math:`t_k^{m*}` are then
 approximated by one of the boundaries of the interval they are in,
 and a simple two-point finite difference scheme for the derivatives
 leads to
@@ -213,6 +251,7 @@ In detail, the equation to solve reads
 with coefficients
 
 .. math::
+   :nowrap:
 
     \begin{align}
       \tilde A &= W + \delta_d^+dM_1 + D_d\\
@@ -230,6 +269,7 @@ and :math:`D_d` and :math:`\bar D_i` taken from a discretization of the time
 derivatives,
 
 .. math::
+   :nowrap:
 
     \begin{align}D_d&=2A/h_d^2+3B/(2h_d)\\
       \bar D_i&=(A/h_d^2)(-\phi_{i-3}+4\phi_{i-2}-5\phi_{i-1})
@@ -250,12 +290,34 @@ The drawback is that in turn we have to accept an error coming from
 the approximation of the midpoint value (which however should be reasonably
 small), and that the algorithm uses more memory.
 
+Decimation is performed for blocks of size :math:`N` according to
+
+.. math::
+   :nowrap:
+
+   \begin{align}
+   f^h(t_{2i}) & \mapsto f^{2h}(t_i) \\
+   \frac12\left(dF^h(t_{2i})+dF^h(t_{2i-1})\right) &\mapsto dF^{2h}(t_i)
+     &&\text{for $i<N/4$} \\
+   \frac14\left(f^h(t_{2i-2})+2f^h(t_{2i-1})+f^h(t_{2i})\right)
+     &\mapsto dF^{2h}(t_i) &&\text{for $i<N/2$}\\
+   f^h(t_{N-1})&\mapsto dF^h(t_{N/2})
+   \end{align}
+
+where the last approximation could be improved.
+Note that Flenner and Szamel [Flenner2005]_ suggest a more refined
+Simpson rule for the integration. However, some numerical tests indicated
+that this is not necessarily more accurate.
+
 
 
 
 .. [Fuchs1991] M. Fuchs, W. G\ |ouml|\ tze, I. Hofacker, and A. Latz,
    J. Phys.: Condens. Matter 3, 5047 (1991)
    `DOI:10.1088/0953-8984/3/26/022 <https://doi.org/10.1088/0953-8984/3/26/022>`_
+.. [Flenner2005] E. Flenner and G. Szamel, Phys. Rev. E 72, 031508 (2005)
+   `DOI:10.1103/PhysRevE.72.031508 <https://doi.org/10.1103/PhysRevE.72.031508>`_
+
 
 beta-Scaling Solvers
 --------------------
@@ -324,7 +386,8 @@ For the memory-kernel integration in the standard mixture model
 :py:class:`mctpy.mixture_model`, we use an extension of the Bengtzelius
 trick. We have
 
-    .. math::
+.. math::
+    :nowrap:
 
         \begin{align}
         \hat M_{q,\alpha\beta}[f,g]&=\nu
@@ -349,13 +412,14 @@ trick. We have
         \;\phantom+\Big]
         \end{align}
 
-    with :math:`\nu = (\Delta q)^2/(32\pi^2q^3)` as a prefactor. This
-    expression does not assume symmetry under swapping :math:`f` with
-    :math:`g` and is used for the calculation of the stability matrix.
-    For the case of the memory kernel itself, the symmetry allows to further
-    reduce to
+with :math:`\nu = (\Delta q)^2/(32\pi^2q^3)` as a prefactor. This
+expression does not assume symmetry under swapping :math:`f` with
+:math:`g` and is used for the calculation of the stability matrix.
+For the case of the memory kernel itself, the symmetry allows to further
+reduce to
 
-    .. math::
+.. math::
+    :nowrap:
 
         \begin{align}
         \hat M_{q,\alpha\beta}&=2\nu\sum_{n=1}^3
@@ -368,9 +432,10 @@ trick. We have
         \;\phantom+\Big]
         \end{align}
 
-    In the above expressions, the Bengtzelius coefficients are
+In the above expressions, the Bengtzelius coefficients are
 
-    .. math::
+.. math::
+    :nowrap:
 
         \begin{align}
         a^{(1)}(k)&=k^5
@@ -400,17 +465,17 @@ trick. We have
                       \tilde c_{\alpha\beta}(p)\tilde c_{\gamma\delta}(p)
         \end{align}
 
-    As in the scalar case, the performance gain known as Bengtzelius' trick
-    comes from realizing that the inner sum can be reduced to a
-    :math:`\mathcal O(1)` operation when its value for the previous
-    outer wave number is known.
+As in the scalar case, the performance gain known as Bengtzelius' trick
+comes from realizing that the inner sum can be reduced to a
+:math:`\mathcal O(1)` operation when its value for the previous
+outer wave number is known.
 
 
 
 Critical amplitudes
 ^^^^^^^^^^^^^^^^^^^
 
-In :py:func:`mctpy.mixture_model.make_dm` we implement
+For the critical amplitude in the mixture case, we implement
 
 .. math::
 
@@ -420,8 +485,7 @@ In :py:func:`mctpy.mixture_model.make_dm` we implement
     \hat V_{\beta\beta'\beta''}(q,k,p)
     H_{\alpha'\beta'}(k)F_{\alpha''\beta''}(p)
 
-The corresponding left-eigenvector uses the implementation in
-:py:func:`mctpy.mixture_model.make_dmhat`,
+The corresponding left-eigenvector uses
 
 .. math::
 
@@ -442,12 +506,12 @@ eigenvalue equation by iterating
     (\boldsymbol S-\boldsymbol F)
 
 where :math:`2\boldsymbol M[\boldsymbol F,\boldsymbol H]` is what needs
-to be returned by the function returned by
-:py:func:`mctpy.mixture_model.make_dm`.
+to be returned by the function implemented in the model.
 
 Normalization of the matrix-valued eigenvectors follows the convention
 
 .. math::
+   :nowrap:
 
     \begin{align} \left(\hat{\boldsymbol H}_q,
     \boldsymbol H_q(\boldsymbol S_q-\boldsymbol F_q)^{-1}\boldsymbol H_q
