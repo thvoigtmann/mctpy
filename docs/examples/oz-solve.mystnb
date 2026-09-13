@@ -1,0 +1,165 @@
+---
+jupytext:
+  text_representation:
+    extension: .mystnb
+    format_name: myst
+    format_version: 0.13
+    jupytext_version: 1.19.5
+kernelspec:
+  display_name: Python 3 (ipykernel)
+  language: python
+  name: python3
+---
+
+# Ornstein-Zernike Solver
+
++++
+
+Static structure factors are considered "external" to MCT in the sense that they are expected to be given by some other established liquid-state theory or taken from computer simulation. The `mctpy.structurefactors` module contains the commonly used analytical structure factor approximations for common model systems, and wrappers to deal with simulation/experiment data.
+
+This notwithstanding, the `mctpy.structurefactors.oz` module also implements code to solve for static structure factors when given just an interaction potential, and a closure of the Ornstein-Zernike equation.
+
+```{code-cell} ipython3
+import numpy as np
+import matplotlib.pyplot as plt
+```
+
+```{code-cell} ipython3
+from tqdm.auto import tqdm
+```
+
+```{code-cell} ipython3
+import mctpy as mct
+```
+
+```{code-cell} ipython3
+from mctpy.structurefactors.oz import PY, HSS
+```
+
+## Hard-Sphere Percus-Yevick
+
+```{code-cell} ipython3
+rho = 1.0
+```
+
+We demonstrate the numerical OZ solution by an example where we have an analytical expression available: the Percus-Yevick approximation to the hard-sphere system. The implementation is based on a paper by Labík et al. [Molecular Physics 56, 709 (1985)], and the defaults are (almost) tweaked to obtain reasonably good results in this case already.
+
+```{code-cell} ipython3
+Sq = mct.structurefactors.oz.Sq()
+Sq.solve (closure=PY(), potential=HSS(), rho=rho, accuracy=1e-12, N=8192, use_ng=False)
+```
+
+In fact, the OZ solver also implements the extrapolation proposed by Ng [J. Chem. Phys. 61, 2680 (1974)], so let us test this as well.
+
+```{code-cell} ipython3
+Sq2 = mct.structurefactors.oz.Sq()
+Sq2.solve (closure=PY(), potential=HSS(), rho=rho, accuracy=1e-12, N=8192, use_ng=True)
+```
+
+To compare to a realistic scenario, we take a typical wavenumber grid for many MCT calculations and for comparison the analytical implementation of the HSS-PY structure factor.
+
+Note that the grid used in the OZ iteration needs to be much more dense than the one used in MCT calculations; interpolation from one to the other is done internally.
+
+```{code-cell} ipython3
+qgrid = np.linspace(0.2,39.8,100)
+hspy = mct.structurefactors.hssPY(phi=rho*np.pi/6.)
+```
+
+```{code-cell} ipython3
+plt.plot(qgrid, Sq.Sq(qgrid)[0], '.', label='Labík')
+plt.plot(qgrid, Sq.Sq(qgrid)[0], '+', label='Labík + Ng')
+plt.plot(qgrid, hspy.Sq(qgrid)[0], label='analytical')
+plt.xlabel('q')
+plt.ylabel('S(q)')
+plt.legend()
+plt.show()
+```
+
+```{code-cell} ipython3
+plt.plot(qgrid, Sq.Sq(qgrid)[1], '.', label='Labík')
+plt.plot(qgrid, Sq.Sq(qgrid)[1], '+', label='Labík + Ng')
+plt.plot(qgrid, hspy.Sq(qgrid)[1], label='analytical')
+plt.xlabel('q')
+plt.ylabel('c(q)')
+plt.legend()
+plt.show()
+```
+
+```{code-cell} ipython3
+plt.plot(qgrid, Sq.dcq_dq(qgrid), '.', label='Labík')
+plt.plot(qgrid, Sq.dcq_dq(qgrid), '+', label='Labík + Ng')
+plt.plot(qgrid, hspy.dcq_dq(qgrid), label='analytical')
+plt.xlabel('q')
+plt.ylabel("c'(q)")
+plt.legend()
+plt.show()
+```
+
+Some small deviations are visible, but the iterative scheme seems to actually be caught in converging to that solution; after all, the HS potential is a very tough test for a numerical scheme due to the discontinuity.
+
++++
+
+The error as a function of the number of iterations is stored for analysis; here we can also see a dramatic demonstration of how the Ng extrapolation speeds up things.
+
+```{code-cell} ipython3
+plt.plot(Sq.errlog, label='Labík')
+plt.plot(Sq2.errlog, label='Labík + Ng')
+plt.xlabel('# iterations')
+plt.ylabel('error')
+plt.yscale('log')
+plt.legend()
+plt.show()
+```
+
+As a by-product, we also get the radial distribution function. Note how tricky this is: the dashed line shows the known analytical result for the HS-PY contact value (given by Wertheim and Thiele).
+
+```{code-cell} ipython3
+r = np.linspace(0,5,501)
+phi = rho*np.pi/6.
+plt.plot(r, Sq.gr(r),'.')
+plt.axhline((1-1.5*phi+0.5*phi**3)/(1-phi)**4,linestyle='dotted',color='black')
+plt.xlabel('r')
+plt.ylabel('g(r)')
+plt.ylim(-0.2,6)
+plt.show()
+```
+
+## Lennard-Jones
+
++++
+
+The Lennard-Jones potential is one of the most common models for liquid-state theory, yet no good analytical solution for the static structure factor is known. We numerically solve the hypernetted-chain (HNC) closure for that potential.
+
+```{code-cell} ipython3
+from mctpy.structurefactors.oz import LJ, HNC
+```
+
+```{code-cell} ipython3
+r = np.linspace(0.5,2.5,100)
+plt.plot(r,LJ()(r))
+plt.ylim(-1,2)
+plt.xlabel('r')
+plt.ylabel('U(r)')
+plt.show()
+```
+
+For the target state, a direct iteration with zero initial guess will fail. We demonstrate the technique of annealing, which is made really simple by the fact that the `solve` method returns the result in a form that it can digest as parameters for the next initial guess.
+
+```{code-cell} ipython3
+Sq_LJ = mct.structurefactors.oz.Sq()
+Gq0, Gr0 = None, None
+for kT in tqdm([5.0,4.0,3.0,2.0,1.5,1.2]):
+    Gr0, Gq0 = Sq_LJ.solve (closure=HNC(), potential=LJ(), rho=1.2, kT=kT, accuracy=1e-12, N=8192, use_ng=True, Gq0=Gq0, Gr0=Gr0)
+```
+
+```{code-cell} ipython3
+q = np.linspace(0.1,30,200)
+plt.plot(q,Sq_LJ.Sq(q)[0])
+plt.xlabel('q')
+plt.ylabel('S(q)')
+plt.show()
+```
+
+```{code-cell} ipython3
+
+```

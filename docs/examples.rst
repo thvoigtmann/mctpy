@@ -14,3 +14,4 @@ Examples
    examples/hs2d.mystnb
    examples/granular.mystnb
    examples/structure-factors.mystnb
+   examples/oz-solve.mystnb

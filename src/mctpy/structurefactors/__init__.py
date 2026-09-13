@@ -6,3 +6,5 @@ from .interpolation import dataSq, dataMixtureSq
 from .squarewell import swsMSA
 from .gcm4 import gcm4MSA
 from .lg import lgDCF
+
+import mctpy.structurefactors.oz

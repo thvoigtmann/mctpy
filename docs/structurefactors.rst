@@ -526,3 +526,9 @@ Data Interpolation
 .. autoclass:: mctpy.structurefactors.dataMixtureSq
    :members:
 
+
+Numerical OZ
+============
+
+.. autoclass:: mctpy.structurefactors.oz.Sq
+   :members:
