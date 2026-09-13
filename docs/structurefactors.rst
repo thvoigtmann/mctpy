@@ -516,3 +516,13 @@ Hard-Sphere Mixtures
     :members:
     :inherited-members:
 
+
+Data Interpolation
+==================
+
+.. autoclass:: mctpy.structurefactors.dataSq
+   :members:
+
+.. autoclass:: mctpy.structurefactors.dataMixtureSq
+   :members:
+
