@@ -34,6 +34,7 @@ def numbalog(log):
 
 ```{code-cell} ipython3
 import mctpy as mct
+from mctpy.structurefactors import hsm_densities
 ```
 
 ## Check One-Component Case
@@ -57,7 +58,6 @@ plt.show()
 
 ```{code-cell} ipython3
 delta, xb = 0.6, 0.2
-from mctpy.structurefactors import hsm_densities
 ```
 
 ```{code-cell} ipython3

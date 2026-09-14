@@ -217,7 +217,7 @@ plt.legend(loc=1)
 plt.show()
 ```
 
-# Kob-Andersen Mixture
+## Kob-Andersen Mixture
 
 +++
 
