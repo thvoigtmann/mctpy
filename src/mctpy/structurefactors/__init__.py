@@ -1,7 +1,7 @@
 from .simple_liquid import hssPY, hssPYtagged, hssVW
 from .simple_liquid_2d import hssFMT2d
 from .mixtures import hsmPY, hsm_densities, mixtureTagged
-from .interpolation import dataSq, dataMixtureSq
+from .interpolation import dataSq, dataMixtureSq, interpolatedSq
 
 from .squarewell import swsMSA
 from .gcm4 import gcm4MSA

@@ -69,10 +69,12 @@ class dataMixtureSq:
         the lower triangular matrix for each q.
         The difference between the last two is in the ordering of indices:
         for example, in a 3x3 matrix
+
             upper_triangular        lower_triangular
             0 1 2                   0
               3 4                   1 2
                 5                   3 4 5
+
         (For 2x2 matrices it does not matter.)
     normalization : string
         'densities': sq data approaches the unit matrix set by the
@@ -162,4 +164,70 @@ class dataMixtureSq:
         # FIXME
         rhoa, rhob = np.meshgrid(self.densities, self.densities)
         return 1./np.sqrt(rhoa*rhob) * np.einsum("...ij,...jk,...kl->...il",sqinv_,sqder_,sqinv_)
+
+
+class interpolatedSq:
+    """Interpolation between structure factors.
+
+    Performs linear interpolation between the two nearest given static
+    structure factors; intended for the case where a set of S(q) data
+    has been obtained from simulation or experiment and read into objects
+    of the type `mctpy.structurefactors.dataSq` or
+    `mctpy.structurefactors.dataMixtureSq`, but should work with any
+    structure factor object, even interpolating between different
+    potentials or closures.
+
+    Parameters
+    ----------
+    gammalist : array_list
+        A list of real-valued parameters to which the given structure
+        factors are associated. The interpolation will then work by calling
+        `set_gamma` with a value somewhere in between these points.
+        Needs to be in strictly increasing order.
+    sqlist : list
+        List of corresponding structure-factor objects. They should match
+        in the shape of `sq` and `cq` arrays they return, but otherwise
+        there is no restriction.
+    """
+    def __init__ (self, gammalist, sqlist):
+        self.gammalist = np.array(gammalist)
+        self.sqlist = sqlist
+        assert len(sqlist) == len(gammalist)
+        self.gi0 = 0
+        self.gi1 = 1
+        self.gamma = gammalist[0]
+        self.g0 = gammalist[0]
+        self.g1 = gammalist[1]
+    def set_gamma (self, gamma):
+        """Set the interpolation point.
+
+        After setting a `gamma` value, the usual structure-factor methods
+        like `cq`, `Sq`, and `dcq_dq` will return interpolated values.
+        If not called, the interpolation returns the values corresponding
+        to the first structure factor given."""
+        gi0 = np.sum(self.gammalist <= gamma) - 1
+        M = len(self.gammalist)
+        if gi0 < 0:
+            gi0 = 0
+        gi1 = M - np.sum(self.gammalist > gamma)
+        if gi1 >= M:
+            gi1 = M - 1
+        self.gamma = gamma
+        self.gi0 = gi0
+        self.gi1 = gi1
+        self.g0 = self.gammalist[gi0]
+        self.g1 = self.gammalist[gi1]
+    def cq (self, q):
+        _cq0 = self.sqlist[self.gi0].cq(q)
+        _cq1 = self.sqlist[self.gi1].cq(q)
+        return _cq0 + (self.gamma-self.g0)/(self.g1-self.g0) * (_cq1-_cq0)
+    def Sq (self, q):
+        _sq0, _cq0 = self.sqlist[self.gi0].Sq(q)
+        _sq1, _cq1 = self.sqlist[self.gi1].Sq(q)
+        return _sq0 + (self.gamma-self.g0)/(self.g1-self.g0) * (_sq1-_sq0), \
+               _cq0 + (self.gamma-self.g0)/(self.g1-self.g0) * (_cq1-_cq0)
+    def dcq_dq (self, q):
+        _dcq0 = self.sqlist[self.gi0].dcq_dq(q)
+        _dcq1 = self.sqlist[self.gi1].dcq_dq(q)
+        return _dcq0 + (self.gamma-self.g0)/(self.g1-self.g0) * (_dcq1-_dcq0)
 
