@@ -147,7 +147,10 @@ class dataMixtureSq:
     def _cq_from_sq(self, sq):
         rhoa, rhob = np.meshgrid(self.densities, self.densities)
         # FIXME: if q is not ndarray?
-        return np.diag(1./self.densities) - np.linalg.inv(np.sqrt(rhoa*rhob)[None,:,:]*sq)
+        return (np.diag(np.ones_like(self.densities)) - np.linalg.inv(sq))/np.sqrt(rhoa*rhob)
+        # this would be the form to use if the internal sq would be
+        # normalized to partial-density matrix:
+        #return np.diag(1./self.densities) - np.linalg.inv(np.sqrt(rhoa*rhob)[None,:,:]*sq)
     def cq(self, q):
         return self._cq_from_sq (self.interpolate_sq(q, self._interpolator))
     def Sq(self, q):

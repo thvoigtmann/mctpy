@@ -530,5 +530,20 @@ Data Interpolation
 Numerical OZ
 ============
 
+The numerical solution of the Ornstein-Zernike equation is a topic in its
+own right, and not really part of MCT. But since the need for MCT results
+for some typical potentials that do not have analytical expressions
+available for the static structure factor (for example the famous
+Kob-Andersen binary Lennard-Jones mixture), we include some code to
+solve the OZ equations numerically.
+
+Note: A lot of combinations of closures and potentials are untested yet,
+what is known to work are the PY-HS and LJ-HNC, both in the one-component
+and the mixture versions.
+
 .. autoclass:: mctpy.structurefactors.oz.Sq
    :members:
+
+.. autoclass:: mctpy.structurefactors.oz.mixtureSq
+   :members:
+

@@ -16,9 +16,9 @@ class Sq (dataSq):
     The scheme might converge to unphysical solutions."""
     def __init__ (self):
         pass
-    def solve (self, closure, potential, rho, kT=1.0,
+    def solve (self, closure, potential, rho, kT=1.0, Gr0=None, Gq0=None,
                N=2048, M=40, Rmax=50.0, maxiter=10000, maxiter2=2000, mix=0.5,
-               mix2=0.5, accuracy=1e-5, use_ng=False, Gr0=None, Gq0=None):
+               mix2=0.5, accuracy=1e-5, use_ng=False, progress_bar=None):
         """Solve the OZ equation.
 
         Parameters
@@ -33,6 +33,14 @@ class Sq (dataSq):
             Number density.
         kT : float, default 1.0
             Temperature.
+        Gr0, Gq0 : array_like
+            Initial guesses for Gamma(r) and Gamma(q). If not given,
+            the initial guess is zero, which is good for reasonably low
+            densities / high temperatures. A typical approach for
+            high-density / low-temperature regions, where convergence is
+            poor, is some sort of annealing, where the result from a
+            previous iteration at higher temperature is fed here to start
+            the iteration at lower temperature.
         N : int, default 2048
             Number of discretization points. Since the scheme relies on
             repeated FFT, should be a power of two.
@@ -58,14 +66,9 @@ class Sq (dataSq):
             Target accuracy for the solution.
         use_ng : bool, default False
             Whether to use the update scheme by Ng.
-        Gr0, Gq0 : array_like
-            Initial guesses for Gamma(r) and Gamma(q). If not given,
-            the initial guess is zero, which is good for reasonably low
-            densities / high temperatures. A typical approach for
-            high-density / low-temperature regions, where convergence is
-            poor, is some sort of annealing, where the result from a
-            previous iteration at higher temperature is fed here to start
-            the iteration at lower temperature.
+        progress_bar : callable, optional
+            Designed to be used with `tqdm` to provide visual feedback
+            on the iteration progress.
 
         Returns
         -------
@@ -102,6 +105,8 @@ class Sq (dataSq):
         iterations = 0
         self.errlog = np.ones(maxiter)+np.nan
         while (not converged and iterations < maxiter):
+            if progress_bar is not None:
+                progress_bar.update(1)
             rmix = mix
 
             # Labik step 2: calculate Cr, phi, Cq

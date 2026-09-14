@@ -46,14 +46,14 @@ We demonstrate the numerical OZ solution by an example where we have an analytic
 
 ```{code-cell} ipython3
 Sq = mct.structurefactors.oz.Sq()
-Sq.solve (closure=PY(), potential=HSS(), rho=rho, accuracy=1e-12, N=8192, use_ng=False)
+_ = Sq.solve (closure=PY(), potential=HSS(), rho=rho, accuracy=1e-12, N=8192, use_ng=False)
 ```
 
 In fact, the OZ solver also implements the extrapolation proposed by Ng [J. Chem. Phys. 61, 2680 (1974)], so let us test this as well.
 
 ```{code-cell} ipython3
 Sq2 = mct.structurefactors.oz.Sq()
-Sq2.solve (closure=PY(), potential=HSS(), rho=rho, accuracy=1e-12, N=8192, use_ng=True)
+_ = Sq2.solve (closure=PY(), potential=HSS(), rho=rho, accuracy=1e-12, N=8192, use_ng=True)
 ```
 
 To compare to a realistic scenario, we take a typical wavenumber grid for many MCT calculations and for comparison the analytical implementation of the HSS-PY structure factor.
@@ -157,6 +157,103 @@ q = np.linspace(0.1,30,200)
 plt.plot(q,Sq_LJ.Sq(q)[0])
 plt.xlabel('q')
 plt.ylabel('S(q)')
+plt.show()
+```
+
+## Hard-Sphere Mixture
+
++++
+
+The package also includes a matrix version of the OZ solver, which we test here against the analytical Percus-Yevick solution. Again, the use of the Ng extrapolation is really worth it.
+
+```{code-cell} ipython3
+from mctpy.structurefactors.oz import PYmix, HSM
+```
+
+```{code-cell} ipython3
+rho = [0.5, 0.1]
+d = [1.0, 0.6]
+```
+
+```{code-cell} ipython3
+Sq = mct.structurefactors.oz.mixtureSq()
+_ = Sq.solve (closure=PYmix(), potential=HSM(sigma=d), rho=rho, use_ng=True)
+```
+
+```{code-cell} ipython3
+hsmpy = mct.structurefactors.hsmPY(rho,d)
+qgrid = np.linspace(0.2,39.8,100)
+```
+
+```{code-cell} ipython3
+nsq, ncq = Sq.Sq(qgrid)
+sq, cq = hsmpy.Sq(qgrid)
+```
+
+```{code-cell} ipython3
+for i in range(2):
+    for j in range(2):
+        plt.plot(qgrid, nsq[:,i,j], '+', label=f'numerical {i}{j}')
+        plt.plot(qgrid, sq[:,i,j], label=f'analytical {i}{j}')
+plt.legend(loc=1)
+plt.show()
+```
+
+```{code-cell} ipython3
+for i in range(2):
+    for j in range(2):
+        plt.plot(qgrid, ncq[:,i,j], '+', label=f'numerical {i}{j}')
+        plt.plot(qgrid, cq[:,i,j], label=f'analytical {i}{j}')
+plt.legend(loc=1)
+plt.show()
+```
+
+```{code-cell} ipython3
+for i in range(2):
+    for j in range(2):
+        plt.plot(qgrid, Sq.dcq_dq(qgrid)[:,i,j], '+', label=f'numerical {i}{j}')
+        plt.plot(qgrid, hsmpy.dcq_dq(qgrid)[:,i,j], label=f'analytical {i}{j}')
+plt.legend(loc=1)
+plt.show()
+```
+
+# Kob-Andersen Mixture
+
++++
+
+The Kob-Andersen mixture is a specific non-additive binary Lennard-Jones mixture. Here we just demonstrate the HNC solution for a sequence of high temperatures: note that the glass-transition physics begins to be interesting around T=0.5 and below, but this is already not possible to solve without careful annealing.
+
+```{code-cell} ipython3
+from mctpy.structurefactors.oz import LJmix, HNCmix
+```
+
+```{code-cell} ipython3
+rho = np.array([0.963,0.241])
+Tlist = np.array([5.0, 4.0, 3.0, 2.0, 1.5, 1.0])
+```
+
+```{code-cell} ipython3
+sqlist = []
+Gq0, Gr0 = None, None
+for kT in tqdm(Tlist):
+    Sq_KA = mct.structurefactors.oz.mixtureSq()
+    Gr0, Gq0 = Sq_KA.solve (closure=HNCmix(), potential=LJmix(), rho=rho, kT=kT, use_ng=True, Gq0=Gq0, Gr0=Gr0)
+    sqlist.append(Sq_KA)
+```
+
+```{code-cell} ipython3
+nsq, ncq = Sq_KA.Sq(qgrid)
+for i in range(2):
+    for j in range(2):
+        plt.plot(qgrid, nsq[:,i,j], label=f'S{i}{j}')
+plt.legend(loc=1)
+plt.show()
+```
+
+```{code-cell} ipython3
+for ti, Sq in enumerate(sqlist):
+    plt.plot(qgrid, Sq.Sq(qgrid)[0][:,0,0], label=f'T={Tlist[ti]}')
+plt.legend()
 plt.show()
 ```
 
