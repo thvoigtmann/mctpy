@@ -1,6 +1,6 @@
 import h5py
 
-from .__h5__ import h5info
+from .__h5__ import h5info, Factory
 
 from .fsolver import nonergodicity_parameter, eigenvalue
 from .solver import correlator
@@ -32,10 +32,8 @@ def _load_h5 (h5data, res, key):
     for grp in h5data.keys():
         if grp == 'mctpy':
             pass # could do checks here
-        elif grp == 'nonergodicity_parameter':
-            res[key] = nonergodicity_parameter.h5load(h5data)
-        elif grp == 'eigenvalue':
-            res[key] = eigenvalue.h5load(h5data)
+        elif Factory.contains(grp):
+            res[key] = Factory.get(grp, h5data)
         else:
             res[grp] = {}
             _load_h5 (h5data[grp], res[grp], '')

@@ -1,5 +1,7 @@
 import numpy as np
 
+from ..__h5__ import LoadableModel
+
 class mixtureSq (object):
     def cq (self, q):
         """Direct correlation function (DCF).
@@ -76,7 +78,8 @@ class mixtureSq (object):
             res = self._dcq_dq_high(q) if highq else self._dcq_dq_low(q)
         return res
 
-class mixtureTagged (object):
+class mixtureTagged (object, LoadableModel, role='structurefactor',
+                                            attrs=['s'], objects=['Sq']):
     def __init__ (self, Sq, s):
         """Take a mixture structure factor and initialize a view
         on its DCF as that of a tagged particle of a given species
@@ -225,8 +228,9 @@ class hsm_densities (object):
         yield self.d
 
 
-class hsmPY (mixtureSq):
-    def __init__ (self, densities, diameters):
+class hsmPY (mixtureSq, LoadableModel, role='structurefactor',
+                                       fields=['densities','diameters']):
+    def __init__ (self, densities=None, diameters=None):
         """Hard-sphere mixture structure factor, Percus-Yevick (PY).
 
         Parameters
@@ -236,8 +240,11 @@ class hsmPY (mixtureSq):
         diameters : array_like
             List of diameters of the hard spheres, must match shape of densities.
         """
-        self.densities = np.array(densities)
-        self.diameters = np.array(diameters)
+        if not densities is None:
+            self.densities = np.array(densities)
+            self.diameters = np.array(diameters)
+            self.reinit()
+    def reinit (self):
         xi1 = np.sum(self.densities*self.diameters) * np.pi/6.
         xi2 = np.sum(self.densities*self.diameters**2) * np.pi/6.
         xi3 = np.sum(self.densities*self.diameters**3) * np.pi/6.

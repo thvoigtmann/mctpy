@@ -196,7 +196,8 @@ def mixture_model_dm2 (m, f, h, a1, a2, a3, b1, b2, b3, sr, q, dq):
     m[:] = m/q[:,None,None]**2
 
 class mixture_model (model_base,
-                     LoadableModel, fields=['q','sq','cq','densities','D0']):
+                     LoadableModel, fields=['q','sq','cq','densities','D0'],
+                     objects=['Sq']):
     """MCT model for simple-liquid mixtures.
 
     Parameters
@@ -227,8 +228,8 @@ class mixture_model (model_base,
         # TODO storing Sq is currently needed for the moduli since only
         # there do we access dcq_cq, for a loaded model we wouldn't have this
         # idea: create a fallback there using np_gradient if self.Sq is None?
-        self.Sq = Sq
         if not Sq is None:
+            self.Sq = Sq
             self.densities = Sq.densities
             self.rho = Sq.density() # used by tagged_q0
             self.sq, self.cq = Sq.Sq(self.q)

@@ -2,8 +2,6 @@ import numpy as np
 from numba import njit
 from numba.extending import overload
 
-import h5py
-
 from .solver import correlator
 from .util import regula_falsi, exponents
 from .__util__ import model_base, np_isclose_all
@@ -277,12 +275,12 @@ class beta_scaling_function (correlator):
             grp.attrs['alpha'] = 0.
             grp.attrs['dx'] = 1.
 
-    @staticmethod
-    def h5load (h5file):
+    @classmethod
+    def h5load (cls, h5file):
         h5grp = h5file['beta_scaling_function']
         attrs = h5grp['time_domain'].attrs
         gattrs = h5grp['model'].attrs
-        newself = beta_scaling_function(
+        newself = cls(
                 blocksize=attrs['blocksize'], h=attrs['h0'],
                 blocks=attrs['blocks'], maxiter=attrs['maxiter'],
                 accuracy=attrs['accuracy'],

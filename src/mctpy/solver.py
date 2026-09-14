@@ -2,10 +2,8 @@ import numpy as np
 
 from numba import njit, literally
 
-import h5py
-
 from .__util__ import model_base, np_isclose_all
-from .__h5__ import h5info, loaded_model
+from .__h5__ import load_model, Loadable
 from .util import exponents, CorrelatorBase
 
 @njit
@@ -145,7 +143,7 @@ def _solve_block_mat (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, M, kern
                     dPhi[i] = 0.5 * (phi[i-1] + phi[i])
                     dM[i] = 0.5 * (m[i-1] + m[i])
 
-class correlator (CorrelatorBase):
+class correlator (CorrelatorBase, Loadable):
     """Class for calculating MCT correlators in the time domain.
 
     This sets up the standard solver developed for MCT-type equations,
@@ -548,19 +546,19 @@ class correlator (CorrelatorBase):
         self.model.h5save (grp)
     def type (self):
         return 'phi'
-    @staticmethod
-    def h5load (h5file):
+    @classmethod
+    def h5load (cls, h5file):
         """Load correlator from h5 file.
 
-        This is a static method that returns a newly created
+        This is a class method that returns a newly created
         correlator object holding data read from disk. It can be
         used as a base correlator object for the calculation of
         models that need the loaded data as a reference.
         """
         h5grp = h5file['correlator']
         attrs = h5grp['time_domain'].attrs
-        model = loaded_model(h5grp['model']) # TODO load real model
-        newself = correlator(
+        model = load_model(h5grp)
+        newself = cls(
             blocksize=attrs['blocksize'], h=attrs['h0'],
             blocks=attrs['blocks'], maxiter=attrs['maxiter'],
             accuracy=attrs['accuracy'], model = model)

@@ -1,10 +1,9 @@
 import numpy as np
 
 from numba import njit
-#import h5py
 
 from .__util__ import void
-from .__h5__ import load_model
+from .__h5__ import Loadable, load_model
 
 @njit
 def _fsolve (f, m, W, f0, phi0, kernel, accuracy, maxiter, *kernel_args):
@@ -51,7 +50,7 @@ def _fsolve_mat (f, m, W, f0, phi0, WS, kernel, accuracy, maxiter, *kernel_args)
     f[0] = newf
     return converged
 
-class nonergodicity_parameter (object):
+class nonergodicity_parameter (Loadable):
     """Solver for the nonergodicity parameter.
 
     This implements a robust iteration scheme to solve for the NEP.
@@ -142,20 +141,11 @@ class nonergodicity_parameter (object):
             grp.attrs['converged'] = self.converged
             grp.attrs['accuracy'] = self.accuracy
         self.model.h5save (grp)
-    #@staticmethod
-    #def load (file):
-    #    """Load nonergodicity parameter from h5 file.
-    #
-    #    This returns a newly created nonergodicity_parameter object.
-    #    """
-    #    with h5py.File(file, 'r') as f:
-    #        nep = nonergodicity_parameter.h5load(f)
-    #    return nep
-    @staticmethod
-    def h5load (h5file):
+    @classmethod
+    def h5load (cls, h5file):
         h5grp = h5file['nonergodicity_parameter']
         model = load_model(h5grp)
-        newself = nonergodicity_parameter(model)
+        newself = cls(model)
         if 'f' in h5grp:
             newself.f = np.array(h5grp['f'], dtype=model.dtype)
             newself.m = np.array(h5grp['m'], dtype=model.dtype)
@@ -381,11 +371,11 @@ class eigenvalue (object):
             grp.attrs['converged'] = self.converged
             grp.attrs['accuracy'] = self.accuracy
         self.nep.h5save (grp)
-    @staticmethod
-    def h5load (h5file):
+    @classmethod
+    def h5load (cls, h5file):
         h5grp = h5file['eigenvalue']
         nep = nonergodicity_parameter.h5load (h5grp)
-        newself = eigenvalue(nep)
+        newself = cls(nep)
         if 'e' in h5grp:
             model = nep.model
             newself.e = np.array(h5grp['e'], dtype=model.dtype)
