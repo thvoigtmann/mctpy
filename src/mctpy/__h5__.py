@@ -42,7 +42,9 @@ class LoadableModel:
         ModelFactory.register (cls.model_name, role, cls)
     @classmethod
     def h5load (cls, h5data):
-        newself = cls()
+        # create a new uninitialized object
+        # will will fill the data fields ourselves
+        newself = cls.__new__(cls)
         # slight inconsistency here: we just load all fields/attrs we find
         # not the ones that the class might define to be saved
         # if we find a field that is not a dataset, we try to load it as
@@ -126,7 +128,6 @@ class Factory:
     @classmethod
     def get (cls, name : str, h5data):
         try:
-            print("get",name,cls._registry,cls._registry[name])
             return cls._registry[name].h5load(h5data)
         except KeyError as e:
             print(e)
