@@ -78,8 +78,8 @@ class mixtureSq (object):
             res = self._dcq_dq_high(q) if highq else self._dcq_dq_low(q)
         return res
 
-class mixtureTagged (object, LoadableModel, role='structurefactor',
-                                            attrs=['s'], objects=['Sq']):
+class mixtureTagged (LoadableModel, role='structurefactor',
+                                    attrs=['s'], objects=['Sq']):
     def __init__ (self, Sq, s):
         """Take a mixture structure factor and initialize a view
         on its DCF as that of a tagged particle of a given species

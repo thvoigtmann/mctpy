@@ -1,6 +1,7 @@
 import h5py
+import numpy as np
 
-from .__h5__ import h5info, Factory
+from .__h5__ import h5info, Factory, load_model
 
 from .fsolver import nonergodicity_parameter, eigenvalue
 from .solver import correlator
@@ -30,10 +31,19 @@ def load_file (filename):
 
 def _load_h5 (h5data, res, key):
     for grp in h5data.keys():
+        print("LOAD GRP",grp)
+        print("K",key,res)
         if grp == 'mctpy':
             pass # could do checks here
         elif Factory.contains(grp):
             res[key] = Factory.get(grp, h5data)
+        elif grp == 'model':
+            # maybe emit warning: old-style h5 format
+            res[grp] = load_model(h5data)
+        elif isinstance(h5data[grp], h5py.Dataset):
+            # maybe emit warning: we are not really prepared
+            # for free-style data floating around in the h5 yet
+            res[grp] = np.array(h5data[grp])
         else:
             res[grp] = {}
             _load_h5 (h5data[grp], res[grp], '')

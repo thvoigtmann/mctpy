@@ -558,14 +558,18 @@ class correlator (CorrelatorBase, Loadable):
         h5grp = h5file['correlator']
         attrs = h5grp['time_domain'].attrs
         model = load_model(h5grp)
+        if model is not None:
+            dtype = model.dtype
+        else:
+            dtype = np.float64
         newself = cls(
             blocksize=attrs['blocksize'], h=attrs['h0'],
             blocks=attrs['blocks'], maxiter=attrs['maxiter'],
             accuracy=attrs['accuracy'], model = model)
         # TODO avoid errors if empty correlator saved
         newself.t = np.array(h5grp['time_domain/t'])
-        newself.phi = np.array(h5grp['time_domain/phi'], dtype=newself.model.dtype)
-        newself.m = np.array(h5grp['time_domain/m'], dtype=newself.model.dtype)
+        newself.phi = np.array(h5grp['time_domain/phi'], dtype=dtype)
+        newself.m = np.array(h5grp['time_domain/m'], dtype=dtype)
         newself.store = True
         newself.solved = attrs['solved_blocks']
         return newself

@@ -29,7 +29,9 @@ class LoadableModel:
     overridden by the `name` attribute.
 
     The same mechanism is also used for structure factors; for this,
-    set the `role` attribute."""
+    set the `role` attribute. But see the separate class `Loadable`
+    for the registry used for main container objects such as
+    `mctpy.correlator` or `mct.eigenvalue`."""
     def __init_subclass__ (cls, name : str | None=None, role : str = "model",
                            fields=[], attrs=[], objects=[]):
         cls.stored_fields = set(fields)
@@ -42,6 +44,7 @@ class LoadableModel:
     def h5load (cls, h5data):
         newself = cls()
         # slight inconsistency here: we just load all fields/attrs we find
+        # not the ones that the class might define to be saved
         # if we find a field that is not a dataset, we try to load it as
         # an object from the factory
         for attr,val in h5data.attrs.items():
@@ -106,14 +109,27 @@ class Loadable:
         with h5py.File(file, 'r') as f:
             obj = cls.h5load(f)
         return obj
+    def save (self, file):
+        """Save the object to a h5 file.
+
+        Parameters
+        ----------
+        file : str
+            File name to write the object to, will be overwritten.
+        """
+        with h5py.File(file, 'w') as f:
+            self.h5save(f)
+
 
 class Factory:
     _registry = {}
     @classmethod
     def get (cls, name : str, h5data):
         try:
+            print("get",name,cls._registry,cls._registry[name])
             return cls._registry[name].h5load(h5data)
-        except KeyError:
+        except KeyError as e:
+            print(e)
             raise ValueError(f"unknown object: {name}")
     @classmethod
     def register (cls, name : str, loadable_cls : Loadable):
@@ -129,6 +145,8 @@ class loaded_model(model_base, LoadableModel, name=""):
     `LoadableModel` class."""
     def __init__ (self):
         self.M = 0
+    def reinit (self):
+        pass
     def __len__ (self):
         return self.M
     # TODO should we define vector_dimension and matrix_dimension here??
@@ -141,6 +159,8 @@ def h5info (h5file):
     grp.attrs['version'] = __version__
 
 def load_model (h5file, role = "model"):
+    if not role in h5file.keys():
+        return None
     h5grp = h5file[role]
     model_name = h5grp.attrs.get('model_name','')
     # we just try the factory, it will raise an exception if the model
