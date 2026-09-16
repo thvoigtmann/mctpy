@@ -3,6 +3,7 @@ import numpy as np
 from numba import njit
 from .util import filon_integrate
 from .__util__ import model_base, void, nparray
+from .__h5__ import LoadableModel
 
 # try to perform the integrals well, going correctly to the boundaries
 # with extrapolation if possible; the interval is [-1,1] usually,
@@ -127,9 +128,13 @@ def simple_liquid_model_2d_kernel (m, phi, i, t, A3, S, q):
             #assert(not np.isnan(A[qi,ki]))
     #m[:] = -pre * np.sum((q[:-1]*phi[:-1]*S[:-1]*A[:,:-1] + q[1:]*phi[1:]*S[1:]*A[:,1:])/2 * np.diff(q), axis=-1)
     Ainner = np.sum(A3*phi,axis=-1)
-    m[:] = -pre * np.sum((q[:-1]*phi[:-1]*S[:-1]*Ainner[:,:-1] + q[1:]*phi[1:]*S[1:]*Ainner[:,1:])/2 * np.diff(q), axis=-1)
+    m[:] = -np.sum((q[:-1]*phi[:-1]*S[:-1]*Ainner[:,:-1] + q[1:]*phi[1:]*S[1:]*Ainner[:,1:])/2 * np.diff(q), axis=-1)
 
-class simple_liquid_model_2d (model_base):
+class simple_liquid_model_2d (model_base, LoadableModel,
+                              kernel=simple_liquid_model_2d_kernel,
+                              attrs=['rho','D0'], fields=['q','sq','cq'],
+                              objects=['Sq'], resetable=['q','Sq','D0','vth'],
+                              safe_reset=['D0','vth']):
     """Simple liquid model, two-dimensional version.
 
     This implements the standard MCT memory kernel in two dimensions,
@@ -138,14 +143,16 @@ class simple_liquid_model_2d (model_base):
     wave-number integral. For this, the integrals are evaluated using
     a Filon-Tuck-type weighted-trapezoidal integration method.
     """
-    def __init__ (self, Sq, q, D0=1.0):
-        model_base.__init__(self, kernel=simple_liquid_model_2d_kernel)
-        self.rho = Sq.density()
-        self.q = q
-        self.sq, self.cq = Sq.Sq(q)
-        self.M = q.shape[0]
-        self.__init_vertices__ ()
+    def __init__ (self, Sq, q, D0=1.0, vth=1.0):
+        super().__init__()
         self.D0 = D0
+        self.vth = vth
+        self.q = q
+        self.Sq = Sq
+        self.sq, self.cq = None, None
+        self.__init_vertices__()
+    def reinit (self):
+        self.__init_vertices__()
     def __len__ (self):
         return self.M
     def spatial_dimension (self):
@@ -155,12 +162,16 @@ class simple_liquid_model_2d (model_base):
     def Bq (self):
         return self.sq/self.D0
     def __init_vertices__ (self):
+        q = self.q
+        self.rho = self.Sq.density()
+        if self.sq is None:
+            self.sq, self.cq = self.Sq.Sq(q)
+        self.M = q.shape[0]
         self.__A3__ = np.zeros((self.M,self.M,self.M))
         A3 = self.__A3__
         M = self.M
         c = self.cq
         S = self.sq
-        q = self.q
         pre = self.rho*self.sq/(8*np.pi**2)
         for qi in range(M):
             for ki in range(M):
@@ -179,7 +190,7 @@ class simple_liquid_model_2d (model_base):
                 A3[qi,ki,p] = (2*q[qi]**2 * g0unsum(S[p]*c[p]**2,x,1,minval) \
                       + 4*q[qi]*q[ki] * g1unsum(S[p]*c[p]*(c[ki]-c[p]),x,1,minval) \
                       + 2*q[ki]**2 * g2unsum(S[p]*(c[ki]-c[p])**2,x,1,minval))\
-                      * pre
+                      * pre[qi]
     def kernel_extra_args (self):
         return [self.__A3__,self.sq,self.q]
 
@@ -189,16 +200,23 @@ def tagged_particle_model_2d_calc_V (i, A, A3, phi):
 @njit
 def tagged_particle_model_2d_kernel (ms, phis, i, t, phi, A, q):
     ms[:] = -np.sum((q[:-1]*phis[:-1]*A[:,:-1] + q[1:]*phis[1:]*A[:,1:])/2 * np.diff(q), axis=-1)
-class tagged_particle_model_2d (model_base):
-    def __init__ (self, base_model, cs, D0s=1.0):
-        model_base.__init__(self, kernel=tagged_particle_model_2d_kernel,
-                            setV=tagged_particle_model_2d_calc_V)
+class tagged_particle_model_2d (model_base, LoadableModel,
+                                kernel=tagged_particle_model_2d_kernel,
+                                setV=tagged_particle_model_2d_calc_V,
+                                fields=['cs'], attrs=['D0'],
+                                objects=['base', 'Sq'],
+                                resetable=['base','Sq', 'D0'],
+                                safe_reset=['D0']):
+    def __init__ (self, base_model, Sq, D0s=1.0):
+        super().__init__()
         self.base = base_model
         self.q = base_model.q
-        self.cs = cs.cq(self.q)
-        self.M = self.q.shape[0]
-        self.__init_vertices__()
+        self.Sq = Sq
+        self.cs = None
         self.D0 = D0s
+        self.__init_vertices__ ()
+    def reinit (self):
+        self.__init_vertices__ ()
     def get_bases (self):
         return [self.base]
     def __len__ (self):
@@ -208,6 +226,9 @@ class tagged_particle_model_2d (model_base):
     def Bq (self):
         return np.ones(self.M)/self.D0
     def __init_vertices__ (self):
+        if self.cs is None:
+            self.cs = self.Sq.cq(self.q)
+        self.M = self.q.shape[0]
         self.__A__ = np.zeros((self.M,self.M))
         self.__A3__ = np.zeros((self.M,self.M,self.M))
         q = self.q
@@ -237,6 +258,6 @@ class tagged_particle_model_2d (model_base):
     def kernel_extra_args (self):
         return [self.base.phi, self.__A__, self.q]
     def set_V_args (self):
-        return [self.__A__, self.__A3__, self.base.phi]
+        return (self.__A__, self.__A3__, self.base.phi)
     def mrenorm (self, m):
         return m/self.q**2

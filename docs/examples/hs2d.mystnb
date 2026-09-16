@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 ```
 
 ```{code-cell} ipython3
-from tqdm import tqdm
+from tqdm.auto import tqdm
 import itertools
 ```
 
@@ -42,14 +42,14 @@ model = mct.simple_liquid_model_2d(Sq,qgrid)
 ```
 
 ```{code-cell} ipython3
-nep = mct.nonergodicity_parameter (model = model, maxiter=1500)
+nep = mct.nonergodicity_parameter (model = model)
 nep.solve()
 ```
 
 ```{code-cell} ipython3
 cs = Sq # tagged particle of same type as host
-model_s = mct.tagged_particle_model_2d (model, cs=cs, D0s=1)
-nep_s = mct.nonergodicity_parameter (model = model_s, maxiter=1500)
+model_s = mct.tagged_particle_model_2d (model, Sq=cs, D0s=1)
+nep_s = mct.nonergodicity_parameter (model = model_s)
 nep_s.solve()
 ```
 
@@ -69,9 +69,7 @@ phi = mct.correlator (model = model, store=True)
 ```
 
 ```{code-cell} ipython3
-pbar = tqdm(total=phi.blocks+1)
-phi.solve_all(stop_on_zero=True, callback=lambda d,bs2,bs,c: pbar.update(1))
-pbar.close()
+phi.solve_all(stop_on_zero=True, progress_bar=tqdm)
 ```
 
 ```{code-cell} ipython3
@@ -90,15 +88,13 @@ plt.show()
 
 ```{code-cell} ipython3
 cs = Sq
-model_s = mct.tagged_particle_model_2d (model, cs=cs, D0s=1)
-phi_s = mct.correlator (model = model_s, base=phi, store = True)
+model_s = mct.tagged_particle_model_2d (model, Sq=cs, D0s=1)
+phi_s = mct.correlator (model = model_s, store = True)
 correlators = mct.CorrelatorStack([phi,phi_s])
 ```
 
 ```{code-cell} ipython3
-pbar = tqdm(total=phi.blocks+1)
-correlators.solve_all(callback=lambda d,bs2,bs,c: pbar.update(1))
-pbar.close()
+correlators.solve_all(progress_bar=tqdm)
 ```
 
 ```{code-cell} ipython3
