@@ -7,8 +7,8 @@ Implementation Details
 Technical Notes
 ===============
 
-Implementing Models
--------------------
+Implementing Models: Kernels
+----------------------------
 
 Models that should work with :py:class:`mctpy.correlator` or
 derived time-domain solvers need to dervice from :py:class:`mctpy.model_base`
@@ -19,24 +19,23 @@ Kernel methods, of course. These include a kernel, i.e. the functional
 be possible for the model) also the linearization of :math:`m[f+\delta f]`
 in :math:`\delta f`, as linear maps both for the right- and
 left-multiplication with :math:`\delta f`, and the second-order them.
-The kernels need to be `numba.njit`-able functions and need to be
-returned by the :py:func:`mctpy.model_base.get_kernel` and related
-methods.
+The kernels need to be returned as callables from
+:py:func:`mctpy.model_base.get_kernel` and related methods and need to
+be `njit`-able.
 
 For performance reasons, the kernel methods should thus be defined as
 functions outside of the class (so that `numba` can cache the machine
-code for multiple invocations of the model). In this case, the
-function can be directly passed to :py:func:`mctpy.model_base.__init__` as
-an optional argument. (Note that passing a class-member function won't
-work here, not at least unless you use `jitclass`.)
+code for multiple invocations of the model). If this is the case, the
+function can be directly passed via the `kernel` argument in the inheritance
+of :py:class:`mctpy.__util__.model_base` (and similar for the other variants).
 Since the compiled kernel will not have the
 model-object variables in scope, all the needed parameters for the
 memory kernel need to be passed as extra argument to the memory kernel.
 For these, a model needs to implement
-:py:func:`mctpy.model_base.kernel_extra_args` and similar.
+:py:func:`mctpy.__util__.model_base.kernel_extra_args` and similar.
 
 If for some reason that is not a feasible route, the model can implement
-instead a :py:func:`mctpy.model_base.make_kernel` method (and similar) to
+instead a :py:func:`mctpy.__util__.model_base.make_kernel` method (and similar) to
 generate the jit-able function on the fly. There is some performance
 deterioration associated with that. (See :py:class:`mctpy.schematic.generic`
 for an example.)
@@ -44,9 +43,7 @@ for an example.)
 For models where the memory-kernel coefficients are elaborate vertices
 based on a few model parameters, the model should usually calculate those
 vertices upon initialization, and then pass the vertex array to the
-memory kernel as an extra argument. These models should then implement
-a `reinit` method to allow changing the parameters in an existing model object.
-However, this is no longer considered necessary in most cases.
+memory kernel as an extra argument.
 
 For models whose vertices reference another correlator, for example in
 the tagged-particle case that references a base correlator, a reference
@@ -58,14 +55,71 @@ The methods are called for each time step once before the iteration,
 allowing to cache tagged-particle vertices.
 
 If you want to make add save/reload functionality to the model, derive
-it from `LoadableModel` as a second base class, and define fields and
-attributes to be saved and reloaded. Then you only need to make sure
-that both the constructor and the reinit method can be called without
-any arguments. (In this case they will find the specified fields and
-attributes already pre-filled and should call the vertex initialization
-or whatever is needed. The vertices will usually not be stored.)
+it from :py:class:`mctpy.__h5__.LoadableModel` as a second base class, and define fields and
+attributes to be saved and reloaded. Then add a `reinit` method that can
+be called without further arguments and performs the task of re-initializing
+the vertices from the parameters that have been loaded into the fields
+of the object. This is preferred over storing and reloading huge vertex
+arrays, although this in principle would also be possible.
 
-There are a few helper methods that a model should implement:
+In summary, a model implementation should look something like this:
+
+.. code-block:: python
+
+        import numpy as np
+        from numba import njit
+
+        import mctpy as mct
+
+        @njit
+        def mymodel_kernel (m, phi, i, t, tau):
+            # calculation of the memory kernel, will be njit-ed
+            m[:] = np.exp(-t/tau)
+
+        class mymodel (mct.__util__.model_base, mct.__h5__.LoadableModel,
+                       kernel=mymodel_kernel,
+                       attrs=['tau'], resetable=['tau'], safe_reset=['tau']):
+            def __init__ (self, tau):
+                """Initialize the model with user-supplied parameters."""
+                # 1. initialize the inner workings by calling the base classes
+                super().__init__() # important
+                # 2. set any model-specific parameters provided by the user
+                self.tau = tau
+                # 3. calculate vertices and stuff derived from those parameters
+                self.__init_vertices__()
+            # the following will be implicitly defined through inheritance
+            # from model_base, it looks at the `resetable` field for allowed
+            # parameters, and at `safe_reset` for those that can be simply reset
+            # without triggering vertex recalculation:
+            #def set (self, **kwargs):
+            #    if 'tau' in kwargs:
+            #        self.tau = kwargs['tau']
+            #    # possibly re-calculate vertices if we changed anything that
+            #    # needs that
+            def reinit (self):
+                # if this is called, we can assume self.tau to be already set
+                # this is needed for the model to be reloaded from a HDF5 file
+                # the loader will have called `cls.__new__(cls)` and set
+                # all the fields from the HDF5 file;
+                # the save mechanism writes whatever is in the `attrs` and `fields`
+                # declaration of the class as HDF5 attributes and datafields,
+                # and whatever is in the `objects` declaration as internal structures
+                # the will be loaded with the same mechanism as the model itself
+                self.__init_vertices__()
+            def __init_vertices__ (self):
+                # here would be the calculation of vertices, performed once
+                # for the setup of the model and before calls to the memory kernel
+                pass
+            def kernel_extra_args (self):
+                return [self.tau]
+
+
+
+Implementing Models: Parameters
+-------------------------------
+
+To define further MCT parameters besides the kernel implementations,
+the following helper methods should be implemented:
 
 * :py:func:`mctpy.model_base.Aq` to specify the prefactor :math:`A_q`
   in front of the second time derivative in the evolution equation.
@@ -87,6 +141,48 @@ There are a few helper methods that a model should implement:
   initial derivative of the function to solve for. This is ignored
   if :math:`A_q` is set to zero (Brownian dynamics), since then
   the derivative is fixed by the other parameters.
+
+Implementing structure factors
+------------------------------
+
+Structure factors can be implemented in a similar way by deriving them
+from a suitable base class, such as
+:py:class:`mctpy.structurefactors.simple_liquid.simpleLiquidSq` or
+:py:class:`mctpy.structurefactors.mixtures.mixtureSq` which will provide
+standard entry points used by the solvers. Then focus on implementing
+the direct correlation function.
+
+.. code-block:: python
+
+   class mystructurefactor (mct.structurefactors.simple_liquid.simpleLiquidSq,
+                            mct.__h5__.LoadableModel, role='structurefactor',
+                            attrs=['rho']):
+       def __init__ (self, rho):
+           super().__init__() # important
+           self.rho = rho
+           self.reinit()
+       def reinit (self):
+           # do stuff to setup calculation given the user-supplied parameters
+           # you can set a value below which a specific low-q implementation
+           # will be called
+           self.lowq = 0.1
+       def _cq_low (self, q):
+           # calculation of c(q), broadcast over q, low-q implementation
+           cq = -1 * np.ones_like(q)
+           return cq
+       def _cq_high (self, q):
+           # calculation of c(q), broadcast over q, high-q implementation
+           cq = np.zeros_like(q)
+           return cq
+       def _dcq_dq_low (self, q):
+           # calculation of dc(q)/dq, broadcast over q, low-q implementation
+           dcq = np.zeros_like(q)
+           return dcq
+       def _dcq_dq_high (self, q):
+           # calculation of dc(q)/dq, broadcast over q, high-q implementation
+           dcq = np.zeros_like(q)
+           return dcq
+
 
 
 Memory layout

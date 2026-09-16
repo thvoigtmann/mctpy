@@ -22,7 +22,8 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
     'sphinx.ext.intersphinx',
-    'myst_nb'
+    'myst_nb',
+    'sphinx_reports',
 ]
 
 templates_path = ['_templates']
@@ -40,6 +41,15 @@ nb_execution_cache_path = ".jupyter_cache"
 nb_execution_timeout = 180
 
 autodoc_member_order = 'bysource'
+
+# for sphinx reports
+report_unittest_testsuites = {
+   "src": {
+      "name":       "mctpy",
+      "xml_report": "../tests/pytest_results.xml",
+   }
+}
+
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output

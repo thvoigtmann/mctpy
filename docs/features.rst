@@ -1,8 +1,34 @@
-Features
-========
+Feature status
+==============
 
-Implementation table
+..
+    Tested cases
+    ------------
+
+    .. report:unittest-summary::
+       :reportid: src
+       :no-assertions:
+
+
+Implemented features
 --------------------
+
+Note that you can get an overview of the various models that are implemented
+using
+
+  .. code-block:: python
+
+    import mctpy as mct
+    # list solvers: correlator, nonergodicity_parameter, etc.
+    mct.__h5__.Factory._registry.keys()
+    # list models:
+    mct.__h5__.ModelFactory._registry['model'].keys()
+    # list structure factors:
+    mct.__h5__.ModelFactory._registry['structurefactor'].keys()
+
+
+Implementation status
+---------------------
 
 The following is a list of features of the `mctpy` code that are currently being
 implemented, some of them at the end rather aspirational. (The two-time code will
@@ -16,8 +42,6 @@ and in the current `mctpy` code.
 For production runs, rely on versions no earlier than the one quoted
 in the "stable version" column.
 
-Obviously, if you spot something that is missing an implementation where
-you think you can help - please do!
 
 +----------------------------------------+-------------+-------------+--------+----------------+-----------------------------+
 | Feature                                | first impl. | first impl. | tested | stable version | example                     |
