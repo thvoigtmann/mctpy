@@ -1,6 +1,7 @@
 import numpy as np
 
 import h5py
+import sys
 
 from .__util__ import model_base
 
@@ -33,18 +34,53 @@ class LoadableModel:
     for the registry used for main container objects such as
     `mctpy.correlator` or `mct.eigenvalue`."""
     def __init_subclass__ (cls, name : str | None=None, role : str = "model",
-                           fields=[], attrs=[], objects=[]):
+                           fields=[], attrs=[], objects=[],
+                           resetable=[], safe_reset=[]):
+        """Register the model in the factory used by the HDF5 loader,
+        under the given `name` in the given `role`.
+        The `fields`, `attrs`, and `objects` can be used to designate
+        the fields that will be written to and read from files,
+        in the form of HDF5 datasets, attributes, and custom groups,
+        respectively.
+        The `resetable` set indicates those variables that can be
+        reset using the `set` method, allowing to quickly change one
+        out of a few model parameters. This will usually require a
+        recalculation of vertices, unless the parameter is listed in
+        the `safe_reset` list.
+        """
         cls.stored_fields = set(fields)
         cls.stored_attrs = set(attrs)
         cls.stored_objects = set(objects)
+        cls.resetable_fields = set(resetable)
+        cls.safe_reset = set(safe_reset)
         cls.model_name = name if name is not None else cls.__name__
         cls.role = role
         ModelFactory.register (cls.model_name, role, cls)
+    def set (self, /, safe=[], **kwargs):
+        """Method to reset model parameters.
+
+        Parameters
+        ----------
+        kwargs : kwargs
+            The allowed parameters to reset are given in the classes'
+            `resetable_fields`. All those that are not also listed as
+            `safe_reset` for the class will trigger a call to `reinit`,
+            i.e. potentially a vertex recalculation.
+        """
+        need_reinit = False
+        for k,v in kwargs.items():
+            if k in self.resetable_fields:
+                self.__dict__[k] = v
+            if not k in self.safe_reset:
+                need_reinit |= True
+        if need_reinit:
+            self.reinit()
     @classmethod
     def h5load (cls, h5data):
         # create a new uninitialized object
         # will will fill the data fields ourselves
         newself = cls.__new__(cls)
+        super(cls,newself).__init__()
         # slight inconsistency here: we just load all fields/attrs we find
         # not the ones that the class might define to be saved
         # if we find a field that is not a dataset, we try to load it as
@@ -58,8 +94,11 @@ class LoadableModel:
                 # for an object, we expect a hdf5 path of the form
                 # .../field/role (e.g. .../Sq/structurefactor)
                 # the load_model call will itself descend there
-                role = list(val.keys())[0]
-                newself.__dict__[field] = load_model (val, role=role)
+                roles = list(val.keys())
+                if len(roles)==1:
+                    newself.__dict__[field] = load_model (val, role=roles[0])
+                # could issue a warning if none (happens if eg Sq wasnt savable)
+                # or if too many (unexpected h5 file structure)
         newself.reinit()
         return newself
     def h5save (self, h5file):
@@ -72,7 +111,11 @@ class LoadableModel:
                 h5grp.attrs[attr] = self.__dict__[attr]
         for obj in self.stored_objects:
             g2 = h5grp.create_group(obj)
-            self.__dict__[obj].h5save (g2)
+            if 'h5save' in dir(self.__dict__[obj]):
+                self.__dict__[obj].h5save (g2)
+            else:
+                print(f"WARNING cannot save {obj} {self.__dict__[obj]}",
+                      file=sys.stderr)
 
 class ModelFactory:
     _registry = { 'model': {},

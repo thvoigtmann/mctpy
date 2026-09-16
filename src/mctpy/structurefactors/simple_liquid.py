@@ -1,5 +1,7 @@
 import numpy as np
 
+from ..__h5__ import LoadableModel
+
 # this base class provides convenience wrappers for cq(q), Sq(q)
 # and dcq_dq(q), accepting single floats or numpy arrays,
 # relegating the calculation to methods _cq_low, cq_high, and so on
@@ -77,7 +79,8 @@ class simpleLiquidSq (object):
         return res
 
 
-class hssPY (simpleLiquidSq):
+class hssPY (simpleLiquidSq, LoadableModel, role='structurefactor',
+                                            attrs=['phi'], resetable=['phi']):
     def __init__ (self, phi):
         """Hard-sphere structure factor, Percus-Yevick approximation.
 
@@ -86,10 +89,14 @@ class hssPY (simpleLiquidSq):
         phi : float
             Packing fraction of the hard-sphere system.
         """
+        super().__init__()
+        self.phi = phi
+        self.reinit()
+    def reinit (self):
+        phi = self.phi
         etacmp = (1.-phi)**4
         self.alpha = (1.+2*phi)*(1.+2*phi) / etacmp
         self.beta = - (1.+0.5*phi)*(1.+0.5*phi) * 6.*phi/etacmp
-        self.phi = phi
         self.rho = phi*6/np.pi
         self.lowq = 0.05
     def _cq_low (self, q):

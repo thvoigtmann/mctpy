@@ -2,6 +2,7 @@ import numpy as np
 
 from numba import njit
 from .__util__ import model_base, void, nparray, np_gradient, _dq
+from .__h5__ import LoadableModel
 
 import scipy.integrate
 
@@ -78,7 +79,14 @@ def simple_liquid_model_dm2 (m, phi, dphi, a, b, dq, q):
                     zqk += b[n,qi,pi] * dphi[pi] * (1-phi[pi])**2
                 mq += a[n,ki] *apre[n]* zqk * dphi[ki] * (1-phi[ki])**2
         m[qi] = mq * dq[qi]**2 / q[qi]**2
-class simple_liquid_model (model_base):
+class simple_liquid_model (model_base, LoadableModel,
+                           kernel=simple_liquid_model_kernel,
+                           dm=simple_liquid_model_dm,
+                           dmhat=simple_liquid_model_dmhat,
+                           dm2=simple_liquid_model_dm2,
+                           fields=['q','sq','cq'], attrs=['rho','D0'],
+                           objects=['Sq'], resetable=['q','Sq','D0','vth'],
+                           safe_reset=['D0','vth']):
     """The simple-liquid standard model of MCT.
 
     Parameters
@@ -98,21 +106,13 @@ class simple_liquid_model (model_base):
     have its first point at dq/2.
     """
     def __init__ (self, Sq, q, D0=1.0, vth=1.0):
-        model_base.__init__(self, kernel=simple_liquid_model_kernel,
-                            dm=simple_liquid_model_dm,
-                            dmhat=simple_liquid_model_dmhat,
-                            dm2=simple_liquid_model_dm2)
-        self.q = q
-        self.M = q.shape[0]
-        self.a = np.zeros((9,self.M))
-        self.b = np.zeros((9,self.M,self.M))
-        self.reinit(Sq,D0,vth)
-    def reinit (self, Sq, D0=1.0, vth=1.0):
+        super().__init__()
         self.D0 = D0
         self.vth = vth
+        self.q = q
         self.Sq = Sq
-        self.sq, self.cq = Sq.Sq(self.q)
-        self.rho = Sq.density()
+        self.__init_vertices__()
+    def reinit (self):
         self.__init_vertices__()
     def __len__ (self):
         return self.M
@@ -125,9 +125,14 @@ class simple_liquid_model (model_base):
     def dq (self):
         return _dq(self.q)
     def __init_vertices__ (self):
+        q = self.q
+        self.sq, self.cq = self.Sq.Sq(self.q)
+        self.rho = self.Sq.density()
+        self.M = q.shape[0]
+        self.a = np.zeros((9,self.M))
+        self.b = np.zeros((9,self.M,self.M))
         self.__C__ = None
         pre = 1./(32.*np.pi**2) * self.rho
-        q = self.q
         qSq = q * self.sq
         self.a[0] = qSq * 2 * self.cq
         self.a[1] = - qSq * 2 * q**4 * self.cq
@@ -155,7 +160,7 @@ class simple_liquid_model (model_base):
     def kernel_extra_args (self):
         return [self.a, self.b, self.dq()]
     def set_C (self, f):
-        if not self.__C__:
+        if self.__C__ is None:
             self.__C__ = np.zeros((self.M,self.M))
         simple_liquid_model_calc_C (self.__C__, f, self.a, self.b)
     def kernel_extra_args_dm (self):
@@ -185,17 +190,6 @@ class simple_liquid_model (model_base):
             self.Sq.dcq_dq(self.q)**2 * self.rho*self.dq()) * \
             phi**2, axis=-1) / (60*np.pi**2)
 
-    def h5save (self, fh):
-        grp = fh.create_group("model")
-        grp.attrs['type'] = 'simple_liquid'
-        grp.attrs['M'] = self.M
-        grp.attrs['dynamics'] = 'BD' # TODO FIXME
-        grp.attrs['D0'] = self.D0
-        grp.attrs['rho'] = self.rho
-        grp.create_dataset("q",data=self.q)
-        grp.create_dataset("sq",data=self.sq)
-        grp.create_dataset("cq",data=self.cq)
-    # TODO FIXME implement h5load also for other models
 
 @njit
 def tagged_particle_model_calc_V (i, V, phi, a, b):
@@ -226,18 +220,22 @@ def tagged_particle_model_kernel (ms, phis, i, t, V, dq):
     #    Vfunc(V, phi[i])
     #    last_i[0] = i
     ms[:] = dq**2 * np.dot(V,phis)
-class tagged_particle_model (model_base):
-    def __init__ (self, base_model, cs, D0s=1.0,
-                  kernel=tagged_particle_model_kernel,
-                  setV=tagged_particle_model_calc_V):
-        model_base.__init__(self, kernel=kernel, setV=setV)
+class tagged_particle_model (model_base, LoadableModel,
+                             kernel=tagged_particle_model_kernel,
+                             setV=tagged_particle_model_calc_V,
+                             fields=['cs'], attrs=['D0'],
+                             objects=['base','Sq'],
+                             resetable=['base','Sq','D0'],
+                             safe_reset=['D0']):
+    def __init__ (self, base_model, Sq, D0s=1.0):
+        super().__init__()
+        self.D0 = D0s
         self.base = base_model
         self.q = base_model.q
         self.M = self.q.shape[0]
-        self.reinit (cs, D0s)
-    def reinit (self, cs, D0s=1.0):
-        self.cs = cs.cq(self.q)
-        self.D0 = D0s
+        self.cs = Sq.cq(self.q)
+        self.reinit()
+    def reinit (self):
         self.__init_vertices__()
     def get_bases (self):
         return [self.base]
@@ -271,16 +269,6 @@ class tagged_particle_model (model_base):
     def mrenorm (self, m):
         return m/self.q**2
 
-    def h5save (self, fh):
-        grp = fh.create_group("model")
-        grp.attrs['type'] = 'tagged_particle'
-        grp.attrs['M'] = self.M
-        grp.attrs['dynamics'] = 'BD'
-        grp.attrs['D0'] = self.D0
-        grp.create_dataset("q",data=self.q)
-        grp.create_dataset("cs",data=self.cs)
-        grp2 = grp.create_group("base")
-        self.base.h5save(grp2)
 
 
 @njit(inline='always')
@@ -288,9 +276,11 @@ def tagged_particle_q0_kernel (ms0, phis0, i, t, V, phi, phi_s):
     #ms0[:] = np.dot(V,phi[i]*phi_s[i]) # good for one-component only
     ms0[:] = np.sum((V*phi[i]).T*phi_s[i])
 
-class tagged_particle_q0 (model_base):
-    def __init__ (self, base_model, kernel=tagged_particle_q0_kernel):
-        model_base.__init__(self, kernel=kernel, setV=None)
+class tagged_particle_q0 (model_base, LoadableModel,
+                          kernel=tagged_particle_q0_kernel,
+                          objects=['base']):
+    def __init__ (self, base_model):
+        super().__init__()
         self.base = base_model
         self.reinit()
     def reinit(self):
@@ -313,12 +303,6 @@ class tagged_particle_q0 (model_base):
         model_base.set_base_phi (self, array)
     def kernel_extra_args (self):
         return [self.V, self.base.base.phi, self.base.phi]
-    def h5save (self, fh):
-        grp = fh.create_group("model")
-        grp.attrs['type'] = 'tagged_particle_q0'
-        grp.attrs['dynamics'] = 'BD'
-        grp2 = grp.create_group("base")
-        self.base.h5save(grp2)
 
 @njit
 def tagged_particle_ngp_kernel (ngpm, ngpphi, i, t, phi, phis, V, k):
@@ -326,7 +310,9 @@ def tagged_particle_ngp_kernel (ngpm, ngpphi, i, t, phi, phis, V, k):
     dd = np_gradient(dphis,k) + (2./3)*dphis/k
     ngpm[0] = np.dot(V,phi[i]*phis[i]) # one-component only
     ngpm[1] = (3./5) * np.dot(V,phi[i]*dd)
-class tagged_particle_ngp (tagged_particle_q0):
+class tagged_particle_ngp (tagged_particle_q0, LoadableModel,
+                           kernel=tagged_particle_ngp_kernel,
+                           objects=['msdbase']):
     r"""Standard model for the non-Gaussian parameter.
 
     Parameters
@@ -348,8 +334,7 @@ class tagged_particle_ngp (tagged_particle_q0):
         defined in the MCT equation for the NGP.
     """
     def __init__ (self, base_model):
-        tagged_particle_q0.__init__ (self, base_model.base,
-                                     kernel=tagged_particle_ngp_kernel)
+        tagged_particle_q0.__init__ (self, base_model.base)
         self.msdbase = base_model
     def __len__ (self):
         return 2
@@ -359,10 +344,4 @@ class tagged_particle_ngp (tagged_particle_q0):
         return [self.base.base.phi, self.base.phi, self.V, self.base.q]
     def phi2 (self):
         return self.msdbase.phi
-    def h5save (self, fh):
-        grp = fh.create_group("model")
-        grp.attrs['type'] = 'tagged_particle_ngp'
-        grp.attrs['dynamics'] = 'BD'
-        grp2 = grp.create_group("base")
-        self.base.h5save(grp2)
 

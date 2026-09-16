@@ -239,7 +239,7 @@ def _ehatsolve_mat(ehat, dmhat, f, phi0, maxiter, accuracy, *kernel_args):
     return norm, converged
 
 
-class eigenvalue (object):
+class eigenvalue (Loadable):
     """Critical eigenvalue solver for a simple liquid.
 
     This implements iteration schemes to evaluate the right and left

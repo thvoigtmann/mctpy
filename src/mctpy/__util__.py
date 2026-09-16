@@ -24,8 +24,8 @@ def void(nparray):
 
 
 class model_base (object):
-    def __init__ (self, kernel=None, dm=None, dmhat=None, dm2=None,
-                  setV=None):
+    def __init_subclass__ (cls, /, kernel=None, dm=None, dmhat=None, dm2=None,
+                           setV=None, **kwargs):
         """Initialize the base features of any MCT model.
         Parameters:
         -----------
@@ -40,9 +40,11 @@ class model_base (object):
             memory-kernel evaluation, once for each time step. This
             is mostly used by tagged-particle models.
         """
-        self.dtype = np.dtype(float)
-        self.mdispatch = {}
-        self.set_kernels (kernel=kernel, dm=dm, dmhat=dmhat, dm2=dm2, setV=setV)
+        super().__init_subclass__(**kwargs)
+        cls.dtype = np.dtype(float)
+        cls.mdispatch = {}
+        cls.set_kernels (kernel=kernel, dm=dm, dmhat=dmhat, dm2=dm2, setV=setV)
+    def __init__ (self):
         # the following fields will be populated by the respective solvers
         # to allow back-linking of a model to the solver that solved it
         # this is needed for the construction of dependency lists
@@ -50,18 +52,19 @@ class model_base (object):
         self.correlator = None
         self.nep = None
         self.ev = None
-    def set_kernels (self, kernel=None, dm=None, dmhat=None, dm2=None,
+    @classmethod
+    def set_kernels (cls, kernel=None, dm=None, dmhat=None, dm2=None,
                      setV=None):
         if kernel:
-            self.mdispatch['kernel'] = kernel
+            cls.mdispatch['kernel'] = kernel
         if dm:
-            self.mdispatch['dm'] = dm
+            cls.mdispatch['dm'] = dm
         if dmhat:
-            self.mdispatch['dmhat'] = dmhat
+            cls.mdispatch['dmhat'] = dmhat
         if dm2:
-            self.mdispatch['dm2'] = dm2
+            cls.mdispatch['dm2'] = dm2
         if setV:
-            self.mdispatch['setV'] = setV
+            cls.mdispatch['setV'] = setV
     def __len__ (self):
         """The "length" of a model is the number of correlators.
         Typically, they are numbered by wave-number index `q`."""

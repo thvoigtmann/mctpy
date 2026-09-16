@@ -56,7 +56,7 @@ We also attach a tagged-particle model to calculate its NEP. Note that the direc
 
 ```{code-cell} ipython3
 cs = mct.structurefactors.hssPYtagged(phi=Sq.phi,delta=1)
-model_s = mct.tagged_particle_model (model, cs=cs, D0s=1)
+model_s = mct.tagged_particle_model (model, Sq=cs, D0s=1)
 nep_s = mct.nonergodicity_parameter (model = model_s)
 nep_s.solve()
 ```
@@ -87,7 +87,7 @@ class evsearch_hss:
         if self.model is None:
             self.model = mct.simple_liquid_model (Sq, qgrid)
         else:
-            self.model.reinit (Sq)
+            self.model.set (Sq=Sq)
         nep = mct.nonergodicity_parameter (model = self.model)
         nep.solve()
         ev = mct.eigenvalue (nep)
@@ -127,7 +127,7 @@ m1 = mct.simple_liquid_model(mct.structurefactors.hssPY(0.),qgrid)
 phirange = np.linspace(0.46,0.58,101)
 sigrange = np.zeros_like(phirange)
 for i, phi in enumerate(phirange):
-    m1.reinit (mct.structurefactors.hssPY(phi))
+    m1.set (Sq=mct.structurefactors.hssPY(phi))
     sigrange[i] = hss_c.sigma (m1)
 ```
 
@@ -282,7 +282,7 @@ Let us add tagged-particle dynamics. This uses the fact that the collective dyna
 
 ```{code-cell} ipython3
 cs = mct.structurefactors.hssPYtagged(phi=philist[2].model.Sq.phi,delta=1)
-model_s = mct.tagged_particle_model (philist[2].model, cs=cs, D0s=1)
+model_s = mct.tagged_particle_model (philist[2].model, Sq=cs, D0s=1)
 phi_s = mct.correlator (model = model_s, base=philist[2], store = True)
 correlators = mct.CorrelatorStack([philist[2],phi_s])
 ```
