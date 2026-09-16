@@ -1,10 +1,13 @@
 import numpy as np
+
 from .simple_liquid import simpleLiquidSq
+from ..__h5__ import LoadableModel
 
 from importlib import resources
 from scipy.interpolate import CubicSpline
 
-class gcm4MSA (simpleLiquidSq):
+class gcm4MSA (simpleLiquidSq, LoadableModel, role='structurefactor',
+               attrs=['rho','epsilon'], resetable=['rho','epsilon']):
     """MSA structure factor for the GCM4 model.
 
     The generalized Gaussian core model GCM4 sets
@@ -29,10 +32,17 @@ class gcm4MSA (simpleLiquidSq):
         This relies on a pre-calculated file to load interpolation data
         in the form (q,V(q),V'(q)).
         """
+        super().__init__()
         self.rho = rho
         self.eps = epsilon
-        with resources.path('mctpy','structurefactors/data/gcm4MSA.npz') as file:
-            _vqdata = np.load(file)['gcm4vq']
+        self.reinit()
+    def reinit (self):
+        # loading the npz file needs to be performed only once,
+        # not upon changing parameters; however we cannot add it to
+        # the constructor for a LodableModel
+        if not '_vq' in dir(self):
+            with resources.path('mctpy','structurefactors/data/gcm4MSA.npz') as file:
+                _vqdata = np.load(file)['gcm4vq']
         self._vq = CubicSpline(_vqdata[:,0], _vqdata[:,1])
         self._vqd = CubicSpline(_vqdata[:,0], _vqdata[:,2])
     def cq (self, q):

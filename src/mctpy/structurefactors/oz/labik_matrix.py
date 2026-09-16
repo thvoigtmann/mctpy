@@ -3,7 +3,7 @@ import numpy as np
 
 from ..interpolation import dataMixtureSq
 
-class mixtureSq (dataMixtureSq):
+class mixtureSq (dataMixtureSq, name='oz_mixtureSq', role='structurefactor'):
     """Static structure factor from numerical solution of OZ equation.
 
     This implements the matrix-valued version of an iterative solution

@@ -1,5 +1,7 @@
 import numpy as np
+
 from .simple_liquid import simpleLiquidSq
+from ..__h5__ import LoadableModel
 
 # q0, q1, q2, q3: integrals \int_r0^r1 dr exp(iqr) r^alpha
 
@@ -18,7 +20,8 @@ def dispatch (func, funclow, q, qlow):
     return res
 
 
-class swsMSA (simpleLiquidSq):
+class swsMSA (simpleLiquidSq, LoadableModel, role='structurefactor',
+              attrs=['phi','delta','Gamma']):
     def __init__ (self, phi, delta=0.0, Gamma=0.0):
         """Square-well system structure factor, MSA.
     
@@ -31,10 +34,14 @@ class swsMSA (simpleLiquidSq):
         Gamma : float, default: 0.0
             Attraction strength.
         """
+        super().__init__()
         self.phi = phi
-        self.rho = phi*6/np.pi
-        self.Gamma = Gamma
         self.delta = delta 
+        self.Gamma = Gamma
+        self.reinit()
+    def reinit (self):
+        phi = self.phi
+        self.rho = phi*6/np.pi
         tau = self.Gamma*self.delta
         a0 = (1+2*phi)/(1-phi)**2-12*tau*phi/(1-phi)
         b0 = -3*phi/(2*(1-phi)**2)+6*tau*phi/(1-phi)

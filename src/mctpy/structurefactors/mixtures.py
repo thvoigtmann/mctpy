@@ -92,8 +92,11 @@ class mixtureTagged (LoadableModel, role='structurefactor',
         s : int
             Species index.
         """
+        super().__init__()
         self.Sq = Sq
         self.s = s
+    def reinit (self):
+        pass
     def cq (self, q):
         return self.Sq.cq(q)[:,:,self.s]
 
@@ -240,10 +243,10 @@ class hsmPY (mixtureSq, LoadableModel, role='structurefactor',
         diameters : array_like
             List of diameters of the hard spheres, must match shape of densities.
         """
-        if not densities is None:
-            self.densities = np.array(densities)
-            self.diameters = np.array(diameters)
-            self.reinit()
+        super().__init__()
+        self.densities = np.array(densities)
+        self.diameters = np.array(diameters)
+        self.reinit()
     def reinit (self):
         xi1 = np.sum(self.densities*self.diameters) * np.pi/6.
         xi2 = np.sum(self.densities*self.diameters**2) * np.pi/6.

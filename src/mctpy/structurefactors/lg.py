@@ -1,12 +1,18 @@
 import numpy as np
 import scipy
-from .simple_liquid import simpleLiquidSq
 
-class lgDCF (simpleLiquidSq):
+from .simple_liquid import simpleLiquidSq
+from ..__h5__ import LoadableModel
+
+class lgDCF (simpleLiquidSq, LoadableModel, role='structurefactor',
+             attrs=['R'], resetable=['R']):
     """Lorentz-gas direct correlation function.
     """
     def __init__ (self, R):
+        super().__init__()
         self.R = R
+        self.reinit()
+    def reinit (self):
         self.lowq = 0.5/R
         self.rho = 0.
     def _cq_high (self, q):

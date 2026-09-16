@@ -3,7 +3,7 @@ import numpy as np
 
 from ..interpolation import dataSq
 
-class Sq (dataSq):
+class Sq (dataSq, name='oz_Sq', role='structurefactor'):
     """Static structure factor from numerical solution of OZ equation.
 
     This implements an iterative solution scheme for the OZ equation
@@ -15,7 +15,7 @@ class Sq (dataSq):
     and will depend on a judicious choice of parameters and initial guesses.
     The scheme might converge to unphysical solutions."""
     def __init__ (self):
-        pass
+        super().__init__()
     def solve (self, closure, potential, rho, kT=1.0, Gr0=None, Gq0=None,
                N=2048, M=40, Rmax=50.0, maxiter=10000, maxiter2=2000, mix=0.5,
                mix2=0.5, accuracy=1e-5, use_ng=False, progress_bar=None):

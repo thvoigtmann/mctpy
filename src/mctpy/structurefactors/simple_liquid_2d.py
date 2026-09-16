@@ -1,15 +1,26 @@
 import numpy as np
 import scipy
-from .simple_liquid import simpleLiquidSq
 
-class hssFMT2d (simpleLiquidSq):
+from .simple_liquid import simpleLiquidSq
+from ..__h5__ import LoadableModel
+
+class hssFMT2d (simpleLiquidSq, LoadableModel, role='structurefactor',
+                attrs=['eta'], resetable=['eta']):
     """Structure factor for 2d hard disks, fundamental measure theory (FMT).
 
     This implements the expression derived by Thorneywork et al (2018).
+
+    Parameters
+    ----------
+    eta : float
+        Volume fraction of the 2d system.
     """
     def __init__ (self, eta):
+        super().__init__()
         self.eta = eta
-        self.rho = eta*4/np.pi
+        self.reinit()
+    def reinit (self):
+        self.rho = self.eta*4/np.pi
         self.lowq = np.finfo(float).eps
     def _cq_high (self, q):
         etacmp = (1-self.eta)**2
@@ -21,20 +32,3 @@ class hssFMT2d (simpleLiquidSq):
             * np.pi/(6*q*q*(1-self.eta)**3)
     def _cq_low (self, q):
         return -(np.pi/4)*(4-3*self.eta+self.eta**2)/(1-self.eta)**3
-    def Sq (self, q):
-        """Return the structure factor and DCF.
-
-        Parameters
-        ----------
-        q : array_like
-            Grid of wave numbers where S(q) and DCF should be evaluated.
-
-        Returns
-        -------
-        sq : array_like
-            S(q) evaluated on the given grid.
-        cq : array_like
-            c(q) evaluated on the given grid.
-        """
-        cq_ = self.cq(q)
-        return 1.0 / (1.0 - self.density() * cq_), cq_

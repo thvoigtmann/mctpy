@@ -1,7 +1,10 @@
 import scipy
 import numpy as np
 
-class dataSq:
+from ..__h5__ import LoadableModel
+
+class dataSq (LoadableModel, role='structurefactor',
+              fields=['_q_data','_sq_data'],attrs=['rho']):
     """Structure factor interpolated from data.
 
     Parameters
@@ -16,8 +19,11 @@ class dataSq:
         Number density to which the structure factor corresponds.
     """
     def __init__ (self, q, sq, density=1.0):
+        super().__init__()
         self.rho = density
         self._q_data, self._sq_data = q, sq
+        self.reinit()
+    def reinit (self):
         self._interpolator = scipy.interpolate.CubicSpline(self._q_data, self._sq_data)
     def density (self):
         return self.rho
@@ -46,7 +52,8 @@ class dataSq:
         sqder_ = self.interpolate_sq(q, self._interpolator.derivative(), minval=0.0, maxval=0.0)
         return 1./self.density()/sq_**2 * sqder_
 
-class dataMixtureSq:
+class dataMixtureSq (LoadableModel, role='structurefactor',
+                     fields=['_q_data','_sq_data','densities']):
     """Mixture structure factor interpolated from data.
 
     Parameters
@@ -70,10 +77,12 @@ class dataMixtureSq:
         The difference between the last two is in the ordering of indices:
         for example, in a 3x3 matrix
 
+            ================        ================
             upper_triangular        lower_triangular
-            0 1 2                   0
-              3 4                   1 2
-                5                   3 4 5
+            0 1 2                   0 _ _
+            _ 3 4                   1 2 _
+            _ _ 5                   3 4 5
+            ================        ================
 
         (For 2x2 matrices it does not matter.)
     normalization : string
@@ -82,10 +91,14 @@ class dataMixtureSq:
         'unity': sq data approaches the unit matrix at large q.
     """
     def __init__ (self, q, sq, density, matrix_format='full', normalization='densities'):
+        super().__init__()
         self._q_data = q
+        self.densities = density
+        # conversion of _sq_data into full-matrix form
+        # is performed here and not upon reinit():
+        # we save/restore always the full-matrix form
         qshape = q.shape[0]
         shape = sq.shape
-        self.densities = density
         if matrix_format == 'full':
             d = shape[-1]
             assert (shape == (qshape,d,d))
@@ -128,6 +141,8 @@ class dataMixtureSq:
                         if not j==i:
                             self._sq_data[:,j,i] = sq[:,k]/xij
                         k += 1
+        self.reinit()
+    def reinit (self):
         self._interpolator = scipy.interpolate.CubicSpline(self._q_data, self._sq_data)
     def density (self):
         return np.sum(self.densities)
@@ -166,7 +181,8 @@ class dataMixtureSq:
         return 1./np.sqrt(rhoa*rhob) * np.einsum("...ij,...jk,...kl->...il",sqinv_,sqder_,sqinv_)
 
 
-class interpolatedSq:
+class interpolatedSq (LoadableModel, role='structurefactor',
+                      fields=['gammalist','sqlist']):
     """Interpolation between structure factors.
 
     Performs linear interpolation between the two nearest given static
@@ -193,11 +209,13 @@ class interpolatedSq:
         self.gammalist = np.array(gammalist)
         self.sqlist = sqlist
         assert len(sqlist) == len(gammalist)
+        self.reinit()
+    def reinit (self):
         self.gi0 = 0
         self.gi1 = 1
-        self.gamma = gammalist[0]
-        self.g0 = gammalist[0]
-        self.g1 = gammalist[1]
+        self.gamma = self.gammalist[0]
+        self.g0 = self.gammalist[0]
+        self.g1 = self.gammalist[1]
     def set_gamma (self, gamma):
         """Set the interpolation point.
 
