@@ -1,3 +1,5 @@
+"""python module for MCT, the mode coupling theory of the glass transition"""
+
 from .solver import correlator, mean_squared_displacement, non_gaussian_parameter
 from .asymptotics import beta_scaling_function
 from .fsolver import nonergodicity_parameter, eigenvalue

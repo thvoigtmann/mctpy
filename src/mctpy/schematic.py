@@ -71,7 +71,10 @@ def f12model_dmhat(m, f, ehat, v1, v2):
 @njit(inline='always')
 def f12model_dm2(m, phi, dphi, v1, v2):
     m[:] = (1-phi)**2 * v2 * dphi*dphi * (1-phi)**2
-class f12model (model_base, LoadableModel, attrs=['v1','v2','delta']):
+class f12model (model_base, LoadableModel, attrs=['v1','v2','delta'],
+                resetable=['v1','v2','delta'], safe_reset=['v1','v2','delta'],
+                kernel=f12model_kernel, dm=f12model_dm, dmhat=f12model_dmhat,
+                dm2=f12model_dm2):
     r"""The schematic F12 model of mode-coupling theory.
 
     Declares a single memory kernel of the form
@@ -89,9 +92,7 @@ class f12model (model_base, LoadableModel, attrs=['v1','v2','delta']):
     The model allows changing `v1` and `v2` on-the-fly.
     """
     def __init__ (self, v1=0., v2=0., delta=None):
-        model_base.__init__(self, kernel=f12model_kernel,
-                            dm=f12model_dm, dmhat=f12model_dmhat,
-                            dm2=f12model_dm2)
+        super().__init__()
         self.v1 = v1
         self.v2 = v2
         self.delta = delta
@@ -135,7 +136,9 @@ def fmnmodel_dm2 (m, phi, dphi, *args):
         if n>1:
             res += (1-phi)**2 * n*(n-1)*vn * phi**(n-2) * dphi**2 * (1-phi)**2
     m[:] = res
-class fmnmodel (model_base, LoadableModel, fields=['args']):
+class fmnmodel (model_base, LoadableModel, fields=['args'],
+                kernel=fmnmodel_kernel, dm=fmnmodel_dm, dmhat=fmnmodel_dmhat,
+                dm2=fmnmodel_dm2):
     r"""Schematic Fmn model.
 
     Declares a single memory kernel of polynomial form,
@@ -160,9 +163,7 @@ class fmnmodel (model_base, LoadableModel, fields=['args']):
     performed.
     """
     def __init__ (self, args, delta=None):
-        model_base.__init__ (self, kernel=fmnmodel_kernel,
-                             dm=fmnmodel_dm, dmhat=fmnmodel_dmhat,
-                             dm2=fmnmodel_dm2)
+        super().__init__()
         self.args = args
         for n,vn in args:
             assert n == int(n)
@@ -182,7 +183,9 @@ class fmnmodel (model_base, LoadableModel, fields=['args']):
 def f12gammadot_model_kernel(m, phi, i, t, v1, v2, gdot):
     gt = gdot*t
     m[:] = (v1*phi + v2*phi*phi) * 1.0/(1.0 + gt*gt)
-class f12gammadot_model (f12model):
+class f12gammadot_model (f12model, attrs=['v1','v2','gammadot','gammac'],
+                         kernel=f12gammadot_model_kernel,
+                         resetable=['v1','v2','gammadot','gammac']):
     r"""Schematic F12-gammadot model.
 
     Schematic version of the MCT model for steady shear following the
@@ -204,7 +207,6 @@ class f12gammadot_model (f12model):
     """
     def __init__ (self, v1, v2, gammadot=0.0, gammac=0.1):
         f12model.__init__(self, v1, v2)
-        self.set_kernels(kernel=f12gammadot_model_kernel)
         self.gammadot = gammadot
         self.gammac = gammac
     def kernel_extra_args (self):
@@ -220,7 +222,10 @@ class f12gammadot_model (f12model):
         return self.gammadot * phi[:,0]**2
 
 
-class f12gammadot_tensorial_model (f12gammadot_model):
+class f12gammadot_tensorial_model (f12gammadot_model,
+        attrs=['v1','v2','gammadot','gammac','use_hhat','nu'],
+        fields=['kappa'],
+        resetable=['v1','v2','gammadot','gammac','use_hhat','nu','kappa']):
     r"""Schematic F12-gammadot model, tensorial version.
 
     This is the adaptation of the :py:class:`mctpy.f12gammadot_model`
@@ -258,7 +263,6 @@ class f12gammadot_tensorial_model (f12gammadot_model):
         self.kappa = kappa
         self.use_hhat = use_hhat
         self.nu = nu
-        self.fast_expm = fast_expm
     def make_kernel (self):
         # note: we need matrix exponentials and matrix inversion
         # and use scipy.linalg for both here, but this does not work
@@ -326,7 +330,9 @@ class f12gammadot_tensorial_model (f12gammadot_model):
 @njit(inline='always')
 def sjoegren_model_kernel (ms, phis, i, t, phi, vs):
     ms[:] = vs * phi[i] * phis
-class sjoegren_model (model_base):
+class sjoegren_model (model_base, LoadableModel, kernel=sjoegren_model_kernel,
+                      attrs=['vs','deltas'], objects=['base'],
+                      resetable=['vs','deltas']):
     r"""Sj\ |ouml|\ gren model.
 
     Defines a memory kernel that couples to a given (usually, F12) base
@@ -347,7 +353,7 @@ class sjoegren_model (model_base):
     The model allows changing its parameters on the fly.
     """
     def __init__ (self, vs, base_model, deltas=None):
-        model_base.__init__(self, kernel=sjoegren_model_kernel)
+        super().__init__()
         self.vs = vs
         self.deltas = deltas
         self.base = base_model
@@ -381,11 +387,11 @@ class msd_model (model_base):
 
 
 @njit(inline='always')
-def bosse_kriegel_model_kernel (m, phi, i, t, v1, v2, v3):
+def bosse_krieger_model_kernel (m, phi, i, t, v1, v2, v3):
     m[0] = v1 * phi[0]*phi[0] + v2 * phi[1]*phi[1]
     m[1] = v3 * phi[0]*phi[1]
 @njit(inline='always')
-def bosse_kriegel_model_dm (m, phi, dphi, v1, v2, v3):
+def bosse_krieger_model_dm (m, phi, dphi, v1, v2, v3):
     dp = (1-phi)**2 * dphi
     m[0] = 2.*v1*phi[0]*dp[0] + 2.*v2*phi[1]*dp[1]
     m[1] = v3 * (phi[0]*dp[1] + phi[1]*dp[0])
@@ -400,7 +406,13 @@ def bosse_krieger_model_dm2 (m, phi, dphi, v1, v2, v3):
     dp = (1-phi)**2 * dphi
     m[0] = v1*dp[0]*dp[0]+v2*dp[1]*dp[1]
     m[1] = v3 * dp[0]*dp[1]
-class bosse_krieger_model (model_base):
+class bosse_krieger_model (model_base, LoadableModel,
+                           kernel=bosse_krieger_model_kernel,
+                           dm=bosse_krieger_model_dm,
+                           dmhat=bosse_krieger_model_dmhat,
+                           dm2=bosse_krieger_model_dm2,
+                           attrs=['v1','v2','v3'],
+                           resetable=['v1','v2','v3']):
     """Bosse-Krieger model.
 
     A two-correlator model famous for the discussion of higher-order
@@ -411,10 +423,7 @@ class bosse_krieger_model (model_base):
     The model allows changing its parameters on the fly.
     """
     def __init__ (self, v1, v2, v3):
-        model_base.__init__(self, kernel=bosse_krieger_model_kernel,
-                            dm=bosse_krieger_model_dm,
-                            dmhat=bosse_krieger_model_dmhat,
-                            dm2=bosse_krieger_model_dm2)
+        super().__init__()
         self.v1 = v1
         self.v2 = v2
         self.v3 = v3

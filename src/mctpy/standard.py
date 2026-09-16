@@ -111,6 +111,7 @@ class simple_liquid_model (model_base, LoadableModel,
         self.vth = vth
         self.q = q
         self.Sq = Sq
+        self.sq, self.cq = None, None
         self.__init_vertices__()
     def reinit (self):
         self.__init_vertices__()
@@ -126,7 +127,8 @@ class simple_liquid_model (model_base, LoadableModel,
         return _dq(self.q)
     def __init_vertices__ (self):
         q = self.q
-        self.sq, self.cq = self.Sq.Sq(self.q)
+        if self.sq is None:
+            self.sq, self.cq = self.Sq.Sq(self.q)
         self.rho = self.Sq.density()
         self.M = q.shape[0]
         self.a = np.zeros((9,self.M))
@@ -231,9 +233,8 @@ class tagged_particle_model (model_base, LoadableModel,
         super().__init__()
         self.D0 = D0s
         self.base = base_model
-        self.q = base_model.q
-        self.M = self.q.shape[0]
-        self.cs = Sq.cq(self.q)
+        self.Sq = Sq
+        self.cs = None
         self.reinit()
     def reinit (self):
         self.__init_vertices__()
@@ -246,6 +247,10 @@ class tagged_particle_model (model_base, LoadableModel,
     def Bq (self):
         return np.ones(self.M)/self.D0
     def __init_vertices__ (self):
+        if self.cs is None:
+            self.cs = self.Sq.cq(self.q)
+        self.q = base_model.q
+        self.M = self.q.shape[0]
         pre = (1./(4.*np.pi))**2.
         q = self.q
         self.rho_csq = self.base.rho * self.cs**2 * self.base.sq

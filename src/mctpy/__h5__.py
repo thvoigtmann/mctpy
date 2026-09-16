@@ -75,8 +75,21 @@ class LoadableModel:
                 need_reinit |= True
         if need_reinit:
             self.reinit()
+    def reinit (self):
+        """Method to call after changing model parameters or loading the
+        object from a data file: all cached quantities (such as vertices
+        in MCT model implementations) should be recalculated here."""
+        pass
     @classmethod
     def h5load (cls, h5data):
+        """Internal method to read the object's state from a HDF5 data set.
+
+        Returns a new object of type `cls`, whose dict is populated from
+        all the attributes found in the HDF5 data set, and from all the
+        data sets in there. If the HDF5 stream contains subgroups,
+        those will be interpreted as loadable sub-objects.
+        If all goes well, this is the inverse of `h5save`. It is not
+        meant to be called by the user directly."""
         # create a new uninitialized object
         # will will fill the data fields ourselves
         newself = cls.__new__(cls)
@@ -91,21 +104,66 @@ class LoadableModel:
             if isinstance(val, h5py.Dataset):
                 newself.__dict__[field] = np.array(val)
             else:
-                # for an object, we expect a hdf5 path of the form
-                # .../field/role (e.g. .../Sq/structurefactor)
-                # the load_model call will itself descend there
-                roles = list(val.keys())
-                if len(roles)==1:
-                    newself.__dict__[field] = load_model (val, role=roles[0])
-                # could issue a warning if none (happens if eg Sq wasnt savable)
-                # or if too many (unexpected h5 file structure)
+                # we now expect a HDF5 group
+                if val.attrs.get('_type_') == 'list':
+                    # read a list of datasets or objects
+                    newlist = [None] * len(val.values())
+                    for i,v in val.items():
+                        if isinstance(v, h5py.Dataset):
+                            newlist[int(i)] = np.array(v)
+                        else:
+                            # TODO duplicate code see below, make helper func?
+                            roles = list(v.keys())
+                            if len(roles)==1:
+                                role = roles[0]
+                                newlist[int(i)] = load_model (v, role=role)
+                    newself.__dict__[field] = newlist
+                else:
+                    # for a single object, we expect a hdf5 path of the form
+                    # .../field/role (e.g. .../Sq/structurefactor)
+                    # the load_model call will itself descend there
+                    roles = list(val.keys())
+                    if len(roles)==1:
+                        role = roles[0]
+                        newself.__dict__[field] = load_model (val, role=role)
+                    # could issue a warning if none (happens if eg Sq wasn't
+                    # savable) or if too many (unexpected h5 file structure)
         newself.reinit()
         return newself
     def h5save (self, h5file):
+        """Internal method to store the object's state to a HDF5 data stream.
+
+        Attempts to write all the elements in the class attributes
+        `stored_fields`, `stored_attrs`, and `stored_objects` according
+        to the following scheme:
+
+        A new HDF5 group with the name corresponding to the object's `role`
+        will be created. The `stored_attrs` will be written as attributes
+        to that group. The `stored_fields` will be data sets in this group,
+        and `stored_objects` will be written in a subgroup with the
+        name corresponding to the field name, and populated by the
+        stored object's `h5save` method.
+
+        As a special case, if one a `stored_fields` entry is a list,
+        a subgroup will be created that will be populated by datasets
+        or subgroups with names corresponding to the list index.
+
+        This is not meant to be called by the user directly.
+        """
         h5grp = h5file.create_group(self.role)
         h5grp.attrs['model_name'] = self.model_name
         for field in self.stored_fields:
-            h5grp.create_dataset(field, data=self.__dict__[field])
+            if isinstance(self.__dict__[field], list):
+                subgrp = h5grp.create_group(field)
+                subgrp.attrs['_type_'] = 'list' 
+                for i,dat in enumerate(self.__dict__[field]):
+                    if 'h5save' in dir(dat):
+                        sub2 = subgrp.create_group(str(i))
+                        dat.h5save (sub2)
+                    else:
+                        subgrp.create_dataset(str(i), data=dat)
+            else:
+                h5grp.create_dataset(field, data=self.__dict__[field])
         for attr in self.stored_attrs:
             if not self.__dict__[attr] is None:
                 h5grp.attrs[attr] = self.__dict__[attr]
@@ -189,8 +247,6 @@ class loaded_model(model_base, LoadableModel, name=""):
     `LoadableModel` class."""
     def __init__ (self):
         self.M = 0
-    def reinit (self):
-        pass
     def __len__ (self):
         return self.M
     # TODO should we define vector_dimension and matrix_dimension here??
