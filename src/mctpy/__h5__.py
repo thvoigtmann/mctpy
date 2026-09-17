@@ -206,22 +206,28 @@ class Loadable:
 
         Parameters
         ----------
-        file : str
-            File name to read the object from.
+        file : str | h5py.File
+            File (name) to read the object from.
         """
-        with h5py.File(file, 'r') as f:
-            obj = cls.h5load(f)
+        if isinstance(file, h5py.File):
+            obj = cls.h5load(file)
+        else:
+            with h5py.File(file, 'r') as f:
+                obj = cls.h5load(f)
         return obj
     def save (self, file):
         """Save the object to a h5 file.
 
         Parameters
         ----------
-        file : str
-            File name to write the object to, will be overwritten.
+        file : str | h5py.File
+            File (name) to write the object to, will be overwritten.
         """
-        with h5py.File(file, 'w') as f:
-            self.h5save(f)
+        if isinstance(file, h5py.File):
+            self.h5save(file)
+        else:
+            with h5py.File(file, 'w') as f:
+                self.h5save(f)
 
 
 class Factory:

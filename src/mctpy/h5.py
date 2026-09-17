@@ -25,7 +25,7 @@ def load_file (filename):
     result = {}
     with h5py.File (filename, 'r') as f:
         _load_h5 (f, result, key='')
-    if not (result.keys() - set([''])):
+    if '' in result and not (result.keys() - set([''])):
         # if we have no subkeys
         result = result['']
     return result
