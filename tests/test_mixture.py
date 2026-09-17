@@ -18,6 +18,6 @@ class TestMixtureModel:
         model2 = mct.mixture_model (sq2, qgrid)
         nep2 = mct.nonergodicity_parameter(model2)
         nep2.solve(accuracy=1e-8)
-        assert nep2.f == nep.f
+        assert (nep2.f == nep.f).all()
 
 

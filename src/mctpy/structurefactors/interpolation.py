@@ -86,11 +86,27 @@ class dataMixtureSq (LoadableModel, role='structurefactor',
 
         (For 2x2 matrices it does not matter.)
     normalization : string
+
         'densities': sq data approaches the unit matrix set by the
-        number densities at large q
+            number densities at large q.
         'unity': sq data approaches the unit matrix at large q.
+
+        The assumption here is that the matrix elements represent
+        the correlation of species-density fluctuations; these
+        structure factors are known as the Ashcroft-Langreth
+        structure factors.
+
+        The internal data format is always corresponding to 'unity'.
+
+        Additionally, the following formats are understood and will
+        be converted to the internal representation:
+
+        'FaberZinman':  Faber-Zinman structure factors.
+        'BathiaThornton': Bathia-Thornton structure factors for
+          binary mixtures (density and charge fluctuations).
     """
-    def __init__ (self, q, sq, density, matrix_format='full', normalization='densities'):
+    def __init__ (self, q, sq, density, matrix_format='full',
+                  normalization='densities'):
         super().__init__()
         self._q_data = q
         self.densities = density
@@ -99,48 +115,64 @@ class dataMixtureSq (LoadableModel, role='structurefactor',
         # we save/restore always the full-matrix form
         qshape = q.shape[0]
         shape = sq.shape
+        d = shape[-1]
         if matrix_format == 'full':
-            d = shape[-1]
-            assert (shape == (qshape,d,d))
-            assert (density.shape == (d,))
-            self._sq_data = np.zeros((qshape,d,d))
+            assert shape == (qshape,d,d)
+            assert density.shape == (d,)
+            irange = range(d)
+            jrange = lambda i : range(d)
+            ij = lambda i,j,k : (i,j)
+            symmetry = False
+        elif matrix_format == 'lower_triangular':
+            D = int((np.sqrt(8*shape[-1]+1)-1)/2)
+            assert shape == (qshape,D*(D+1)/2)
+            assert density.shape == (d,)
+            irange = range(d)
+            jrange = lambda i : range(i+1)
+            ij = lambda i,j,k : (k,)
+            symmetry = True
+        elif matrix_format == 'upper_triangular':
+            D = int((np.sqrt(8*shape[-1]+1)-1)/2)
+            assert shape == (qshape,D*(D+1)/2)
+            assert density.shape == (d,)
+            irange = range(d)
+            jrange = lambda i : range(i,d)
+            ij = lambda i,j,k : (k,)
+            symmetry = True
+        else:
+            raise f"unknown matrix format {matrix_format}"
+        self._sq_data = np.zeros((qshape,d,d))
+        if normalization == 'densities':
+            xij = np.outer(np.sqrt(self.densities))/np.sum(self.densities)
+        else:
+            xij = 1.0
+        k = 0
+        for i in irange:
+            for j in jrange(i):
+                self._sq_data[:,i,j] = sq[:,*ij(i,j)] / xij[i,j]
+                if symmetry and not j==i:
+                    self._sq_data[:,j,i] = sq[:,*ij(i,j)] / xij[i,j]
+                k += 1
+        if normalization == 'FaberZinman':
+            # FIXME untested
+            xij = np.outer(np.sqrt(self.densities))/np.sum(self.densities)
             for i in range(d):
                 for j in range(d):
-                    if normalization == 'densities':
-                        xij = np.sqrt(self.densities[i]*self.densities[j])/np.sum(self.densities)
-                    else:
-                        xij = 1.0
-                    self._sq_data[:,i,j] = sq[:,i,j]/xij
-        else:
-            # FIXME needs to be tested
-            d = int(np.sqrt(2*shape[-1]+0.25)-0.5)
-            assert (shape == (qshape,d*(d+1)//2))
-            assert (density.shape == (d,))
-            self._sq_data = np.zeros((qshape,d,d))
-            if matrix_format == 'lower_triangular':
-                k = 0
-                for i in range(d):
-                    for j in range(i+1):
-                        if normalization == 'densities':
-                            xij = np.sqrt(self.densities[i]*self.densities[j])/np.sum(self.densities)
-                        else:
-                            xij = 1.0
-                        self._sq_data[:,i,j] = sq[:,k]/xij
-                        if not j==i:
-                            self._sq_data[:,j,i] = sq[:,k]/xij
-                        k += 1
-            else:
-                k = 0
-                for i in range(d):
-                    for j in range(i,d):
-                        if normalization == 'densities':
-                            xij = np.sqrt(self.densities[i]*self.densities[j])/np.sum(self.densities)
-                        else:
-                            xij = 1.0
-                        self._sq_data[:,i,j] = sq[:,k]/xij
-                        if not j==i:
-                            self._sq_data[:,j,i] = sq[:,k]/xij
-                        k += 1
+                    self._sq_data[:,i,j] = xij[i,j] * (self._sq_data[:,i,j]-1)
+                self._sq_data[:,i,i] += 1
+        elif normalization == 'Bathia-Thornton':
+            # FIXME untested
+            x = self.densities/np.sum(self.densities)
+            assert d==2 # currently only implemented for binary mixtures
+            xA, xB = x[0], x[1]
+            SNN = self._sq_data[:,0,0].copy()
+            SCC = self._sq_data[:,1,1].copy()
+            SNC = self._sq_data[:,0,1].copy()
+            self._sq_data[:,0,0] = xA * SNN + 2*SNC + SCC/np.sqrt(xA*xB)
+            self._sq_data[:,1,1] = xB * SNN - 2*SNC + SCC/np.sqrt(xA*xB)
+            self._sq_data[:,0,1] = np.sqrt(xA*xB) * SNN \
+                    + (xB-xA)/np.sqrt(xA*xB) * SNC - SCC/np.sqrt(xA*xB)
+            self._sq_data[:,1,0] = self._sq_data[:,0,1]
         self.reinit()
     def reinit (self):
         self._interpolator = scipy.interpolate.CubicSpline(self._q_data, self._sq_data)
