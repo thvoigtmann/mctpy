@@ -23,7 +23,7 @@ from tqdm import tqdm
 ```
 
 ```{code-cell} ipython3
-import numba
+import scipy
 ```
 
 ```{code-cell} ipython3
@@ -343,6 +343,24 @@ plt.ylabel('G(t)')
 plt.show()
 ```
 
+We calculate the viscosities (in units of kT.rho) at a fixed packing fraction here, as a function of small-particle volume concentration; these are just the time-integrals of the curves shown above.
+
+```{code-cell} ipython3
+xbrange = np.zeros(len(correlators))
+etas = np.zeros(len(correlators))
+for i, phi in enumerate(correlators):
+    xbrange[i] = hsm_densities(sigma=phi.model.Sq.diameters).partial_densities(phi.model.Sq.densities).xhat[-1]
+    etas[i] = scipy.integrate.trapezoid(phi.shear_modulus(),x=phi.t)
+```
+
+```{code-cell} ipython3
+plt.plot(xbrange,etas)
+plt.xlabel('xhat')
+plt.ylabel('eta')
+plt.yscale('log')
+plt.show()
+```
+
 The `cc_modulus` method of the model returns the zero-wavevector limit of the memory kernel (removing a singular $1/q^2$ prefactor). For a binary mixture, there is a symmetry: we have a single interdiffusion process, so all four elements of the returned memory kernel are linearly dependent. We check this explicitly here:
 
 ```{code-cell} ipython3
@@ -359,8 +377,8 @@ plt.show()
 Here are the Onsager coefficients for interdiffusion; we check that the symmetry is obeyed.
 
 ```{code-cell} ipython3
-import scipy
-for phi in correlators:
+Llist = np.zeros(len(correlators))
+for i, phi in enumerate(correlators):
     if (phi.model.densities == 0).any():
         continue
     Mcc = phi.model.cc_modulus(phi.phi,phi.t)
@@ -370,7 +388,12 @@ for phi in correlators:
     Lab = -np.sqrt(x[0]*x[1])/scipy.integrate.trapezoid(Mcc[:,0,1],x=phi.t)
     assert np.isclose(Laa,Lab)
     assert np.isclose(Laa,Lbb)
-    print("L",Laa)
+    Llist[i] = Laa
+```
+
+```{code-cell} ipython3
+plt.plot(xbrange, Llist)
+plt.show()
 ```
 
 The interdiffusion coefficient has a thermodynamic prefactor, given by this:
