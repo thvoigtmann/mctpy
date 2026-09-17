@@ -182,7 +182,7 @@ class dataMixtureSq (LoadableModel, role='structurefactor',
 
 
 class interpolatedSq (LoadableModel, role='structurefactor',
-                      fields=['gammalist','sqlist']):
+                      fields=['gammalist','sqlist'],attrs=['gamma']):
     """Interpolation between structure factors.
 
     Performs linear interpolation between the two nearest given static
@@ -209,13 +209,9 @@ class interpolatedSq (LoadableModel, role='structurefactor',
         self.gammalist = np.array(gammalist)
         self.sqlist = sqlist
         assert len(sqlist) == len(gammalist)
-        self.reinit()
+        self.set_gamma(self.gammalist[0])
     def reinit (self):
-        self.gi0 = 0
-        self.gi1 = 1
-        self.gamma = self.gammalist[0]
-        self.g0 = self.gammalist[0]
-        self.g1 = self.gammalist[1]
+        self.set_gamma(self.gamma)
     def set_gamma (self, gamma):
         """Set the interpolation point.
 
@@ -235,6 +231,7 @@ class interpolatedSq (LoadableModel, role='structurefactor',
         self.gi1 = gi1
         self.g0 = self.gammalist[gi0]
         self.g1 = self.gammalist[gi1]
+        return self
     def cq (self, q):
         _cq0 = self.sqlist[self.gi0].cq(q)
         _cq1 = self.sqlist[self.gi1].cq(q)

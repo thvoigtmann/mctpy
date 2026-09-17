@@ -195,9 +195,13 @@ def mixture_model_dm2 (m, f, h, a1, a2, a3, b1, b2, b3, sr, q, dq):
     mixture_model_kernel (m, h, 0, 0.0, a1, a2, a3, b1, b2, b3, sr, q, dq)
     m[:] = m/q[:,None,None]**2
 
-class mixture_model (model_base,
-                     LoadableModel, fields=['q','sq','cq','densities','D0'],
-                     objects=['Sq']):
+class mixture_model (model_base, LoadableModel,
+                     kernel=mixture_model_kernel,
+                     dm=mixture_model_dm, dmhat=mixture_model_dmhat,
+                     dm2=mixture_model_dm2,
+                     fields=['q','sq','cq','densities','D0'],
+                     objects=['Sq'], resetable=['q','Sq','D0'],
+                     safe_reset=['D0']):
     """MCT model for simple-liquid mixtures.
 
     Parameters
@@ -213,30 +217,14 @@ class mixture_model (model_base,
         factor, or a scalar value that will be applied to all species.
     """
     def __init__ (self, Sq=None, q=None, D0=1.0):
-        model_base.__init__(self, kernel=mixture_model_kernel,
-                            dm=mixture_model_dm,
-                            dmhat=mixture_model_dmhat,
-                            dm2=mixture_model_dm2)
-        if not Sq is None:
-            self.q = q
-            self.reinit (Sq, D0)
-    def reinit (self, Sq=None, D0=1.0):
-        # constructor and reinit: both should allow no-argument version
-        # for the h5loader !?
-        # TODO document: for LoadableClass we need those and a reinit()
-        #
-        # TODO storing Sq is currently needed for the moduli since only
-        # there do we access dcq_cq, for a loaded model we wouldn't have this
-        # idea: create a fallback there using np_gradient if self.Sq is None?
-        if not Sq is None:
-            self.Sq = Sq
-            self.densities = Sq.densities
-            self.rho = Sq.density() # used by tagged_q0
-            self.sq, self.cq = Sq.Sq(self.q)
-            if isinstance(D0, (list, np.ndarray)):
-                self.D0 = np.array(D0)
-            else:
-                self.D0 = np.ones(self.densities.shape[0])*D0
+        super().__init__()
+        self.q = q
+        self.D0 = D0
+        self.Sq = Sq
+        self.sq, self.cq = None, None
+        self.densities = None
+        self.__init_vertices__()
+    def reinit (self):
         self.__init_vertices__ ()
     def __len__ (self):
         return self.M
@@ -246,10 +234,15 @@ class mixture_model (model_base,
         return False
     def phi0 (self):
         return self.sq
+    def diag (self, array_or_value):
+        if isinstance(array_or_value, (list, np.ndarray)):
+            return np.diag(array_or_value)
+        else:
+            return np.diag(np.ones(self.S)*array_or_value)
     def Bq (self):
-        return np.ones((self.M,self.S,self.S))*np.diag(1/self.D0)
+        return np.ones((self.M,self.S,self.S))*self.diag(1/self.D0)
     def Bqinv (self):
-        return np.ones((self.M,self.S,self.S))*np.diag(self.D0)
+        return np.ones((self.M,self.S,self.S))*self.diag(self.D0)
     def Wq (self):
         return (self.q**2)[:,None,None] * np.linalg.inv(self.sq)
     def WqSq (self):
@@ -257,6 +250,9 @@ class mixture_model (model_base,
     def dq (self):
         return _dq(self.q)
     def __init_vertices__ (self):
+        self.densities = self.Sq.densities
+        self.rho = np.sum(self.densities) # used by tagged_q0
+        self.sq, self.cq = self.Sq.Sq(self.q)
         q = self.q
         self.M = self.q.shape[0]
         self.S = self.densities.shape[0]

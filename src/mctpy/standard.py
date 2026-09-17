@@ -127,8 +127,7 @@ class simple_liquid_model (model_base, LoadableModel,
         return _dq(self.q)
     def __init_vertices__ (self):
         q = self.q
-        if self.sq is None:
-            self.sq, self.cq = self.Sq.Sq(self.q)
+        self.sq, self.cq = self.Sq.Sq(self.q)
         self.rho = self.Sq.density()
         self.M = q.shape[0]
         self.a = np.zeros((9,self.M))
@@ -247,8 +246,7 @@ class tagged_particle_model (model_base, LoadableModel,
     def Bq (self):
         return np.ones(self.M)/self.D0
     def __init_vertices__ (self):
-        if self.cs is None:
-            self.cs = self.Sq.cq(self.q)
+        self.cs = self.Sq.cq(self.q)
         self.q = base_model.q
         self.M = self.q.shape[0]
         pre = (1./(4.*np.pi))**2.

@@ -44,9 +44,7 @@ def _load_h5 (h5data, res, key):
             res[grp] = np.array(h5data[grp])
         else:
             res[grp] = {}
-            print("LOAD H5 grp",grp)
             _load_h5 (h5data[grp], res[grp], '')
-            print("CHECK",res[grp].keys())
             if not (res[grp].keys() - set([''])):
                 # if we have no subkeys
                 res[grp] = res[grp]['']
