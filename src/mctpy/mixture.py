@@ -410,18 +410,18 @@ def mixture_tagged_calc_V (i, V, phi, a, b):
 def mixture_tagged_kernel (ms, phis, i, t, V, dq):
     ms[:] = dq**2 * np.dot(V,phis)
 
-class mixture_tagged_particle (model_base):
-    def __init__ (self, base_model, cs, D0s=1.0):
-        model_base.__init__(self, kernel=mixture_tagged_kernel,
-                            setV=mixture_tagged_calc_V)
-        self.base = base_model
-        self.q = base_model.q
-        self.M = self.q.shape[0]
-        self.S = self.base.S
-        self.reinit (cs, D0s)
-    def reinit (self, cs, D0s=1.0):
-        self.cs = cs.cq(self.q)
+class mixture_tagged_particle (model_base, LoadableModel,
+                               kernel=mixture_tagged_kernel,
+                               setV=mixture_tagged_calc_V,
+                               attrs=['D0'], fields=['cs'],
+                               objects=['base','Sq']):
+    def __init__ (self, base_model, Sq, D0s=1.0):
+        super().__init__()
         self.D0 = D0s
+        self.Sq = Sq
+        self.base = base_model
+        self.__init_vertices__()
+    def reinit (self):
         self.__init_vertices__()
     def get_bases (self):
         return [self.base]
@@ -432,6 +432,10 @@ class mixture_tagged_particle (model_base):
     def Bq (self):
         return np.ones(self.M)/self.D0
     def __init_vertices__ (self):
+        self.q = self.base.q
+        self.cs = self.Sq.cq(self.q)
+        self.M = self.q.shape[0]
+        self.S = self.base.S
         pre = (1./(4.*np.pi))**2.
         rho = self.base.Sq.densities
         q = self.q
@@ -457,4 +461,3 @@ class mixture_tagged_particle (model_base):
         return (self.__Vqk__, self.base.phi, self.a, self.b)
     def mrenorm (self, m):
         return m/self.q**2
-    # TODO h5save

@@ -24,17 +24,16 @@ from tqdm import tqdm
 
 ```{code-cell} ipython3
 import numba
-def numbalog(log):
-    for t,ev in log.buffer:
-        if ev.status==numba.core.event.EventStatus.START:
-            fname = ev.data['dispatcher'].py_func.__name__
-            if ('solve' in fname) or ('ker' in fname) or ('model' in fname):
-                print("*",ev.data['dispatcher'].py_func.__name__,ev.data['args'])
 ```
 
 ```{code-cell} ipython3
 import mctpy as mct
 from mctpy.structurefactors import hsm_densities
+```
+
+```{code-cell} ipython3
+#qgrid = np.linspace(0.2,39.8,100)
+qgrid = np.linspace(0.2,39.9*2,200)
 ```
 
 ## Check One-Component Case
@@ -49,20 +48,19 @@ for xb in [0.0,1.0]:
     model = mct.mixture_model (sq, qgrid)
     nep = mct.nonergodicity_parameter (model = model)
     nep.solve(accuracy=1e-8)
-    plt.plot(qgrid, nep.f[:,0,0])
-    plt.plot(qgrid*0.6, nep.f[:,1,1])
+    plt.plot(qgrid, nep.f[:,0,0]/nep.model.sq[:,0,0])
+    plt.plot(qgrid*0.6, nep.f[:,1,1]/nep.model.sq[:,1,1])
 plt.show()
 ```
 
 ## Binary Mixture: Nonergodicity Parameters and Eigenvalues
 
-```{code-cell} ipython3
-delta, xb = 0.6, 0.2
-```
++++
+
+We start with some exemplary point, showing static structure factors obtained from the analytical Percus-Yevick solution.
 
 ```{code-cell} ipython3
-qgrid = np.linspace(0.2,39.8,100)
-qgrid = np.linspace(0.2,39.9*2,200)
+delta, xb = 0.6, 0.2
 d = [1.0, delta]
 varphi = [0.5, 0.52]
 ```
@@ -76,8 +74,12 @@ for packing_fraction in varphi:
     plt.plot(qgrid, sq.Sq(qgrid)[0][:,1,1])
     plt.plot(qgrid, sq.Sq(qgrid)[0][:,0,1])
     sqlist.append(sq)
+plt.xlabel('q')
+plt.ylabel('S(q)')
 plt.show()
 ```
+
+Let us calculate the nonergodicity parameters and the eigenvalues.
 
 ```{code-cell} ipython3
 model = mct.mixture_model (sq, qgrid)
@@ -112,6 +114,7 @@ Here we calculate the glass-transition line for $\delta=0.6$. The calculation re
 
 ```{code-cell} ipython3
 load_from_file = True
+
 class evsearch_hsm:
     def __init__ (self, delta, xbhat):
         self.model = None
@@ -124,13 +127,13 @@ class evsearch_hsm:
         if self.model is None:
             self.model = mct.mixture_model (Sq, qgrid)
         else:
-            self.model.reinit (Sq)
+            self.model.set (Sq=Sq)
         nep = mct.nonergodicity_parameter (model = self.model)
         nep.solve(accuracy=1e-8)
         ev = mct.eigenvalue (nep)
         ev.solve(maxiter=1500)
         return ev
-#with numba.core.event.install_listener("numba:compile", numba.core.event.RecordingListener()) as log:
+
 if not load_from_file:
     hsm_c = {}
     for xb in np.linspace(0,1,11):
@@ -138,10 +141,10 @@ if not load_from_file:
         p = np.argmax([ev.eval for ev in evs])
         hsm_c[xb] = {phis[p]: evs[p]}
         print(f"xb = {xb:.2f}  phi_c = {phis[p]:.8f}, lambda = {evs[p].lam:.3f}, ev = {evs[p].eval:.6f}")
-    mct.h5.save_file('/tmp/test.h5', hsm_c)
+    mct.h5.save_file('bhsm-phic.h5', hsm_c)
 else:
-    hsm_c = mct.h5.load_file('/tmp/test.h5')
-#numbalog(log)
+    hsm_c = mct.h5.load_file('bhsm-phic.h5')
+    hsm_c = { float(k):v for k,v in hsm_c.items() }
 ```
 
 Glass transition line and lambda values for $\delta=0.6$, compare to [Goetze/Voigtmann PRE 2003], Figs. 1 and 13.
@@ -218,19 +221,21 @@ Calculate the true distance parameter $\sigma$: compare the following to Figure 
 sigrange = {}
 C = {}
 phi_c = {}
-for xbstr in ['0.0','0.1','0.2']:
+for xb, cc in hsm_c.items():
+    xb = float(xb)
+    phi_c[xb], ev = (*cc.items(),)[0]
+    xb = float(xb)
+    phi_c[xb] = float(phi_c[xb])
+    if xb > 0.2:
+        continue
     m1 = mct.mixture_model(mct.structurefactors.hsmPY([0.,0.],d),qgrid)
     phirange = np.linspace(0.51,0.53,51)
-    sigrange[xbstr] = np.zeros_like(phirange)
-    xb = float(xbstr)
-    phi_c_str = list(hsm_c[xbstr].keys())[0]
-    phi_c[xbstr] = float(phi_c_str)
+    sigrange[xb] = np.zeros_like(phirange)
     for i, phi in enumerate(phirange):
-        m1.reinit (mct.structurefactors.hsmPY(*hsm_densities(d).volume_fractions(phi=phi, xhat=xb)))
-        ev = hsm_c[xbstr][phi_c_str]
-        sigrange[xbstr][i] = ev.sigma (m1)
-    epsrange = (phirange - phi_c[xbstr]) / phi_c[xbstr]
-    C[xbstr] = np.interp(0., epsrange, sigrange[xbstr]/epsrange)
+        m1.set (Sq=mct.structurefactors.hsmPY(*hsm_densities(d).volume_fractions(phi=phi, xhat=xb)))
+        sigrange[xb][i] = ev.sigma (m1)
+    epsrange = (phirange - phi_c[xb]) / phi_c[xb]
+    C[xb] = np.interp(0., epsrange, sigrange[xb]/epsrange)
 ```
 
 ```{code-cell} ipython3
@@ -246,14 +251,25 @@ plt.show()
 ## Binary Mixture Dynamics
 
 ```{code-cell} ipython3
-correlators = mct.CorrelatorStack()
-packing_fraction = 0.515
-for xb in [0., 0.05, 0.1, 0.2]:
-    sq = mct.structurefactors.hsmPY(*hsm_densities(d).volume_fractions(phi=packing_fraction, xhat=xb))
-    model = mct.mixture_model (sq, qgrid)
-    phi = mct.correlator (model = model, store = True, blocks=50)
-    correlators.append(phi)
-correlators.solve_all(progress_bar=tqdm,stop_condition=lambda c:np.isnan(c.phi).any())
+load_from_file = True
+
+if not load_from_file:
+    correlators = mct.CorrelatorStack()
+    packing_fraction = 0.515
+    xblist = [0., 0.05, 0.1, 0.2]
+    for xb in xblist:
+        sq = mct.structurefactors.hsmPY(*hsm_densities(d).volume_fractions(phi=packing_fraction, xhat=xb))
+        model = mct.mixture_model (sq, qgrid)
+        phi = mct.correlator (model = model, store = True, blocks=50)
+        correlators.append(phi)
+    correlators.solve_all(progress_bar=tqdm,stop_condition=lambda c:np.isnan(c.phi).any())
+    mct.h5.save_file('bhsm-dyn.h5', { xb: phi for xb, phi in zip(xblist,correlators) })
+
+else:
+    correlators = mct.CorrelatorStack()
+    res = mct.h5.load_file('bhsm-dyn.h5')
+    for k,v in res.items():
+        correlators.append(v)
 ```
 
 ```{code-cell} ipython3
@@ -272,16 +288,18 @@ plt.xscale('log')
 plt.show()
 ```
 
+### Tagged particle and MSD
+
 ```{code-cell} ipython3
 tagged_correlators = mct.CorrelatorStack()
 msds = mct.CorrelatorStack()
 for phi in correlators:
     cs = mct.structurefactors.mixtureTagged(phi.model.Sq, 0)
-    model_s = mct.mixture_tagged_particle (phi.model, cs=cs, D0s=1)
-    phi_s = mct.correlator (model = model_s, base=phi, store = True)
+    model_s = mct.mixture_tagged_particle (phi.model, Sq=cs, D0s=1)
+    phi_s = mct.correlator (model = model_s, store = True)
     tagged_correlators.append(phi_s)
     model_s0 = mct.tagged_particle_q0 (model_s)
-    msd = mct.mean_squared_displacement (model = model_s0, base=phi_s, store=True)
+    msd = mct.mean_squared_displacement (model = model_s0, store=True)
     msds.append(msd)
 ```
 
@@ -310,29 +328,26 @@ plt.yscale('log')
 plt.show()
 ```
 
+### Shear modulus and interdiffusion
+
++++
+
+This is the dynamical shear modulus:
+
 ```{code-cell} ipython3
 for phi in correlators:
     plt.plot(phi.t,phi.shear_modulus())
 plt.xscale('log')
+plt.xlabel('t')
+plt.ylabel('G(t)')
 plt.show()
 ```
 
-```{code-cell} ipython3
-def cc_modulus (self, phi, t):
-    import scipy
-    rho = np.sqrt(np.outer(self.densities,self.densities))
-    cq = self.Sq.cq(self.q)
-    sum1 = 'gd,...ag,...bd,...ab,...gd->...ab'
-    sum2 = 'gd,...ag,...bd,...gb,...ad->...ab'
-    inner = np.einsum(sum1,rho,cq,cq,phi,phi) - np.einsum(sum2,rho,cq,cq,phi,phi)
-    qw = self.dq() * self.q**4
-    return scipy.integrate.trapezoid(
-            qw[...,None,None] * inner, axis=-3) / (6.*np.pi**2)
-```
+The `cc_modulus` method of the model returns the zero-wavevector limit of the memory kernel (removing a singular $1/q^2$ prefactor). For a binary mixture, there is a symmetry: we have a single interdiffusion process, so all four elements of the returned memory kernel are linearly dependent. We check this explicitly here:
 
 ```{code-cell} ipython3
 for phi in correlators:
-    Mcc = cc_modulus(phi.model,phi.phi,phi.t)
+    Mcc = phi.model.cc_modulus(phi.phi,phi.t)
     x = phi.model.densities/phi.model.rho
     plt.plot(phi.t,Mcc[:,0,0]*x[0],linestyle='solid')
     plt.plot(phi.t,Mcc[:,1,1]*x[1],linestyle='dashed')
@@ -341,16 +356,24 @@ plt.xscale('log')
 plt.show()
 ```
 
+Here are the Onsager coefficients for interdiffusion; we check that the symmetry is obeyed.
+
 ```{code-cell} ipython3
 import scipy
 for phi in correlators:
-    Mcc = cc_modulus(phi.model,phi.phi,phi.t)
+    if (phi.model.densities == 0).any():
+        continue
+    Mcc = phi.model.cc_modulus(phi.phi,phi.t)
     x = phi.model.densities/phi.model.rho
     Laa = x[1]/scipy.integrate.trapezoid(Mcc[:,0,0],x=phi.t)
     Lbb = x[0]/scipy.integrate.trapezoid(Mcc[:,1,1],x=phi.t)
     Lab = -np.sqrt(x[0]*x[1])/scipy.integrate.trapezoid(Mcc[:,0,1],x=phi.t)
-    print(Laa,Lbb,Lab)
+    assert np.isclose(Laa,Lab)
+    assert np.isclose(Laa,Lbb)
+    print("L",Laa)
 ```
+
+The interdiffusion coefficient has a thermodynamic prefactor, given by this:
 
 ```{code-cell} ipython3
 philist = []
@@ -362,6 +385,8 @@ for xb in xblist:
     Phiinv = x[1]*s0[0,0] + x[0]*s0[1,1] - 2*np.sqrt(x[0]*x[1])*s0[0,1]
     philist.append(1./Phiinv)
 plt.plot(xblist,philist)
+plt.xlabel('xbhat')
+plt.ylabel('Phi')
 plt.show()
 ```
 
