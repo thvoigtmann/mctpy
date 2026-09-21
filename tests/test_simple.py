@@ -47,5 +47,18 @@ class TestSimpleLiquid:
         D_t = msd.phi[1:,0] / msd.t[1:]
         assert np.std(D_t[-100:]) < 1e-12
 
+    def test_shorttime(self):
+        qgrid = np.linspace(0.2,39.8,100)
+        sq = mct.structurefactors.hssPY(0.0)
+        model = mct.simple_liquid_model(sq, qgrid)
+        phi = mct.correlator (model=model, store=True, Tend=2.,quiet=True)
+        cs = mct.structurefactors.hssPYtagged(phi=phi.model.Sq.phi, delta=1)
+        model_s = mct.tagged_particle_model (model, Sq=cs)
+        phi_s = mct.correlator (model=model_s, store=True, Tend=2.,quiet=True)
+        phi_s.solve_all()
+        for qi, q in enumerate(model.q):
+            if qi > 2:
+                assert (np.max(np.exp(-q**2*phi_s.t)-phi_s.phi[:,qi])) < 6e-6
+
 if __name__ == '__main__':
-    TestSimpleLiquid().test_nep()
+    TestSimpleLiquid().test_shorttime()
