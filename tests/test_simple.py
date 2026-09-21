@@ -47,18 +47,35 @@ class TestSimpleLiquid:
         D_t = msd.phi[1:,0] / msd.t[1:]
         assert np.std(D_t[-100:]) < 1e-12
 
-    def test_shorttime(self):
+    def test_shorttime_BD(self):
         qgrid = np.linspace(0.2,39.8,100)
         sq = mct.structurefactors.hssPY(0.0)
-        model = mct.simple_liquid_model(sq, qgrid)
+        model = mct.simple_liquid_model(sq, qgrid, D0=2.)
         phi = mct.correlator (model=model, store=True, Tend=2.,quiet=True)
         cs = mct.structurefactors.hssPYtagged(phi=phi.model.Sq.phi, delta=1)
-        model_s = mct.tagged_particle_model (model, Sq=cs)
+        model_s = mct.tagged_particle_model (model, Sq=cs, D0s=2.)
         phi_s = mct.correlator (model=model_s, store=True, Tend=2.,quiet=True)
         phi_s.solve_all()
         for qi, q in enumerate(model.q):
             if qi > 2:
-                assert (np.max(np.exp(-q**2*phi_s.t)-phi_s.phi[:,qi])) < 6e-6
+                assert (np.max(np.exp(-q**2*model_s.D0*phi_s.t)-phi_s.phi[:,qi])) < 6e-6
+    def test_shorttime_ND(self):
+        qgrid = np.linspace(0.2,39.8,100)
+        sq = mct.structurefactors.hssPY(0.0)
+        model = mct.simple_liquid_model(sq, qgrid, vth=1.)
+        phi = mct.correlator (model=model, store=True, Tend=1.,quiet=True,
+                              motion_type='newtonian',blocksize=1024)
+        cs = mct.structurefactors.hssPYtagged(phi=phi.model.Sq.phi, delta=1)
+        model_s = mct.tagged_particle_model (model, Sq=cs, vth=1.)
+        phi_s = mct.correlator (model=model_s, store=True, Tend=1.,quiet=True,
+                                motion_type='newtonian',blocksize=1024)
+        phi_s.solve_all()
+        for qi, q in enumerate(model.q):
+            if qi > 2:
+                qt = q*phi_s.t
+                short = qt<2.
+                assert (np.max(np.cos(qt[short]*model_s.vth)-phi_s.phi[short,qi])) < 5e-3
 
 if __name__ == '__main__':
-    TestSimpleLiquid().test_shorttime()
+    #TestSimpleLiquid().test_shorttime_BD()
+    TestSimpleLiquid().test_shorttime_ND()

@@ -120,7 +120,7 @@ class simple_liquid_model (model_base, LoadableModel,
     def Wq (self):
         return self.q*self.q
     def Aq (self):
-        return self.sq/self.vth**2
+        return self.sq/self.vth
     def Bq (self):
         return self.sq/self.D0
     def dq (self):
@@ -224,13 +224,14 @@ def tagged_particle_model_kernel (ms, phis, i, t, V, dq):
 class tagged_particle_model (model_base, LoadableModel,
                              kernel=tagged_particle_model_kernel,
                              setV=tagged_particle_model_calc_V,
-                             fields=['cs'], attrs=['D0'],
+                             fields=['cs'], attrs=['D0','vth'],
                              objects=['base','Sq'],
-                             resetable=['base','Sq','D0'],
-                             safe_reset=['D0']):
-    def __init__ (self, base_model, Sq, D0s=1.0):
+                             resetable=['base','Sq','D0','vth'],
+                             safe_reset=['D0','vth']):
+    def __init__ (self, base_model, Sq, D0s=1.0, vth=1.0):
         super().__init__()
         self.D0 = D0s
+        self.vth = vth
         self.base = base_model
         self.Sq = Sq
         self.cs = None
@@ -241,10 +242,12 @@ class tagged_particle_model (model_base, LoadableModel,
         return [self.base]
     def __len__ (self):
         return self.M
-    def Wq (self):
-        return self.q*self.q
+    def Aq (self):
+        return np.ones(self.M)/self.vth
     def Bq (self):
         return np.ones(self.M)/self.D0
+    def Wq (self):
+        return self.q*self.q
     def __init_vertices__ (self):
         self.q = self.base.q
         self.cs = self.Sq.cq(self.q)
