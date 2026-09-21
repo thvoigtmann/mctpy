@@ -109,7 +109,7 @@ class dataMixtureSq (LoadableModel, role='structurefactor',
                   normalization='densities'):
         super().__init__()
         self._q_data = q
-        self.densities = density
+        self.densities = np.array(density)
         # conversion of _sq_data into full-matrix form
         # is performed here and not upon reinit():
         # we save/restore always the full-matrix form
@@ -118,23 +118,23 @@ class dataMixtureSq (LoadableModel, role='structurefactor',
         d = shape[-1]
         if matrix_format == 'full':
             assert shape == (qshape,d,d)
-            assert density.shape == (d,)
+            assert self.densities.shape == (d,)
             irange = range(d)
             jrange = lambda i : range(d)
             ij = lambda i,j,k : (i,j)
             symmetry = False
         elif matrix_format == 'lower_triangular':
-            D = int((np.sqrt(8*shape[-1]+1)-1)/2)
-            assert shape == (qshape,D*(D+1)/2)
-            assert density.shape == (d,)
+            d = int((np.sqrt(8*shape[-1]+1)-1)/2)
+            assert shape == (qshape,d*(d+1)/2)
+            assert self.densities.shape == (d,)
             irange = range(d)
             jrange = lambda i : range(i+1)
             ij = lambda i,j,k : (k,)
             symmetry = True
         elif matrix_format == 'upper_triangular':
-            D = int((np.sqrt(8*shape[-1]+1)-1)/2)
-            assert shape == (qshape,D*(D+1)/2)
-            assert density.shape == (d,)
+            d = int((np.sqrt(8*shape[-1]+1)-1)/2)
+            assert shape == (qshape,d*(d+1)/2)
+            assert self.densities.shape == (d,)
             irange = range(d)
             jrange = lambda i : range(i,d)
             ij = lambda i,j,k : (k,)
@@ -145,13 +145,13 @@ class dataMixtureSq (LoadableModel, role='structurefactor',
         if normalization == 'densities':
             xij = np.outer(np.sqrt(self.densities))/np.sum(self.densities)
         else:
-            xij = 1.0
+            xij = np.ones((d,d))
         k = 0
         for i in irange:
             for j in jrange(i):
-                self._sq_data[:,i,j] = sq[:,*ij(i,j)] / xij[i,j]
+                self._sq_data[:,i,j] = sq[:,*ij(i,j,k)] / xij[i,j]
                 if symmetry and not j==i:
-                    self._sq_data[:,j,i] = sq[:,*ij(i,j)] / xij[i,j]
+                    self._sq_data[:,j,i] = sq[:,*ij(i,j,k)] / xij[i,j]
                 k += 1
         if normalization == 'FaberZinman':
             # FIXME untested

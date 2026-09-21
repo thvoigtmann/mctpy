@@ -61,3 +61,4 @@ class TestSqInterpolation:
 
 if __name__ == '__main__':
     TestSqInterpolation().test_dataSq()
+    TestSqInterpolation().test_dataMixtureSq()
