@@ -71,8 +71,10 @@ def f12model_dmhat(m, f, ehat, v1, v2):
 @njit(inline='always')
 def f12model_dm2(m, phi, dphi, v1, v2):
     m[:] = (1-phi)**2 * v2 * dphi*dphi * (1-phi)**2
-class f12model (model_base, LoadableModel, attrs=['v1','v2','delta'],
-                resetable=['v1','v2','delta'], safe_reset=['v1','v2','delta'],
+class f12model (model_base, LoadableModel,
+                attrs=['v1','v2','delta','tau','Omega'],
+                resetable=['v1','v2','delta','tau','Omega'],
+                safe_reset=['v1','v2','delta','tau','Omega'],
                 kernel=f12model_kernel, dm=f12model_dm, dmhat=f12model_dmhat,
                 dm2=f12model_dm2):
     r"""The schematic F12 model of mode-coupling theory.
@@ -91,11 +93,13 @@ class f12model (model_base, LoadableModel, attrs=['v1','v2','delta'],
     -----
     The model allows changing `v1` and `v2` on-the-fly.
     """
-    def __init__ (self, v1=0., v2=0., delta=None):
+    def __init__ (self, v1=0., v2=0., delta=None, tau=1.0, Omega=1.0):
         super().__init__()
         self.v1 = v1
         self.v2 = v2
         self.delta = delta
+        self.tau = tau
+        self.Omega = Omega
     def reinit (self):
         """Reinitialization after loading.
 
@@ -106,6 +110,10 @@ class f12model (model_base, LoadableModel, attrs=['v1','v2','delta'],
             self.delta = None
     def __len__ (self):
         return 1
+    def Aq (self):
+        return np.array([1./self.Omega**2])
+    def Bq (self):
+        return np.array([self.tau])
     def hopping (self):
         return self.delta
     def kernel_extra_args (self):
@@ -331,8 +339,8 @@ class f12gammadot_tensorial_model (f12gammadot_model,
 def sjoegren_model_kernel (ms, phis, i, t, phi, vs):
     ms[:] = vs * phi[i] * phis
 class sjoegren_model (model_base, LoadableModel, kernel=sjoegren_model_kernel,
-                      attrs=['vs','deltas'], objects=['base'],
-                      resetable=['vs','deltas']):
+                      attrs=['vs','deltas','taus','Omegas'], objects=['base'],
+                      resetable=['vs','deltas','taus','Omegas']):
     r"""Sj\ |ouml|\ gren model.
 
     Defines a memory kernel that couples to a given (usually, F12) base
@@ -352,15 +360,21 @@ class sjoegren_model (model_base, LoadableModel, kernel=sjoegren_model_kernel,
     -----
     The model allows changing its parameters on the fly.
     """
-    def __init__ (self, vs, base_model, deltas=None):
+    def __init__ (self, vs, base_model, deltas=None, taus=1.0, Omegas=1.0):
         super().__init__()
         self.vs = vs
         self.deltas = deltas
         self.base = base_model
+        self.taus = taus
+        self.Omegas = Omegas
     def get_bases (self):
         return [self.base]
     def __len__ (self):
         return 1
+    def Aq (self):
+        return np.array([1./self.Omegas**2])
+    def Bq (self):
+        return np.array([self.taus])
     def hopping (self):
         return self.deltas
     def kernel_extra_args (self):

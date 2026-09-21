@@ -195,6 +195,9 @@ class correlator (CorrelatorBase, Loadable):
         then should point to the underlying correlator for that model,
         and the values of `h`, `blocksize`, and `blocks` will be copied
         from there instead of taking the ones supplied here.
+    quiet : bool, default False
+        If set, suppress printed warning messages (e.g. about adjustment
+        of number of blocks, or type of dynamics supported by model).
 
     Notes
     -----
@@ -217,7 +220,7 @@ class correlator (CorrelatorBase, Loadable):
     def __init__ (self, blocksize=256, h=1e-9, blocks=60, Tend=0.0,
                   maxinit=50, maxiter=10000, accuracy=1e-9, store=False,
                   model = None, base = None,
-                  motion_type = "brownian"):
+                  motion_type = "brownian", quiet=False):
 
         if model is None or not model.get_bases():
             self.h0 = h
@@ -225,7 +228,8 @@ class correlator (CorrelatorBase, Loadable):
             self.blocksize = self.halfblocksize * 2
             if Tend > 0.:
                 self.blocks = 1 + int(np.ceil(np.log(Tend/self.h0/(self.blocksize-1))/np.log(2.)))
-                print("adjusting to",self.blocks,"blocks")
+                if not quiet:
+                    print("adjusting to",self.blocks,"blocks")
             else:
                 self.blocks = blocks
         else:
@@ -257,7 +261,7 @@ class correlator (CorrelatorBase, Loadable):
 
         if 'fixed_motion_type' in dir(model):
             self.motion_type = model.fixed_motion_type
-            if not self.motion_type == motion_type:
+            if not self.motion_type == motion_type and not quiet:
                 print("adjusting to",self.motion_type,"dynamics")
         else:
             self.motion_type = motion_type

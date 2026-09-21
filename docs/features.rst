@@ -10,11 +10,52 @@ Feature status
        :no-assertions:
 
 
-Implemented features
---------------------
+Implemented models 
+------------------
 
-Note that you can get an overview of the various models that are implemented
-using
+For a list of individual features, see below. The modularity of `mctpy` allows
+many combinations of models and structure factors and things being
+calculated. The following table is deliberately restricted to those things
+that have been explicitly tested and that are deemed reliable.
+
++-------------------------------------+------+-------+--------+-----+-----+-----------+-------+-------+------+
+| model                               |  NEP | evals | lambda | BD  | ND  | damped ND |   G   |   M   |  cc  |
++=====================================+======+=======+========+=====+=====+===========+=======+=======+======+
+| F12 model                           | yes  |  yes  | yes    | yes |     |           |       |       |      |
++-------------------------------------+------+-------+--------+-----+-----+-----------+-------+-------+------+
+| F12 model with Sjoegren model       | yes  |       |        | yes |     |           |       |       |      |
++-------------------------------------+------+-------+--------+-----+-----+-----------+-------+-------+------+
+| Simple liquid (HS-PY etc.)          | yes  |  yes  | yes    | yes |     |           |  yes  |       | n/a  |
++-------------------------------------+------+-------+--------+-----+-----+-----------+-------+-------+------+
+| Simple liquid tagged particle       | yes  |       |        | yes |     |           |  n/a  |  n/a  | n/a  |
++-------------------------------------+------+-------+--------+-----+-----+-----------+-------+-------+------+
+| Simple liquid MSD                   |      |       |        | yes |     |           |  n/a  |  n/a  | n/a  |
++-------------------------------------+------+-------+--------+-----+-----+-----------+-------+-------+------+
+| Simple liquid NGP                   |      |       |        | yes |     |           |  n/a  |  n/a  | n/a  |
++-------------------------------------+------+-------+--------+-----+-----+-----------+-------+-------+------+
+| Binary Mixtures                     | yes  |  yes  | yes    | yes |     |           |  yes  |  yes  | yes  |
++-------------------------------------+------+-------+--------+-----+-----+-----------+-------+-------+------+
+| Binary Mixture tagged particle      | yes  |       |        | yes |     |           |  n/a  |  n/a  | n/a  |
++-------------------------------------+------+-------+--------+-----+-----+-----------+-------+-------+------+
+| Binary Mixture MSD                  |      |       |        | yes |     |           |  n/a  |  n/a  | n/a  |
++-------------------------------------+------+-------+--------+-----+-----+-----------+-------+-------+------+
+| Binary Mixture NGP                  |      |       |        |     |     |           |  n/a  |  n/a  | n/a  |
++-------------------------------------+------+-------+--------+-----+-----+-----------+-------+-------+------+
+| 2d simple liquid                    | yes  |  yes  | yes    | yes |     |           |       |       | n/a  |
++-------------------------------------+------+-------+--------+-----+-----+-----------+-------+-------+------+
+| 2d simple liquid tagged particle    | yes  |       |        | yes |     |           |  n/a  |  n/a  | n/a  |
++-------------------------------------+------+-------+--------+-----+-----+-----------+-------+-------+------+
+| 2d simple liquid MSD                |      |       |        |     |     |           |  n/a  |  n/a  | n/a  |
++-------------------------------------+------+-------+--------+-----+-----+-----------+-------+-------+------+
+| 2d simple liquid NGP                |      |       |        |     |     |           |  n/a  |  n/a  | n/a  |
++-------------------------------------+------+-------+--------+-----+-----+-----------+-------+-------+------+
+
+(Legend: NEP = nonergodicity parameters; evals = eigenvalues (critical amplitudes);
+BD = Brownian dynamics; ND = Newtonian dynamics; damped ND = damped Newtonian dynamics;
+G = shear modulus; M = longitudinal modulus; cc = interdiffusion kernel)
+
+Note that you can get an overview of the various models and structure factors
+that are implemented using
 
   .. code-block:: python
 

@@ -31,4 +31,18 @@ class TestF12:
         correlators2 = mct.CorrelatorStack([phi,phi_s2])
         correlators2.solve_all()
         assert (phi_s2.phi==phi_s.phi).all()
+    def test_shorttime(self):
+        """Tests the short-time behavior of the dynamics.
+        Should be exp(-t/tau) for Brownian, cos(omega t) for Newtonian."""
+        model = mct.f12model (0,0,tau=0.5,Omega=2.)
+        phi = mct.correlator (model=model, store=True, Tend=2., blocksize=1024,
+                              quiet=True)
+        phi.solve_all()
+        assert np.isclose(phi.phi[:,0],np.exp(-phi.t/model.tau),atol=1e-6).all()
+        phi = mct.correlator (model=model, store=True, Tend=2., blocksize=1024,
+                              motion_type = "newtonian", quiet=True)
+        phi.solve_all()
+        assert np.isclose(phi.phi[:,0],np.cos(model.Omega*phi.t),atol=1e-4).all()
 
+if __name__ == '__main__':
+    TestF12().test_shorttime()
