@@ -330,7 +330,7 @@ class correlator (CorrelatorBase, Loadable):
                 phi0d = self.model.phi0d().reshape(self.shape)
                 Bq = self.model.Bq().reshape(self.shape)
                 if self.model.scalar():
-                    tauinv = phi0d - Bq*phi0d / (2*Aq)
+                    tauinv = phi0d - Bq*phi0d * Aqinv / 2
                 else:
                     tauinv = np.zeros(self.shape,dtype=self.model.dtype)
                     for q in range(self.shape[0]):
