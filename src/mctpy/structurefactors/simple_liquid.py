@@ -143,8 +143,11 @@ class hssPY (simpleLiquidSq, LoadableModel, role='structurefactor',
                 - 8*np.pi*self.beta * (0.5*sinq/q2 + 2*(cosq/q2 \
                 + 2*((1-cosq) - q*sinq)/q4)/q)
     def contact_value (self):
-        """Return contact value of the RDF."""
-        return 0.5*self.phi * (2 + self.phi) / (1-self.phi)**2
+        """Return contact value of the RDF.
+
+        This is the value matching the virial equation of state in the
+        Percus-Yevick approximation."""
+        return (1 + 0.5*self.phi) / (1-self.phi)**2
 
 
 class hssPYtagged (simpleLiquidSq):
