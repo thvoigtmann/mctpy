@@ -45,15 +45,13 @@ rho = 1.0
 We demonstrate the numerical OZ solution by an example where we have an analytical expression available: the Percus-Yevick approximation to the hard-sphere system. The implementation is based on a paper by Labík et al. [Molecular Physics 56, 709 (1985)], and the defaults are (almost) tweaked to obtain reasonably good results in this case already.
 
 ```{code-cell} ipython3
-Sq = mct.structurefactors.oz.Sq()
-_ = Sq.solve (closure=PY(), potential=HSS(), rho=rho, accuracy=1e-12, N=8192, use_ng=False)
+Sq = mct.structurefactors.oz.Sq(closure=PY(), potential=HSS(), rho=rho, accuracy=1e-12, N=8192, use_ng=False)
 ```
 
 In fact, the OZ solver also implements the extrapolation proposed by Ng [J. Chem. Phys. 61, 2680 (1974)], so let us test this as well.
 
 ```{code-cell} ipython3
-Sq2 = mct.structurefactors.oz.Sq()
-_ = Sq2.solve (closure=PY(), potential=HSS(), rho=rho, accuracy=1e-12, N=8192, use_ng=True)
+Sq2 = mct.structurefactors.oz.Sq(closure=PY(), potential=HSS(), rho=rho, accuracy=1e-12, N=8192, use_ng=True)
 ```
 
 To compare to a realistic scenario, we take a typical wavenumber grid for many MCT calculations and for comparison the analytical implementation of the HSS-PY structure factor.
@@ -67,7 +65,7 @@ hspy = mct.structurefactors.hssPY(phi=rho*np.pi/6.)
 
 ```{code-cell} ipython3
 plt.plot(qgrid, Sq.Sq(qgrid)[0], '.', label='Labík')
-plt.plot(qgrid, Sq.Sq(qgrid)[0], '+', label='Labík + Ng')
+plt.plot(qgrid, Sq2.Sq(qgrid)[0], '+', label='Labík + Ng')
 plt.plot(qgrid, hspy.Sq(qgrid)[0], label='analytical')
 plt.xlabel('q')
 plt.ylabel('S(q)')
@@ -77,7 +75,7 @@ plt.show()
 
 ```{code-cell} ipython3
 plt.plot(qgrid, Sq.Sq(qgrid)[1], '.', label='Labík')
-plt.plot(qgrid, Sq.Sq(qgrid)[1], '+', label='Labík + Ng')
+plt.plot(qgrid, Sq2.Sq(qgrid)[1], '+', label='Labík + Ng')
 plt.plot(qgrid, hspy.Sq(qgrid)[1], label='analytical')
 plt.xlabel('q')
 plt.ylabel('c(q)')
@@ -87,7 +85,7 @@ plt.show()
 
 ```{code-cell} ipython3
 plt.plot(qgrid, Sq.dcq_dq(qgrid), '.', label='Labík')
-plt.plot(qgrid, Sq.dcq_dq(qgrid), '+', label='Labík + Ng')
+plt.plot(qgrid, Sq2.dcq_dq(qgrid), '+', label='Labík + Ng')
 plt.plot(qgrid, hspy.dcq_dq(qgrid), label='analytical')
 plt.xlabel('q')
 plt.ylabel("c'(q)")
@@ -117,7 +115,7 @@ As a by-product, we also get the radial distribution function. Note how tricky t
 r = np.linspace(0,5,501)
 phi = rho*np.pi/6.
 plt.plot(r, Sq.gr(r),'.')
-plt.axhline((1-1.5*phi+0.5*phi**3)/(1-phi)**4,linestyle='dotted',color='black')
+plt.axhline(hspy.contact_value(),linestyle='dotted',color='black')
 plt.xlabel('r')
 plt.ylabel('g(r)')
 plt.ylim(-0.2,6)
@@ -146,10 +144,11 @@ plt.show()
 For the target state, a direct iteration with zero initial guess will fail. We demonstrate the technique of annealing, which is made really simple by the fact that the `solve` method returns the result in a form that it can digest as parameters for the next initial guess.
 
 ```{code-cell} ipython3
-Sq_LJ = mct.structurefactors.oz.Sq()
+Sq_LJ = mct.structurefactors.oz.Sq(closure=HNC(), potential=LJ(), rho=1.2, N=8192, M=40, Rmax=50.0,
+                                  accuracy=1e-12, use_ng=True, solve=False)
 Gq0, Gr0 = None, None
 for kT in tqdm([5.0,4.0,3.0,2.0,1.5,1.2]):
-    Gr0, Gq0 = Sq_LJ.solve (closure=HNC(), potential=LJ(), rho=1.2, kT=kT, accuracy=1e-12, N=8192, use_ng=True, Gq0=Gq0, Gr0=Gr0)
+    Gr0, Gq0 = Sq_LJ.solve (kT=kT, Gq0=Gq0, Gr0=Gr0)
 ```
 
 ```{code-cell} ipython3
@@ -176,8 +175,7 @@ d = [1.0, 0.6]
 ```
 
 ```{code-cell} ipython3
-Sq = mct.structurefactors.oz.mixtureSq()
-_ = Sq.solve (closure=PYmix(), potential=HSM(sigma=d), rho=rho, use_ng=True)
+Sq = mct.structurefactors.oz.mixtureSq(closure=PYmix(), potential=HSM(sigma=d), rho=rho, use_ng=True)
 ```
 
 ```{code-cell} ipython3
@@ -236,8 +234,8 @@ Tlist = np.array([5.0, 4.0, 3.0, 2.0, 1.5, 1.0])
 sqlist = []
 Gq0, Gr0 = None, None
 for kT in tqdm(Tlist):
-    Sq_KA = mct.structurefactors.oz.mixtureSq()
-    Gr0, Gq0 = Sq_KA.solve (closure=HNCmix(), potential=LJmix(), rho=rho, kT=kT, use_ng=True, Gq0=Gq0, Gr0=Gr0)
+    Sq_KA = mct.structurefactors.oz.mixtureSq(closure=HNCmix(), potential=LJmix(), rho=rho, kT=kT, solve=False)
+    Gr0, Gq0 = Sq_KA.solve (use_ng=True, Gq0=Gq0, Gr0=Gr0)
     sqlist.append(Sq_KA)
 ```
 

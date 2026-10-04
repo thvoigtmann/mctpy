@@ -3,7 +3,9 @@ import numpy as np
 
 from ..interpolation import dataSq
 
-class Sq (dataSq, name='oz_Sq', role='structurefactor'):
+class Sq (dataSq, name='oz_Sq', role='structurefactor',
+          fields=['_q_data','_sq_data','_r_data','_gr_data','Gr','Gq'],
+          attrs=['rho','N','M','Rmax']):
     """Static structure factor from numerical solution of OZ equation.
 
     This implements an iterative solution scheme for the OZ equation
@@ -14,11 +16,10 @@ class Sq (dataSq, name='oz_Sq', role='structurefactor'):
     Handle with care, the convergence of OZ solutions is famously tricky
     and will depend on a judicious choice of parameters and initial guesses.
     The scheme might converge to unphysical solutions."""
-    def __init__ (self):
-        super().__init__()
-    def solve (self, closure, potential, rho, kT=1.0, Gr0=None, Gq0=None,
-               N=2048, M=40, Rmax=50.0, maxiter=10000, maxiter2=2000, mix=0.5,
-               mix2=0.5, accuracy=1e-5, use_ng=False, progress_bar=None):
+    def __init__ (self, closure=None, potential=None, rho=0.0, kT=1.0,
+                  Gr0=None, Gq0=None, N=2048, M=40, Rmax=50.0, maxiter=10000,
+                  maxiter2=2000, mix=0.5, mix2=0.5, accuracy=1e-5,
+                  use_ng=False, progress_bar=None, solve=True):
         """Solve the OZ equation.
 
         Parameters
@@ -26,9 +27,13 @@ class Sq (dataSq, name='oz_Sq', role='structurefactor'):
         closure : Closure object
             Should implement r c(r) for the OZ closure, and
             the derivative of that closure with respect to r gamma(r).
+            If None, the object will be left uninitialized for a subsequent
+            call to `solve`.
         potential : Potential object
             Should implement the Boltzmann factor corresponding to the
             potential.
+            If None, the object will be left uninitialized for a subsequent
+            call to `solve`.
         rho : float
             Number density.
         kT : float, default 1.0
@@ -69,16 +74,90 @@ class Sq (dataSq, name='oz_Sq', role='structurefactor'):
         progress_bar : callable, optional
             Designed to be used with `tqdm` to provide visual feedback
             on the iteration progress.
+        solve : bool, default True
+            If set to False, perform a dummy initialization of the
+            structure factor, waiting for a subsequent call to `solve`.
+        """
+        self.closure = closure
+        self.potential = potential
+        self.kT = kT
+        self.N = N
+        self.M = M
+        self.Rmax = Rmax
+        self.maxiter = maxiter
+        self.maxiter2 = maxiter2
+        self.mix = mix
+        self.mix2 = mix2
+        self.accuracy = accuracy
+        self.use_ng = use_ng
+        if closure is None or potential is None or solve==False:
+            dq = np.pi/Rmax
+            q = (np.arange(N) + 0.5) * dq
+            sq = np.zeros_like(q)
+        else:
+            q, sq, Gr, Gq = self._solve_ (closure, potential, rho, kT=kT,
+                                      Gr0=Gr0, Gq0=Gq0, maxiter=maxiter,
+                                      maxiter2=maxiter2, mix=mix, mix2=mix2,
+                                      accuracy=accuracy, use_ng=use_ng,
+                                      progress_bar=progress_bar)
+            self.Gr = Gr
+            self.Gq = Gq
+        super().__init__(q, sq, density=rho)
+    def solve (self, closure=None, potential=None, rho=None, kT=None,
+               Gr0=None, Gq0=None, maxiter=None, maxiter2=None, mix=None,
+               mix2=None, accuracy=None, use_ng=False, progress_bar=None):
+        """Solve the OZ equation given a closure and a potential.
+
+        For a description of the parameters, see the init method.
+        If a parameter is set to `None`, the default set when initializing
+        the object will be taken.
 
         Returns
         -------
         Gr, Gq : array_like
             Resulting Gamma(r) and Gamma(q), can be used to continue
-            the iterative solution at a lower temperature.
+            the iterative solution at a lower temperature or higher density.
         """
+        if closure is None:
+            closure = self.closure
+        if potential is None:
+            potential = self.potential
+        if rho is None:
+            rho = self.rho
+        if kT is None:
+            kT = self.kT
+        if maxiter is None:
+            maxiter = self.maxiter
+        if maxiter2 is None:
+            maxiter2 = self.maxiter2
+        if mix is None:
+            mix = self.mix
+        if mix2 is None:
+            mix2 = self.mix2
+        if accuracy is None:
+            accuracy = self.accuracy
+        if use_ng is None:
+            use_ng = self.use_ng
+        q, sq, Gr, Gq = self._solve_ (closure, potential, rho, kT=kT,
+                                      Gr0=Gr0, Gq0=Gq0, maxiter=maxiter,
+                                      maxiter2=maxiter2, mix=mix, mix2=mix2,
+                                      accuracy=accuracy, use_ng=use_ng,
+                                      progress_bar=progress_bar)
+        self._q_data = q
+        self._sq_data = sq
+        self.reinit()
+        self.Gr = Gr
+        self.Gq = Gq
+        return Gr, Gq
+    def _solve_ (self, closure, potential, rho, kT, Gr0, Gq0,
+               maxiter, maxiter2, mix, mix2, accuracy, use_ng, progress_bar):
+        """Iternal solve method, called either upon initialization
+        or when calling `solve'. Not intended to be called directly."""
+        N = int(self.N)
+        M = int(self.M)
         Gr = np.empty(N)
         Gq = np.empty(N)
-        dr = Rmax/N
+        dr = self.Rmax/N
         dq = np.pi/N/dr
         r = (np.arange(N) + 0.5) * dr
         q = (np.arange(N) + 0.5) * dq
@@ -205,14 +284,13 @@ class Sq (dataSq, name='oz_Sq', role='structurefactor'):
 
         self._r_data = r
         self._gr_data = (Gr+Cr)/r + 1
-        self._q_data = q
-        self._sq_data = (Gq+Cq)/q*rho + 1
-        self.rho = rho
         #self._cq_data = rho*(Gq+Cq)/(q + rho*(Gq+Cq)) # not needed
+        return q, (Gq+Cq)/q*rho + 1, Gr, Gq
 
+    def reinit (self):
         self._interpolator = scipy.interpolate.CubicSpline(self._q_data, self._sq_data)
-        self._gr_interpolator = scipy.interpolate.CubicSpline(self._r_data, self._gr_data)
-        return Gr, Gq
+        if '_r_data' in self.__dict__:
+            self._gr_interpolator = scipy.interpolate.CubicSpline(self._r_data, self._gr_data)
 
     def gr (self, r):
         return self.interpolate_sq (r, self._gr_interpolator, minval=0.0)

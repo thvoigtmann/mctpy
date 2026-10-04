@@ -143,7 +143,7 @@ class dataMixtureSq (LoadableModel, role='structurefactor',
             raise f"unknown matrix format {matrix_format}"
         self._sq_data = np.zeros((qshape,d,d))
         if normalization == 'densities':
-            xij = np.outer(np.sqrt(self.densities))/np.sum(self.densities)
+            xij = np.sqrt(np.outer(self.densities,self.densities))/np.sum(self.densities)
         else:
             xij = np.ones((d,d))
         k = 0
