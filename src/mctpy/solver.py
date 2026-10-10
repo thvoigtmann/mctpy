@@ -188,13 +188,6 @@ class correlator (CorrelatorBase, Loadable):
         apart from the initialization, the methods of this class assume
         `model` to be reasonably set. The default can be useful in derived
         classes though, for example for the beta-scaling equations.
-    base : correlator, optional
-        In case of models that refer to underlying base models, the
-        memory-kernel implementation usually assumes the underlying model
-        to have been solved one the same time grid. This parameter
-        then should point to the underlying correlator for that model,
-        and the values of `h`, `blocksize`, and `blocks` will be copied
-        from there instead of taking the ones supplied here.
     quiet : bool, default False
         If set, suppress printed warning messages (e.g. about adjustment
         of number of blocks, or type of dynamics supported by model).
@@ -219,8 +212,7 @@ class correlator (CorrelatorBase, Loadable):
     """
     def __init__ (self, blocksize=256, h=1e-9, blocks=60, Tend=0.0,
                   maxinit=50, maxiter=10000, accuracy=1e-9, store=False,
-                  model = None, base = None,
-                  motion_type = "brownian", quiet=False):
+                  model = None, motion_type = "brownian", quiet=False):
 
         if model is None or not model.get_bases():
             self.h0 = h
