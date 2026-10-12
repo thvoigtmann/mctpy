@@ -113,6 +113,12 @@ In summary, a model implementation should look something like this:
             def kernel_extra_args (self):
                 return [self.tau]
 
+For the memory-kernel and stability-matrix methods, the model implementation
+can assume the following:
+Before the `dm` and `dmhat` methods are called, `set_C` will be called
+once. The `set_C` method can thus calculate the vertices corresponding
+to the stability matrix.
+
 
 
 Implementing Models: Parameters
@@ -467,6 +473,38 @@ with this formula, omitting the singular initial value; the initial moments
 are calculated from their analytical formula which can include the integral
 over the singularity at :math:`t=0`. Note that the correction term is
 relevant to obtain the correct fluctuations in SBR.
+
+Simple Liquid Models
+--------------------
+
+Tagged particle with Bengtzelius trick
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In discretized fashion, we implement
+
+.. math::
+
+    \hat m^s_q=\frac{\varrho(\Delta q)^2}{16\pi^2q^3}\sum_{kp}
+    kpS(p)(q^2+p^2-k^2)^2c_s(p)^2 f_p f^s_k
+
+nd this can be calculated making use of Bengtzelius' trick.
+
+.. math::
+
+   \hat m^s_q=\frac{\varrho(\Delta q)^2}{16\pi^2q^3}\sum_{n=1}^3
+    \sum_k a^{(n)}(k)f^s_k \sum_p b^{(n)}(q,p)f_p
+
+with
+
+.. math::
+   :nowrap:
+
+      \begin{align*}
+      a^{(1)}(k)&=k^5 & b^{(1)}(q,p)&=pS(p)c_s(p)^2 \\
+      a^{(2)}(k)&=-2k^3 & b^{(2)}(q,p)&=pS(p)(q^2+p^2)c_s(p)^2 \\
+      a^{(3)}(k)&=k & b^{(3)}(q,p)&=pS(p)(q^2+p^2)^2c_s(p)^2
+      \end{align*}
+
 
 Matrix-Valued Models
 --------------------

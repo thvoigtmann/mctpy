@@ -60,6 +60,50 @@ Common Additions to Simple-Liquid Models
     :members:
     :inherited-members:
 
+    The memory kernel of the tagged particle is written as
+
+    .. math::
+        m^s_q[f,f^s] = \frac{\varrho}{q^2}\int\frac{d^3k}{(2\pi)^3}
+        S(p)(\vec q\vec p)^2c_s(p)^2f_pf^s_k
+
+    with :math:`p=|vec q-\vec k|`. The quantity :math:`f` is taken from
+    the base model and is assumed to be normalized by the static
+    structure factor. The model calculates the memory kernel
+    as :math:`\hat m^s_q=1/q^2 m^s_q`.
+
+    Note that the discretization is not suitable for the calculation
+    of low-:math:`q` properties close to a localization transition.
+    There, the standard MCT is also flawed.
+
+    For the stability matrix, the model implements two versions: a
+    "slaved" version, and a standalone one. In the "slaved" version,
+    the tagged particle is seen as part of a bigger system together
+    with the base model, and the eigenvectors refer to the combined
+    stability matrix of both models taken together. Since by definition
+    for a tagged particle, the stability matrix has a zero block (the
+    tagged particle does not couple back to the base in standard MCT),
+    the calculation can be done in two steps, first calculating the
+    components corresponding to the base, and then extending by the
+    implementation here for the components corresponding to the tagged
+    particle. In the notation of [Fuchs1998]_ we have
+
+    .. math::
+        \sum_{qkp}V_{qkp}e^s_k(1-f^s_k)^2f_p+V_{qkp}f^s_k(1-f_p^2)e_p
+
+    The second sum does not depend on :math:`e^s` at all and is
+    pre-calculated as one vector :math:`V^{(2)}_q` before the iterative
+    calculation of the eigenvector :math:`e^s` is started.
+
+    In the standalone version, only the first sum is taken into account,
+    and this results in the calculation of eigenvectors corresponding
+    to transitions in the tagged particle itself. Those are typically
+    the "type A" transitions of MCT that correspond to tracer
+    delocalization.
+
+    .. [Fuchs1998] M. Fuchs, W. G\ |ouml|\ tze, and M. R. Mayr,
+       Phys. Rev. E 58, 3384 (1998),
+       `DOI:10.1103/PhysRevE.58.3384 <https://doi.org/10.1103/PhysRevE.58.3384>`_
+
 .. autoclass:: mctpy.tagged_particle_q0
     :members:
     :inherited-members:
@@ -103,10 +147,6 @@ Common Additions to Simple-Liquid Models
     The equations itself are documented with
     :py:class:`mctpy.non_gaussian_parameter` with which this model is
     intended to be used.
-
-    .. [Fuchs1998] M. Fuchs, W. G\ |ouml|\ tze, and M. R. Mayr,
-       Phys. Rev. E 58, 3384 (1998),
-       `DOI:10.1103/PhysRevE.58.3384 <https://doi.org/10.1103/PhysRevE.58.3384>`_
 
 Sheared Systems
 ===============

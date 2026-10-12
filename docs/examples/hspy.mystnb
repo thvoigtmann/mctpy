@@ -79,6 +79,8 @@ plt.show()
 Let us determine the MCT glass-transition point for the hard-sphere model. The `mctpy.util.evscan` function implements the tool to iteratively search for MCT critical points, for models where the calculation of the critical eigenvalues is implemented. The method is a somewhat adapted bisection search that is optimized to find liquid-glass or glass-glass transitions. We simply need to define a function that calls the model's NEP solver and returns the eigenvalue object. (Note that the value of `maxiter` should be increased if higher accuracy is desired.)
 
 ```{code-cell} ipython3
+load_from_file = True
+
 class evsearch_hss:
     def __init__ (self):
         self.model = None
@@ -93,20 +95,23 @@ class evsearch_hss:
         ev = mct.eigenvalue (nep)
         ev.solve()
         return ev
-phis, evs = mct.util.evscan (0.51, 0.52, evsearch_hss().calc_ev, eps=1e-8)
+
+if not load_from_file:
+    phis, evs = mct.util.evscan (0.51, 0.52, evsearch_hss().calc_ev, eps=1e-8)
+    p = np.argmax([ev.eval for ev in evs])
+    hss_c = { phis[p]: evs[p] }
+    mct.h5.save_file('hss-phic.h5', hss_c)
+else:
+    hss_c = mct.h5.load_file('hss-phic.h5')
+    hss_c = { float(k):v for k,v in hss_c.items() }
 ```
 
 The value of the critical point given in Franosch et al 1997 is $\varphi_c=0.51591213(1)$.
 
 ```{code-cell} ipython3
+phi_c, hss_c = *hss_c.keys(),*hss_c.values()
 # The following should print phi_c = 0.51591214(1), lambda = 0.735, ev = 0.999844
-p=np.argmax([ev.eval for ev in evs])
-print("phi_c = {:.8f}(1), lambda = {:.3f}, ev = {:.6f}".format(phis[p],evs[p].lam,evs[p].eval))
-```
-
-```{code-cell} ipython3
-hss_c = evs[p]
-phi_c = phis[p]
+print("phi_c = {:.8f}(1), lambda = {:.3f}, ev = {:.6f}".format(phi_c,hss_c.lam,hss_c.eval))
 ```
 
 Compare to Fig.2 in Franosch et al, PRE 55, 7153 (1997). The critical amplitude there is defined as $h_q=(1-f_q^c)^2e_q$.
@@ -283,7 +288,7 @@ Let us add tagged-particle dynamics. This uses the fact that the collective dyna
 ```{code-cell} ipython3
 cs = mct.structurefactors.hssPYtagged(phi=philist[2].model.Sq.phi,delta=1)
 model_s = mct.tagged_particle_model (philist[2].model, Sq=cs, D0s=1)
-phi_s = mct.correlator (model = model_s, base=philist[2], store = True)
+phi_s = mct.correlator (model = model_s, store = True)
 correlators = mct.CorrelatorStack([philist[2],phi_s])
 ```
 
@@ -291,13 +296,13 @@ The tagged-particle correlator also allows to calculate the mean-squared displac
 
 ```{code-cell} ipython3
 model_s0 = mct.tagged_particle_q0 (model_s)
-msd = mct.mean_squared_displacement (model = model_s0, base=phi_s, store=True)
+msd = mct.mean_squared_displacement (model = model_s0, store=True)
 correlators.append(msd)
 ```
 
 ```{code-cell} ipython3
 model_ngp = mct.tagged_particle_ngp (model_s0)
-ngp = mct.non_gaussian_parameter (model = model_ngp, base=msd, store=True)
+ngp = mct.non_gaussian_parameter (model = model_ngp, store=True)
 correlators.append(ngp)
 ```
 

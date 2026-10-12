@@ -49,9 +49,14 @@ class model_base (object):
         # to allow back-linking of a model to the solver that solved it
         # this is needed for the construction of dependency lists
         # of coupled models
+        #: Correlator solving this model, if a solver has been called.
         self.correlator = None
+        #: Nonergodicity parameter solving this model, if solved for.
         self.nep = None
+        #: Eigenvectors for this model, if a solver has been called.
         self.ev = None
+        #: Pointer to either the correlator or the nep, depending on context.
+        self.phi = None
     @classmethod
     def set_kernels (cls, kernel=None, dm=None, dmhat=None, dm2=None,
                      setV=None):
@@ -196,8 +201,24 @@ class model_base (object):
     # these are allowed to fail silently
     def make_set_V (self):
         return model_base_set_V
-    def set_C (self, f):
-        # can use this to pre-calculate stability matrix before make_dm
+    def set_C (self, slaved=False):
+        """Initialize the stability matrix.
+
+        This method can be implemented to pre-calculate the stability
+        matrix before the functions returned by `make_dm` and `make_dmhat`
+        are called.
+
+        Parameters
+        ----------
+        slaved : bool, default False
+            If set to True, the eigenvalues will be calculated as those
+            of a slaved model (for example: the tagged particle in a
+            given base liquid). If set to True, the stability matrix
+            should be set up in such a way that transitions in the slaved
+            model itself can be sought. (For example: the type A transitions
+            in tagged particles that are different from the transitions
+            of the base model.)
+        """
         return
 
     def dq (self):

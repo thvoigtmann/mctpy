@@ -167,6 +167,9 @@ ax2.plot(xblist,lamlist,color='green', label='lambda')
 plt.xlabel('xhat')
 ax.set_ylabel('phi_c')
 ax2.set_ylabel('lambda')
+lines, labels = ax.get_legend_handles_labels()
+lines2, labels2 = ax2.get_legend_handles_labels()
+ax.legend(lines+lines2, labels+labels2)
 plt.show()
 ```
 

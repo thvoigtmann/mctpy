@@ -10,16 +10,16 @@ def _fsolve (f, m, W, f0, phi0, kernel, accuracy, maxiter, *kernel_args):
     iterations = 0
     converged = False
     newf = f0
+    f[0] = newf
     while (not converged and iterations < maxiter):
         iterations+=1
-        f[0] = newf
         kernel (m[0], f[0], 0, 0., *kernel_args)
         newf = m[0] / (W+m[0]) * phi0
         if np.isclose (newf, f[0], rtol=accuracy, atol=0.0).all():
             converged = True
-            #f[0] = newf
+        f[0] = newf
     #df = np.mean(np.abs(newf-f[0]))
-    f[0] = newf
+    #f[0] = newf
     return converged
 
 @njit
@@ -30,9 +30,9 @@ def _fsolve_mat (f, m, W, f0, phi0, WS, kernel, accuracy, maxiter, *kernel_args)
     newf = f0.copy()
     M = f[0].shape[0]
     #newf = phi0.copy()
+    f[0] = newf
     while (not converged and iterations < maxiter):
         iterations+=1
-        f[0] = newf
         kernel (m[0], f[0], 0, 0., *kernel_args)
         if 0 and not lowval:
             for q in range(M):
@@ -43,11 +43,12 @@ def _fsolve_mat (f, m, W, f0, phi0, WS, kernel, accuracy, maxiter, *kernel_args)
         if np.isclose (newf.reshape(-1), f[0].reshape(-1), rtol=accuracy, atol=0.0).all():
             converged = True
             #f[0] = newf
+        f[0] = newf
         if np.isclose (newf.reshape(-1), 0.0, rtol=0.0, atol=10*accuracy).all():
             # suspect liquid solution
             lowval = True
     #df = np.mean(np.abs(newf-f[0]))
-    f[0] = newf
+    #f[0] = newf
     return converged
 
 class nonergodicity_parameter (Loadable):
@@ -77,6 +78,8 @@ class nonergodicity_parameter (Loadable):
         self.m_ = np.zeros((1,*self.shape),dtype=model.dtype)
         self.jit_kernel = model.get_kernel()
         self.solved = False
+        model.nep = self
+        model.phi = self.f_
 
     def solve (self, accuracy=1e-12, maxiter=1000000,
                callback=None, callback_every=0):
@@ -106,7 +109,7 @@ class nonergodicity_parameter (Loadable):
         of iterations, the object's field `converged' will be set to
         `True`.
         """
-        self.model.set_base_phi(self.f_)
+        #self.model.set_base_phi(self.f_)
         self.model.get_set_V()(0, *self.model.set_V_args())
         if callback is not None and callback_every>0:
             blocks = maxiter//callback_every
@@ -161,42 +164,50 @@ class nonergodicity_parameter (Loadable):
 
 
 @njit
-def _esolve(e, dm, f, maxiter, accuracy, *kernel_args):
+def _esolve(e, dm, f, maxiter, accuracy, slaved, *kernel_args):
     iterations = 0
     converged = False
     newe = np.ones_like(e)
+    e[:] = newe
     while (not converged and iterations < maxiter):
-        e[:] = newe
+        iterations+=1
+        #e[:] = newe
         #newe = (1-f)*model.dm(f,self.e)*(1-f)
         dm(newe,f,e,*kernel_args)
-        norm = np.sqrt(np.dot(newe,newe))
-        if norm>1e-10: newe = newe/norm
+        if not slaved:
+            norm = np.sqrt(np.dot(newe,newe))
+            if norm>1e-10: newe = newe/norm
+        else:
+            norm = 0.0
         if np.isclose (newe, e, rtol=accuracy, atol=0.0).all():
             converged = True
-            e[:] = newe
+        e[:] = newe
     return norm, converged
 
 @njit
-def _esolve_mat(e, dm, f, phi0, maxiter, accuracy, *kernel_args):
+def _esolve_mat(e, dm, f, phi0, maxiter, accuracy, slaved, *kernel_args):
     iterations = 0
     converged = False
     newe = phi0.copy()
     S_F = phi0 - f
     M = newe.shape[0]
+    e[:] = newe
     while (not converged and iterations < maxiter):
         iterations+=1
-        e[:] = newe
+        #e[:] = newe
         dm(newe,f,e,*kernel_args)
         for q in range(M):
             newe[q] = S_F[q] @ newe[q] @ S_F[q]
-        norm = np.sqrt(np.dot(newe.reshape(-1),newe.reshape(-1)))
-        if norm>1e-10: newe = newe/norm
+        if not slaved:
+            norm = np.sqrt(np.dot(newe.reshape(-1),newe.reshape(-1)))
+            if norm>1e-10: newe = newe/norm
+        else:
+            norm = 0.0
         converged = np.isclose (newe.reshape(-1), e.reshape(-1),
                                 rtol=accuracy, atol=0.0).all()
         if not converged and iterations >= 50:
            converged = (np.mean(np.abs(newe.reshape(-1)-e.reshape(-1))) / newe.reshape(-1).shape[0] < accuracy)
-        if converged:
-            e[:] = newe
+        e[:] = newe
     return norm, converged
 
 @njit
@@ -204,14 +215,15 @@ def _ehatsolve(ehat, dmhat, f, maxiter, accuracy, *kernel_args):
     iterations = 0
     converged = False
     newehat = np.ones_like(ehat)
+    ehat[:] = newehat
     while (not converged and iterations < maxiter):
-        ehat[:] = newehat
+        iterations+=1
         dmhat(newehat,f,ehat,*kernel_args)
         norm = np.sqrt(np.dot(newehat,newehat))
         if norm>1e-10: newehat = newehat/norm
         if np.isclose (newehat,ehat,rtol=accuracy,atol=0.0).all():
             converged = True
-            ehat[:] = newehat
+        ehat[:] = newehat
     return norm, converged
 
 @njit
@@ -222,9 +234,9 @@ def _ehatsolve_mat(ehat, dmhat, f, phi0, maxiter, accuracy, *kernel_args):
     S_F = phi0 - f
     tmp = np.zeros_like(ehat)
     M = tmp.shape[0]
+    ehat[:] = newehat
     while (not converged and iterations < maxiter):
         iterations+=1
-        ehat[:] = newehat
         for q in range(M):
             tmp[q] = S_F[q] @ ehat[q] @ S_F[q]
         dmhat(newehat,f,tmp,*kernel_args)
@@ -234,8 +246,7 @@ def _ehatsolve_mat(ehat, dmhat, f, phi0, maxiter, accuracy, *kernel_args):
                                 rtol=accuracy, atol=0.0).all()
         if not converged and iterations >= 50:
            converged = (np.mean(np.abs(newehat.reshape(-1)-ehat.reshape(-1))) / newehat.reshape(-1).shape[0] < accuracy)
-        if converged:
-            ehat[:] = newehat
+        ehat[:] = newehat
     return norm, converged
 
 
@@ -254,11 +265,11 @@ class eigenvalue (Loadable):
         self.nep = nep
         self.dm = self.nep.model.get_dm()
         self.dmhat = self.nep.model.get_dmhat()
-        self.dm2 = self.nep.model.get_dm2()
         self.shape = self.nep.shape
         self.phishape = self.nep.phishape
+        self.nep.model.ev = self
 
-    def solve (self, accuracy=1e-12, maxiter=1000):
+    def solve (self, accuracy=1e-12, maxiter=1000, slaved=False):
         """Solve for the critical eigenvectors.
 
         This calculates the right- and left critical eigenvector, the
@@ -267,24 +278,50 @@ class eigenvalue (Loadable):
         iteration scheme, once for the left and once for the right vector.
         If both converge within the set limit of maximum iterations,
         the classes' `converged` field will be set to `True`.
+
+        Parameters
+        ----------
+        accuracy : float
+            Desired accuracy for the solutions.
+        maxiter : int
+            Maximum number of iterations after which to stop irrespective
+            of whether accuracy has been reached or not.
+        slaved : bool
+            Only relevant for models, that are coupled to a base model.
+            If `slaved` is set to `True`, the calculation of eigenvectors
+            will be set up such that they correspond to the bifurcation
+            properties of the base model. In this case, only a right
+            eigenvector will be calculated, and the left eigenvector is
+            zero by definition. (A "slaved" model is one where the combined
+            stability matrix of the base and slaved model has block structure
+            such that a zero block indicates no back-coupling of the
+            slaved model to the base.)
+            If `slaved` is set to `False` (default), the stability matrix
+            of this model alone, irrespective of the base's stability
+            matrix will be calculated. This corresponds to the bifurcation
+            properties within the slaved model itself, for example to find
+            type A transitions of tracer particles in a given host matrix.
         """
         model = self.nep.model
         vdim = model.vector_dimension()
-        self.nep.model.set_C (self.nep.f_[0])
+        #model.set_base_phi(self.nep.f_) # TODO FIXME
+        model.set_C (slaved)
         f = self.nep.f_[0]
         self.e = np.zeros(self.shape,dtype=model.dtype)
         self.ehat = np.zeros(self.shape,dtype=model.dtype)
         if model.scalar():
-            model.set_base_phi(self.e)
-            self.eval, conv1 = _esolve(self.e, self.dm, f, maxiter, accuracy, *self.nep.model.kernel_extra_args_dm())
-            model.set_base_phi(self.ehat)
-            self.eval2, conv2 = _ehatsolve(self.ehat, self.dmhat, f, maxiter, accuracy, *self.nep.model.kernel_extra_args_dmhat())
+            self.eval, conv1 = _esolve(self.e, self.dm, f, maxiter, accuracy, slaved, *self.nep.model.kernel_extra_args_dm())
+            if not slaved:
+                self.eval2, conv2 = _ehatsolve(self.ehat, self.dmhat, f, maxiter, accuracy, *self.nep.model.kernel_extra_args_dmhat())
+            else:
+                self.eval2, conv2 = 0.0, True
         else:
             phi0 = model.phi0()
-            model.set_base_phi(self.e)
-            self.eval, conv1 = _esolve_mat(self.e, self.dm, f, phi0, maxiter, accuracy, *self.nep.model.kernel_extra_args_dm())
-            model.set_base_phi(self.ehat)
-            self.eval2, conv2 = _ehatsolve_mat(self.ehat, self.dmhat, f, phi0, maxiter, accuracy, *self.nep.model.kernel_extra_args_dmhat())
+            self.eval, conv1 = _esolve_mat(self.e, self.dm, f, phi0, maxiter, accuracy, slaved, *self.nep.model.kernel_extra_args_dm())
+            if not slaved:
+                self.eval2, conv2 = _ehatsolve_mat(self.ehat, self.dmhat, f, phi0, maxiter, accuracy, *self.nep.model.kernel_extra_args_dmhat())
+            else:
+                self.eval2, conv2 = 0.0, True
 
         self.converged = conv1 & conv2
 
@@ -304,12 +341,16 @@ class eigenvalue (Loadable):
             self.e = self.e * nl/nr
             self.ehat = self.ehat * nr/(nl*nl)
             L = np.zeros_like(self.e)
-            self.dm2(L,f,self.e,*self.nep.model.kernel_extra_args_dm2())
-            if model.scalar():
-                self.lam = np.dot(dq * self.ehat, L)
+            dm2 = self.nep.model.get_dm2()
+            if dm2 is not None:
+                dm2(L,f,self.e,*self.nep.model.kernel_extra_args_dm2())
+                if model.scalar():
+                    self.lam = np.dot(dq * self.ehat, L)
+                else:
+                    self.lam = np.einsum('i,iab,iak,ikl,ilb',dq,self.ehat,
+                                         S_F, L, S_F)
             else:
-                self.lam = np.einsum('i,iab,iak,ikl,ilb',dq,self.ehat,
-                                     S_F, L, S_F)
+                self.lam = 0.0
         else:
             self.lam = 0.0
         self.e = self.e.reshape(self.phishape)

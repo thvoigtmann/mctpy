@@ -294,6 +294,7 @@ class correlator (CorrelatorBase, Loadable):
         self.m_ = np.zeros((self.blocksize,*self.shape),dtype=model.dtype)
         self.dPhi_ = np.zeros((self.halfblocksize+1,*self.shape),dtype=model.dtype)
         self.dM_ = np.zeros((self.halfblocksize+1,*self.shape),dtype=model.dtype)
+        self.model.phi = self.phi_
         if self.store:
             self.t = np.zeros(self.halfblocksize*(self.blocks+1))
             self.phi = np.zeros((self.halfblocksize*(self.blocks+1),*self.phishape),dtype=model.dtype)
@@ -311,7 +312,7 @@ class correlator (CorrelatorBase, Loadable):
         """
         iend = imax
         if (iend >= self.halfblocksize): iend = self.halfblocksize-1
-        self.model.set_base_phi(self.phi_)
+        #self.model.set_base_phi(self.phi_)
         phi0 = self.model.phi0().reshape(self.shape)
         if not self.brownian:
             if self.model.scalar():
@@ -373,7 +374,7 @@ class correlator (CorrelatorBase, Loadable):
     # core interface, can be reimplemented by derived solvers
     # this is not safe to be reused with save/restore functionality
     def solve_block (self, istart, iend):
-        self.model.set_base_phi(self.phi_)
+        #self.model.set_base_phi(self.phi_) # TODO FIXME REDUNDANT?
         if 'kernel_prefactor' in dir(self.model):
             pre_m = self.model.kernel_prefactor(np.arange(istart,iend)*self.h)
         else:
@@ -426,8 +427,8 @@ class correlator (CorrelatorBase, Loadable):
         are already in memory, and only calls the `solve_block` if needed.
         """
         self.h = self.h0
-        if self.model is not None:
-            self.model.set_base_phi(self.phi_)
+        #if self.model is not None:
+        #    self.model.set_base_phi(self.phi_)
         if not self.store or not self.solved >= -1:
             self.initial_values (self.maxinit)
             self.solve_block (self.iend, self.halfblocksize)
@@ -461,10 +462,10 @@ class correlator (CorrelatorBase, Loadable):
         # looks almost redundant since we now also set self.model.correlator
         # to ourselves, but do we want the field phi_ to be exposed
         # in the API, or what?
-        # what is currently completely missing is a compatility check
+        # FIXME what is currently completely missing is a compatility check
         # for solvers
-        if self.model is not None:
-            self.model.set_base_phi(self.phi_)
+        ##if self.model is not None:
+        ##    self.model.set_base_phi(self.phi_)
         if not self.store or not self.solved >= d:
             self.solve_block (self.halfblocksize, self.blocksize)
             if self.store:

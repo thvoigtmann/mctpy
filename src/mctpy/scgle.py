@@ -143,12 +143,12 @@ class scgle_model (model_base):
     def kernel_extra_args (self):
         return [self.V, self.sq, self.dq()]
     def kernel_extra_args_dm (self):
-        return [self.V, self.sq, self.dq(), self.q, self._f_]
+        return [self.V, self.sq, self.dq(), self.q, self.nep.f]
     def kernel_extra_args_dm2 (self):
-        return [self.V, self.sq, self.dq(), self.q, self._f_]
-    def set_C (self, f):
+        return [self.V, self.sq, self.dq(), self.q, self.nep.f]
+    def set_C (self, slaved=False):
         # TODO calculate zeta(F) ??
-        self._f_ = f
+        pass
     def mrenorm (self, m):
         return m/self.Wq()
     #def shear_modulus: TODO

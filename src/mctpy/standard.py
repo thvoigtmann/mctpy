@@ -160,10 +160,10 @@ class simple_liquid_model (model_base, LoadableModel,
         self.b[8] = pSp * qsqppsq**2 * cp**2
     def kernel_extra_args (self):
         return [self.a, self.b, self.dq()]
-    def set_C (self, f):
+    def set_C (self, slaved=False):
         if self.__C__ is None:
             self.__C__ = np.zeros((self.M,self.M))
-        simple_liquid_model_calc_C (self.__C__, f, self.a, self.b)
+        simple_liquid_model_calc_C (self.__C__, self.nep.f, self.a, self.b)
     def kernel_extra_args_dm (self):
         return [self.__C__,self.dq(),self.q]
     def kernel_extra_args_dm2 (self):
@@ -214,15 +214,42 @@ def tagged_particle_model_calc_V (i, V, phi, a, b):
                 if pi < M:
                     zqk += b[n,qi,pi] * f[pi]
                 V[qi,ki] += a[n,ki] * zqk
+@njit
+def tagged_particle_model_calc_V2 (V2, f, h, fs, a, b):
+    M = V2.shape[0]
+    for qi in range(M):
+        V2[qi] = 0.
+        for n in range(3):
+            pi, ki = qi, 0
+            zqk2 = b[n,qi,pi] * h[pi] * (1-f[pi])**2
+            V2[qi] += a[n,ki] * zqk2 * fs[ki]
+            for ki in range(1,M):
+                if ki <= qi:
+                    pi = qi - ki
+                    zqk2 += b[n,qi,pi] * h[pi] * (1-f[pi])**2
+                else:
+                    pi = ki - qi - 1
+                    zqk2 -= b[n,qi,pi] * h[pi] * (1-f[pi])**2
+                pi = qi + ki
+                if pi < M:
+                    zqk2 += b[n,qi,pi] * h[pi] * (1-f[pi])**2
+                V2[qi] += a[n,ki] * zqk2 * fs[ki]
 @njit(inline='always')
 def tagged_particle_model_kernel (ms, phis, i, t, V, dq):
-    #def tagged_particle_model_kernel (ms, phis, i, t, phi, V, last_i, Vfunc, dq):
-    #if last_i[0]==0 or not (i==last_i[0]):
-    #    Vfunc(V, phi[i])
-    #    last_i[0] = i
     ms[:] = dq**2 * np.dot(V,phis)
+@njit
+def tagged_particle_model_dm (ms, phis, dphis, V, dq, q, fsc, V2):
+    ms[:] = dq**2/q**2 * np.dot(V,(1-fsc)**2*dphis)
+    if V2 is not None:
+        ms[:] += V2 * dq**2/q**2
+@njit
+def tagged_particle_model_dmhat (ms, fs, ehats, V, dq, q, fsc, V2):
+    # here, V2 is never used
+    ms[:] = np.dot(ehats/q**2, (1-fsc)**2*V) * dq**2
 class tagged_particle_model (model_base, LoadableModel,
                              kernel=tagged_particle_model_kernel,
+                             dm=tagged_particle_model_dm,
+                             dmhat=tagged_particle_model_dmhat,
                              setV=tagged_particle_model_calc_V,
                              fields=['cs'], attrs=['D0','vth'],
                              objects=['base','Sq'],
@@ -268,12 +295,23 @@ class tagged_particle_model (model_base, LoadableModel,
         self.b[2] = pq * qsq_psq**2
         #
         self.__Vqk__ = np.zeros((self.M,self.M))
+        self.__V2__ = None
     def kernel_extra_args (self):
         return (self.__Vqk__, _dq(self.base.q))
     def set_V_args (self):
         return (self.__Vqk__, self.base.phi, self.a, self.b)
+    def kernel_extra_args_dm (self):
+        return [self.__Vqk__,_dq(self.base.q),self.base.q,self.nep.f,self.__V2__]
     def mrenorm (self, m):
         return m/self.q**2
+    def make_dm2 (self):
+        return None # special case to indicate we don't have d^2F/df^2
+    def set_C (self, slaved=False):
+        if slaved:
+            self.__V2__ = np.zeros(self.M)
+            tagged_particle_model_calc_V2 (self.__V2__, self.base.nep.f, self.base.ev.e, self.nep.f, self.a, self.b)
+        else:
+            self.__V2__ = None
 
 
 
