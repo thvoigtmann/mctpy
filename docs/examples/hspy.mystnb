@@ -125,6 +125,27 @@ plt.xlabel(r'$qd$')
 plt.show()
 ```
 
+Here we calculate the critical amplitude for the tagged particle, enslaved to the host system glass transition. Compare to Fig. 1 in Fuchs et al, PRE 58, 3384 (1998).
+
+```{code-cell} ipython3
+cs = mct.structurefactors.hssPYtagged(phi=hss_c.nep.model.Sq.phi,delta=1)
+model_s = mct.tagged_particle_model (hss_c.nep.model, Sq=cs)
+nep_c_s = mct.nonergodicity_parameter (model = model_s)
+nep_c_s.solve()
+hss_c_s = mct.eigenvalue(nep_c_s)
+hss_c_s.solve(slaved=True)
+```
+
+```{code-cell} ipython3
+plt.plot(qgrid,hss_c.e*(1-hss_c.nep.f)**2,label=r'$h_q$')
+plt.plot(qgrid,hss_c.ehat,label=r'$\hat e_q$')
+plt.plot(qgrid,hss_c_s.e*(1-hss_c_s.nep.f)**2,label=r'$h^s_q$')
+plt.plot(qgrid,hss_c_s.nep.f,label=r'$f^s_q$')
+plt.legend()
+plt.xlabel(r'$qd$')
+plt.show()
+```
+
 With the critical point determined, we can calculate the distance parameter $\sigma$.
 
 ```{code-cell} ipython3
@@ -370,6 +391,6 @@ plt.ylim(1e-6,1)
 plt.show()
 ```
 
-```{code-cell} ipython3
+```{raw-cell}
 
 ```

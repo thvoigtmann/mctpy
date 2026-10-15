@@ -157,6 +157,7 @@ class nonergodicity_parameter (Loadable):
             newself.accuracy = h5grp.attrs['accuracy']
             newself.f_ = newself.f.reshape((1,*newself.shape))
             newself.m_ = newself.m.reshape((1,*newself.shape))
+            newself.model.phi = newself.f_
         else:
             newself.solved = False
         return newself
