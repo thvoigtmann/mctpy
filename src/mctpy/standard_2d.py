@@ -2,7 +2,7 @@ import numpy as np
 
 from numba import njit
 from .util import filon_integrate
-from .__util__ import model_base, void, nparray
+from .__util__ import model_base, void, nparray, _dq
 from .__h5__ import LoadableModel
 
 # try to perform the integrals well, going correctly to the boundaries
@@ -161,6 +161,8 @@ class simple_liquid_model_2d (model_base, LoadableModel,
         return self.q*self.q
     def Bq (self):
         return self.sq/self.D0
+    def dq (self):
+        return _dq(self.q)
     def __init_vertices__ (self):
         q = self.q
         self.rho = self.Sq.density()

@@ -275,6 +275,8 @@ class tagged_particle_model (model_base, LoadableModel,
         return np.ones(self.M)/self.D0
     def Wq (self):
         return self.q*self.q
+    def dq (self):
+        return _dq(self.q)
     def __init_vertices__ (self):
         self.q = self.base.q
         self.cs = self.Sq.cq(self.q)
