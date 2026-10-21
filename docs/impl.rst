@@ -7,6 +7,10 @@ Implementation Details
 Technical Notes
 ===============
 
+The "best practice" implementation is `mctpy.simple_liquid_model` for
+MCT models, and `mctpy.structurefactors.hssPY` for a structure factor.
+Below are some guidelines, but if in doubt look at these implementations.
+
 Implementing Models: Kernels
 ----------------------------
 
@@ -118,7 +122,6 @@ can assume the following:
 Before the `dm` and `dmhat` methods are called, `set_C` will be called
 once. The `set_C` method can thus calculate the vertices corresponding
 to the stability matrix.
-
 
 
 Implementing Models: Parameters
