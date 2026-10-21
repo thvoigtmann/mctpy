@@ -13,3 +13,18 @@ The version of `mctpy` used to create a given file is stored in the
 `version` attribute of a top-level `mctpy` group in the file.
 This is meant to verify that in case of bugfixes one can check the
 integrity of the data.
+
+
+Storing Solutions
+-----------------
+
+Objects derived from `mctpy.Loadable` support `save` and `load` functionality.
+This includes `mctpy.correlator`, `mctpy.nonergodicity_parameter`,
+and `mctpy.eigenvalue`.
+
+Storing dicts of solutions
+--------------------------
+
+The `mctpy.h5` module offers `mctpy.h5.load_file` and `mctpy.h5.save_file`
+that load/write either individual objects or complete dictionary structures.
+
