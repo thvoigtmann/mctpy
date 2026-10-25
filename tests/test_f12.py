@@ -58,4 +58,7 @@ class TestF12:
         #plt.show()
 
 if __name__ == '__main__':
-    TestF12().test_shorttime()
+    for key,tst in TestF12.__dict__.items():
+        if key.startswith('test_'):
+            print("running",key)
+            tst(TestF12())

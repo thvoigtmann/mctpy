@@ -3,7 +3,7 @@ import scipy.linalg as la
 
 from numba import njit, carray, objmode
 from inspect import signature
-from .__util__ import nparray, model_base, void
+from .__util__ import nparray, model_base, void, modelPrefactors
 from .__h5__ import LoadableModel
 
 class generic (model_base):
@@ -110,12 +110,22 @@ class f12model (model_base, LoadableModel,
             self.delta = None
     def __len__ (self):
         return 1
-    def Aq (self):
-        return np.array([1./self.Omega**2])
-    def Bq (self):
-        return np.array([self.tau])
-    def hopping (self):
-        return self.delta
+    def prefactors (self, motion_type=None):
+        pre = { 'phi0': 1.0, 'phi0d': 0.0, 'Wq': 1.0 }
+        if motion_type is None:
+            return modelPrefactors(pre)
+        if motion_type.startswith('newtonian'):
+            pre['Aq'] = 1./self.Omega**2
+        elif motion_type.startswith('brownian'):
+            pre['Bq'] = self.tau
+        elif motion_type.startswith('damped_newtonian'):
+            pre['Aq'] = 1./self.Omega**2
+            pre['Bq'] = self.tau
+        else:
+            raise NotImplementedError
+        if motion_type.endswith('_hopping'):
+            pre['Xq'] = self.delta
+        return modelPrefactors(pre)
     def kernel_extra_args (self):
         return [self.v1,self.v2]
 
@@ -181,8 +191,11 @@ class fmnmodel (model_base, LoadableModel, fields=['args'],
             self.delta = None
     def __len__ (self):
         return 1
-    def hopping (self):
-        return self.delta
+    def prefactors (self, motion_type=None):
+        pre = super().prefactors(motion_type)
+        if motion_type.endswith('_hopping'):
+            pre['Xq'] = self.delta
+        return pre
     def kernel_extra_args (self):
         return self.args
 
@@ -371,12 +384,22 @@ class sjoegren_model (model_base, LoadableModel, kernel=sjoegren_model_kernel,
         return [self.base]
     def __len__ (self):
         return 1
-    def Aq (self):
-        return np.array([1./self.Omegas**2])
-    def Bq (self):
-        return np.array([self.taus])
-    def hopping (self):
-        return self.deltas
+    def prefactors (self, motion_type=None):
+        pre = { 'phi0': 1.0, 'phi0d': 0.0, 'Wq': 1.0 }
+        if motion_type is None:
+            return modelPrefactors(pre)
+        if motion_type.startswith('newtonian'):
+            pre['Aq'] = 1./self.Omegas**2
+        elif motion_type.startswith('brownian'):
+            pre['Bq'] = self.taus
+        elif motion_type.startswith('damped_newtonian'):
+            pre['Aq'] = 1./self.Omegas**2
+            pre['Bq'] = self.taus
+        else:
+            raise NotImplementedError
+        if motion_type.endswith('_hopping'):
+            pre['Xq'] = self.deltas
+        return modelPrefactors(pre)
     def kernel_extra_args (self):
         return [self.base.phi, self.vs]
 

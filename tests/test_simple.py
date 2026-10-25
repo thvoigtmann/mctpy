@@ -77,5 +77,7 @@ class TestSimpleLiquid:
                 assert (np.max(np.cos(qt[short]*model_s.vth)-phi_s.phi[short,qi])) < 5e-3
 
 if __name__ == '__main__':
-    #TestSimpleLiquid().test_shorttime_BD()
-    TestSimpleLiquid().test_shorttime_ND()
+    for key,tst in TestSimpleLiquid.__dict__.items():
+        if key.startswith('test_'):
+            print("running",key)
+            tst(TestSimpleLiquid())

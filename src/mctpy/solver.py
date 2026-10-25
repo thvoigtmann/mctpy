@@ -236,7 +236,6 @@ class correlator (CorrelatorBase, Loadable):
                 self.blocks = base.correlator.blocks
                 self.blocksize = base.correlator.blocksize
                 self.halfblocksize = blocksize//2
-            #self.base = base
         self.h = self.h0
         self.maxinit = maxinit
         self.maxiter = maxiter
@@ -251,25 +250,16 @@ class correlator (CorrelatorBase, Loadable):
         self.store = store
         self.solved = -2
 
-        if 'fixed_motion_type' in dir(model):
-            self.motion_type = model.fixed_motion_type
-            if not self.motion_type == motion_type and not quiet:
-                print("adjusting to",self.motion_type,"dynamics")
-        else:
-            self.motion_type = motion_type
-        if self.motion_type == 'brownian':
-            self.brownian =  True
-            self.damped = False
-        elif self.motion_type == 'newtonian':
-            self.brownian = False
-            self.damped = False
-        elif self.motion_type == 'damped_newtonian':
-            self.brownian = False
-            self.damped = True
-        else:
-            raise NotImplementedError
-
         self.__alloc__ ()
+
+        if model is not None:
+            if 'fixed_motion_type' in dir(model):
+                self.motion_type = model.fixed_motion_type
+                if not self.motion_type == motion_type and not quiet:
+                    print("adjusting to",self.motion_type,"dynamics")
+            else:
+                self.motion_type = motion_type
+            self.prefactors = model.prefactors(self.motion_type)
 
     def __alloc__ (self):
         if self.model is None:
@@ -312,17 +302,18 @@ class correlator (CorrelatorBase, Loadable):
         """
         iend = imax
         if (iend >= self.halfblocksize): iend = self.halfblocksize-1
-        #self.model.set_base_phi(self.phi_)
-        phi0 = self.model.phi0().reshape(self.shape)
-        if not self.brownian:
-            if self.model.scalar():
-                Aqinv = 1./self.model.Aq().reshape(self.shape)
-            else:
-                Aqinv = self.movel.Aqinv().reshape(self.shape)
-            if self.damped:
-                phi0d = self.model.phi0d().reshape(self.shape)
-                Bq = self.model.Bq().reshape(self.shape)
-                if self.model.scalar():
+        #self.model.set_base_phi(self.phi_) # TODO FIXME check MSD
+        scalar = self.model.scalar()
+        phi0 = self.prefactors['phi0']
+        WqSq = self.prefactors['WqSq']
+        if 'Aq' in self.prefactors or 'Aqinv' in self.prefactors:
+            # we have a second-derivative term
+            Aqinv = self.prefactors['Aqinv']
+            if 'Bq' in self.prefactors or 'Bqinv' in self.prefactors:
+                # we have a damping term as well
+                phi0d = self.prefactors['phi0d']
+                Bq = self.prefactors['Bq']
+                if scalar:
                     tauinv = phi0d - Bq*phi0d * Aqinv / 2
                 else:
                     tauinv = np.zeros(self.shape,dtype=self.model.dtype)
@@ -330,10 +321,9 @@ class correlator (CorrelatorBase, Loadable):
                         tauinv[q] = phi0d - Aqinv[q] @ Bq[q] @ phi0d/2
             else:
                 tauinv = 0.
-            if self.model.scalar():
-                omega = self.model.Wq().reshape(self.shape) * phi0 * Aqinv
+            if scalar:
+                omega = Aqinv * WqSq
             else:
-                WqSq = self.model.WqSq().reshape(self.shape)
                 omega = np.zeros(self.shape,dtype=self.model.dtype)
                 for q in range(self.mdimen):
                     omega[q] = Aqinv[q] @ WqSq[q]
@@ -343,13 +333,14 @@ class correlator (CorrelatorBase, Loadable):
                 self.jit_set_V (i, *self.model.set_V_args())
                 self.jit_kernel (self.m_[i], self.phi_[i], i, t,
                                  *self.model.kernel_extra_args())
-        else: # self.brownian
-            if self.model.scalar():
-                tauinv = self.model.Wq().reshape(self.shape) * phi0 / self.model.Bq().reshape(self.shape)
+        else: # no second derivative
+            Bqinv = self.prefactors['Bqinv']
+            if Bqinv is None:
+                raise NotImplementedError
+            if scalar:
+                tauinv = Bqinv * WqSq
             else:
                 tauinv = np.zeros(self.shape,dtype=self.model.dtype)
-                Bqinv = self.model.Bqinv().reshape(self.shape)
-                WqSq = self.model.WqSq().reshape(self.shape)
                 for q in range(self.shape[0]):
                     tauinv[q] = Bqinv[q] @ WqSq[q]
             for i in range(iend):
@@ -379,37 +370,30 @@ class correlator (CorrelatorBase, Loadable):
             pre_m = self.model.kernel_prefactor(np.arange(istart,iend)*self.h)
         else:
             pre_m = np.ones_like(range(istart,iend),dtype=self.model.dtype)
-        if self.brownian:
-            Aq = None
-        else:
-            Aq = self.model.Aq().reshape(self.shape)
-        if self.brownian or self.damped:
-            Bq = self.model.Bq().reshape(self.shape)
-        else:
-            Bq = None
-        Xq = self.model.hopping()
 
         if self.model.scalar():
-            if Aq is None:
-                Aq = 0.
-            if Bq is None:
-                Bq = 0.
-            if Xq is None:
-                Xq = 0.
-            _solve_block (istart, iend, self.h, Aq, Bq, self.model.Wq(), Xq, self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2), not (Xq is None), pre_m, self.jit_set_V, self.model.set_V_args(), *self.model.kernel_extra_args())
+            Aq = self.prefactors.get('Aq',0.)
+            Bq = self.prefactors.get('Bq',0.)
+            Xq = self.prefactors.get('Xq',0.)
+            Wq = self.prefactors.get('Wq',0.)
+            if not 'Xq' in self.prefactors:
+                use_X = False
+            else:
+                use_X = True
+            _solve_block (istart, iend, self.h, Aq, Bq, Wq, Xq, self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2), use_X, pre_m, self.jit_set_V, self.model.set_V_args(), *self.model.kernel_extra_args())
         else:
             if 'kernel_prefactor' in dir(self.model):
                 raise NotImplementedError
-            if Aq is None:
-                Aq = np.zeros((1,self.dim,self.dim), dtype=self.model.dtype)
-            if Bq is None:
-                Bq = np.zeros((1,self.dim,self.dim), dtype=self.model.dtype)
-            if Xq is None:
+            z = np.zeros((1,self.dim,self.dim),dtype=self.model.dtype)
+            Aq = self.prefactors.get('Aq',z)
+            Bq = self.prefactors.get('Bq',z)
+            Xq = self.prefactors.get('Xq',z)
+            if not 'Xq' in self.prefactors:
                 use_X = False
-                Xq = np.zeros((1,self.dim,self.dim), dtype=self.model.dtype)
             else:
                 use_X = True
-            _solve_block_mat (istart, iend, self.h, Aq, Bq, self.model.Wq().reshape(self.shape), Xq, self.phi_, self.m_, self.dPhi_, self.dM_, self.mdimen, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2),not self.brownian,(self.damped or self.brownian),use_X,self.jit_set_V, self.model.set_V_args(), *self.model.kernel_extra_args())
+            Wq = self.prefactors.get('Wq',z)
+            _solve_block_mat (istart, iend, self.h, Aq, Bq, Wq, Xq, self.phi_, self.m_, self.dPhi_, self.dM_, self.mdimen, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2),not self.brownian,(self.damped or self.brownian),use_X,self.jit_set_V, self.model.set_V_args(), *self.model.kernel_extra_args())
 
     # new interface with reconstruction of already solved cases
     # does not call the jitted _solve_block directly because
@@ -602,7 +586,8 @@ class mean_squared_displacement (correlator):
     def initial_values (self, imax=50):
         iend = imax
         if (iend >= self.halfblocksize): iend = self.halfblocksize-1
-        self.model.set_base_phi(self.phi_)
+        self.model.set_base_phi(self.phi_) # TODO FIXME
+        # TODO FIXME different motion types!
         for i in range(iend):
             t = i*self.h0
             self.phi_[i] = np.ones(self.mdimen*self.vdim,dtype=self.model.dtype)*2*self.model.spatial_dimension()*t/self.model.Bq()
@@ -656,7 +641,8 @@ class non_gaussian_parameter (correlator):
     def initial_values (self, imax=50):
         iend = imax
         if (iend >= self.halfblocksize): iend = self.halfblocksize-1
-        self.model.set_base_phi(self.phi_)
+        self.model.set_base_phi(self.phi_) # TODO FIXME
+        # TODO FIXME different motion types
         for i in range(iend):
             t = i*self.h0
             self.phi_[i] = np.zeros(self.mdimen*self.vdim, dtype=self.model.dtype)

@@ -2,7 +2,7 @@ import numpy as np
 
 from numba import njit
 from .util import filon_integrate
-from .__util__ import model_base, void, nparray, _dq
+from .__util__ import model_base, void, nparray, _dq, modelPrefactors
 from .__h5__ import LoadableModel
 
 # try to perform the integrals well, going correctly to the boundaries
@@ -157,10 +157,13 @@ class simple_liquid_model_2d (model_base, LoadableModel,
         return self.M
     def spatial_dimension (self):
         return 2
-    def Wq (self):
-        return self.q*self.q
-    def Bq (self):
-        return self.sq/self.D0
+    def prefactors (self, motion_type=None):
+        pre = { 'phi0': 1.0, 'phi0d': 0.0, 'Wq': self.q*self.q }
+        if motion_type == None:
+            return modelPrefactors(pre)
+        elif motion_type == 'brownian':
+            return modelPrefactors(pre | { 'Bq': self.sq/self.D0 })
+        raise NotImplementedError
     def dq (self):
         return _dq(self.q)
     def __init_vertices__ (self):
@@ -222,10 +225,13 @@ class tagged_particle_model_2d (model_base, LoadableModel,
         return [self.base]
     def __len__ (self):
         return self.M
-    def Wq (self):
-        return self.q*self.q
-    def Bq (self):
-        return np.ones(self.M)/self.D0
+    def prefactors (self, motion_type=None):
+        pre = { 'phi0': 1.0, 'phi0d': 0.0, 'Wq': self.q*self.q }
+        if motion_type == None:
+            return modelPrefactors(pre)
+        elif motion_type == 'brownian':
+            return modelPrefactors(pre | { 'Bq': 1./self.D0 })
+        raise NotImplementedError
     def __init_vertices__ (self):
         self.cs = self.Sq.cq(self.q)
         self.M = self.q.shape[0]

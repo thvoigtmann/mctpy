@@ -4,6 +4,7 @@ import scipy.special
 
 from .standard import simple_liquid_model
 from .shear import isotropically_sheared_model
+from .__util__ import modelPrefactors
 
 class granular_model (simple_liquid_model):
     """Granular MCT model.
@@ -27,21 +28,25 @@ class granular_model (simple_liquid_model):
     def __init__ (self, Sq, q, vth=1.0, restitution_coeff=1.0):
         self.epsilon = restitution_coeff
         self.vth = vth
-        simple_liquid_model.__init__ (self, Sq, q, vth)
+        super().__init__ (Sq, q, vth)
         if 'contact_value' in dir(Sq):
             self.contact_value = Sq.contact_value()
         else:
             self.contact_value = 1.0
         self.fixed_motion_type = 'damped_newtonian'
-    def Aq (self):
-        epsfac = (1+self.epsilon)/2 + (1-self.epsilon)/2*self.sq
-        return self.sq/self.vth**2/epsfac
-    def Bq (self):
-        epsfac = (1+self.epsilon)/2 + (1-self.epsilon)/2*self.sq
-        return self.omega_E()*(1+self.epsilon)/2 * \
-            (1 - scipy.special.spherical_jn(0,self.q) \
-            + 2*scipy.special.spherical_jn(2,self.q)) * \
-            self.sq/self.vth**2/epsfac
+    def prefactors (self, motion_type=None):
+        pre = { 'phi0': 1.0, 'phi0d': 0.0, 'Wq': self.q*self.q }
+        if motion_type == None:
+            return modelPrefactors(pre)
+        elif motion_type == self.fixed_motion_type:
+            epsfac = (1+self.epsilon)/2 + (1-self.epsilon)/2*self.sq
+            pre['Aq'] = self.sq/self.vth**2/epsfac
+            pre['Bq'] = self.omega_E()*(1+self.epsilon)/2 * \
+                (1 - scipy.special.spherical_jn(0,self.q) \
+                + 2*scipy.special.spherical_jn(2,self.q)) * \
+                self.sq/self.vth**2/epsfac
+            return modelPrefactors(pre)
+        raise NotImplementedError
     def omega_E (self):
         return 4*np.sqrt(np.pi)*self.rho*self.vth * self.contact_value
     def __init_vertices__ (self):
@@ -79,23 +84,26 @@ class gitt_model (isotropically_sheared_model):
     """
     def __init__ (self, Sq, q, vth=1.0, restitution_coeff=1.0,
                   gammadot=0.0, gammac=np.sqrt(3)):
+        super().__init__(Sq, q, gammadot=gammadot, gammac=gammac)
         self.epsilon = restitution_coeff
         self.vth = vth
-        isotropically_sheared_model.__init__ (self, Sq, q, vth, gammadot, gammac)
         if 'contact_value' in dir(Sq):
             self.contact_value = Sq.contact_value()
         else:
             self.contact_value = 1.0
         self.fixed_motion_type = 'damped_newtonian'
-    def Aq (self):
-        epsfac = (1+self.epsilon)/2 + (1-self.epsilon)/2*self.sq
-        return self.sq/self.vth**2/epsfac
-    def Bq (self):
-        epsfac = (1+self.epsilon)/2 + (1-self.epsilon)/2*self.sq
-        return self.omega_E()*(1+self.epsilon)/2 * \
-            (1 - scipy.special.spherical_jn(0,self.q) \
-            + 2*scipy.special.spherical_jn(2,self.q)) * \
-            self.sq/self.vth**2/epsfac
+    def prefactors (self, motion_type=None):
+        pre = { 'phi0': 1.0, 'phi0d': 0.0, 'Wq': self.q*self.q }
+        if motion_type == None:
+            return modelPrefactors(pre)
+        elif motion_type == self.fixed_motion_type:
+            epsfac = (1+self.epsilon)/2 + (1-self.epsilon)/2*self.sq
+            pre['Aq'] = self.sq/self.vth**2/epsfac
+            pre['Bq'] = self.omega_E()*(1+self.epsilon)/2 * \
+                (1 - scipy.special.spherical_jn(0,self.q) \
+                + 2*scipy.special.spherical_jn(2,self.q)) * \
+                self.sq/self.vth**2/epsfac
+        raise NotImplementedError
     def omega_E (self):
         return 4*np.sqrt(np.pi)*self.rho*self.vth * self.contact_value
     def __init_vertices__ (self):

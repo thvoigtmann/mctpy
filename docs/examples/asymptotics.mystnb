@@ -79,11 +79,14 @@ In order to determine $B_\lambda$ we iterate over a set of $\lambda$ values and 
 ```{code-cell} ipython3
 ltab = np.linspace(0.5,0.98,49)
 Btab = []
+atab, btab = [], []
 for l in tqdm(ltab):
     g = mct.beta_scaling_function (lam=l, sigma=-1.0, delta=0.0, store=True)
     mct.CorrelatorStack([g]).solve_all()
     a, b = mct.util.exponents(l)
-    Btab.append(np.mean((g.phi[1:,0]*np.power(g.t[1:],-b))[-50:]))
+    atab.append(a)
+    btab.append(b)
+    Btab.append(-np.mean((g.phi[1:,0]*np.power(g.t[1:],-b))[-10:]))
 Btab = np.array(Btab)
 ```
 
@@ -96,6 +99,12 @@ plt.show()
 
 ```{code-cell} ipython3
 import tabulate
+```
+
+```{code-cell} ipython3
+padded=np.pad(np.array((ltab,atab,btab)).T,((0,5),(0,0)),mode='constant',constant_values=np.nan)
+tabulated=np.transpose(padded.reshape(-1,9,3),axes=(1,0,2)).reshape(-1,18)
+tabulate.tabulate(tabulated, tablefmt='html', floatfmt=".3f", headers=[r'$\lambda$', r'$a$', r'$b$']*6)
 ```
 
 ```{code-cell} ipython3

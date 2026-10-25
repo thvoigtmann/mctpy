@@ -70,7 +70,7 @@ correlators = mct.CorrelatorStack([phi])
 
 ```{code-cell} ipython3
 model_s = mct.sjoegren_model(vs=30, base_model=model)
-phi_s = mct.correlator (model=model_s, base=phi, store=True)
+phi_s = mct.correlator (model=model_s, store=True)
 correlators.append(phi_s)
 ```
 

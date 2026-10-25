@@ -43,6 +43,14 @@ class model_base (object):
         super().__init_subclass__(**kwargs)
         cls.dtype = np.dtype(float)
         cls.mdispatch = {}
+        # make sure that we honor any kernels given by a base class
+        # in case a class inherits from that and doesn't want to change
+        # the kernel
+        # see https://stackoverflow.com/questions/55183288/inheriting-init-subclass-parameters
+        for base in cls.__mro__[1:]:
+            if 'mdispatch' in base.__dict__:
+                cls.mdispatch = base.mdispatch.copy()
+                break
         cls.set_kernels (kernel=kernel, dm=dm, dmhat=dmhat, dm2=dm2, setV=setV)
     def __init__ (self):
         # the following fields will be populated by the respective solvers
@@ -96,33 +104,38 @@ class model_base (object):
         three since the original development of MCT was done for it;
         this influences the calculation of the MSD and NGP."""
         return 3
-    def hopping (self):
-        return None
-    def phi0 (self):
-        """Return initial value of the correlators of this model.
-        Needs to be an array of shape (M*V,) for scalar models,
-        where M is the number of q indices and V the vector dimension.
-        For matrix models, needs to be of shape (M*V,S,S) or similar,
-        but the implemented default here then won't do."""
-        return np.ones(len(self)*self.vector_dimension())
-    def phi0d (self):
-        """Return initial derivative values for the correlators of this
-        model. See `phi0()` for the expected array shapes."""
-        return np.zeros(len(self)*self.vector_dimension())
-    def Wq (self):
-        """Return prefactor in front of the correlator in the
-        equation of motion. See `phi0()` for the expected shape."""
-        return np.ones(len(self)*self.vector_dimension())
-    def Aq (self):
-        """Return prefactor in front of the second derivative of the
-        correlator in the equation of motion. See `phi0()` for the expected
-        shape. Will only be called for non-Brownian models."""
-        return np.ones(len(self)*self.vector_dimension())
-    def Bq (self):
-        """Return prefactor in front of the first derivative of the
-        correlator in the equation of motion. See `phi0()` for the expected
-        shape."""
-        return np.ones(len(self)*self.vector_dimension())
+    def prefactors (self, motion_type=None):
+        """Return a dict containing the prefactors for the equation of
+        motion, depending on the `motion_type`.
+        The returned dictionary must contain entries for 'phi0' and
+        'phi0d', the initial values of the correlator and its derivative
+        at time zero; and an entry for 'Wq' for the equation of motion.
+        The returned dictionary can contain entries for `Aq`, `Bq`,
+        and `Xq`, which can be omitted if the parameter is to be
+        omitted. For `Aq` and `Bq`, additionally or alternatively values
+        for `Aqinv` and `Bqinv` can be given. For this to work,
+        the returned object should be of type `mctpy.modelPrefactors`
+        that will auto-translate between the inverses if needed and if
+        only one is given.
+        Optionally, `WqSq` can be given which is especially useful in
+        matrix-valued correlators to avoid extra multiplications.
+        The values should be either `None`, scalars, or have shape
+        matching the model, i.e. (M*V,) for scalar models, and
+        (M*V,S,S) for matrix models, where M is the number of q indices,
+        V the vector dimension, and S the matrix dimension."""
+        if self.scalar():
+            pre = {'phi0': 1.0, 'phi0d': 0.0, 'Wq': 1.0 }
+        else:
+            pre = {'phi0': np.diag(np.ones(self.matrix_dimension())),
+                   'phi0d': 0.0,
+                   'Wq': np.diag(np.ones(self.matrix_dimension())) }
+        if motion_type is None:
+            return modelPrefactors(pre)
+        if motion_type.startswith('brownian'):
+            pre['Bq'] = 1.0
+        elif motion_type.startswith('newtonian'):
+            pre['Aq'] = 1.0
+        return modelPrefactors(pre)
     def get_bases (self):
         """Return the list of base correlators needed for this one."""
         return []
@@ -231,6 +244,51 @@ class model_base (object):
 @nb.njit(inline='always')
 def model_base_set_V (i):
     return
+
+class modelPrefactors (dict):
+    """Wrapper around a python dict object to provide special lookup
+    for keys needed in defining model prefactors.
+
+    For a given key, say, 'Aq', looking up the inverse 'Aqinv' will
+    match either an explicitly given key 'Aqinv', or, if that is not
+    present, take the value of 'Aq' and return the inverse. Inversion
+    is performed in the matrix sense if needed.
+
+    For the key 'WqSq', either a directly provided value is returned,
+    or the explicit multiplication of the values provided by 'Wq' and
+    'phi0' is returned.
+
+    The use of this wrapper is for model prefactors where inverses and
+    certain multiplications are often better implemented analytically
+    and provided directly, but where we want a simple unified interface
+    that retreives either the direct implementation or the numerical
+    calculation on the fly."""
+    def get (self, key, default=None):
+        if key == 'WqSq' and not key in self:
+            Wq = self.get('Wq')
+            Sq = self.get('phi0')
+            if isinstance(Wq,np.ndarray) and len(Wq.shape)>1:
+                return np.matmul(Wq,Sq)
+            else:
+                return Wq*Sq
+        # else
+        invert = False
+        if not key in self and key+'inv' in self:
+            val = super().get(key+'inv',default)
+            invert = True
+        elif key.endswith('inv') and key[:-3] in self:
+            val = super().get(key[:-3],default)
+            invert = True
+        if invert:
+            if isinstance(val,np.ndarray) and len(val.shape)>1:
+                return np.linalg.inv(val)
+            else:
+                return 1./val
+        # else
+        return super().get(key,default)
+    def __getitem__ (self, key):
+        return self.get(key)
+
 
 
 # below some support functions, mostly for numba

@@ -21,3 +21,8 @@ class TestMixtureModel:
         assert (nep2.f == nep.f).all()
 
 
+if __name__ == '__main__':
+    for key,tst in TestMixtureModel.__dict__.items():
+        if key.startswith('test_'):
+            print("running",key)
+            tst(TestMixtureModel())

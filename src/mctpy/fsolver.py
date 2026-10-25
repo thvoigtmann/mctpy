@@ -119,13 +119,18 @@ class nonergodicity_parameter (Loadable):
         else:
             blocks = 1
             block_iter = maxiter
-        f0 = self.model.phi0().copy() # TODO do we need copy() ?
+        pre = self.model.prefactors()
+        f0 = pre['phi0'] #.copy() # TODO do we need the copy?
+        Wq = pre['Wq']
+        if not self.model.scalar():
+            WqSq = pre['WqSq']
+        phi0 = pre['phi0']
         converged = False
         for b in range(blocks):
             if self.model.scalar():
-                converged = _fsolve(self.f_, self.m_, self.model.Wq(), f0, self.model.phi0(), self.jit_kernel, accuracy, block_iter, *self.model.kernel_extra_args())
+                converged = _fsolve(self.f_, self.m_, Wq, f0, phi0, self.jit_kernel, accuracy, block_iter, *self.model.kernel_extra_args())
             else:
-                converged = _fsolve_mat(self.f_, self.m_, self.model.Wq(), f0, self.model.phi0(), self.model.WqSq(), self.jit_kernel, accuracy, block_iter, *self.model.kernel_extra_args())
+                converged = _fsolve_mat(self.f_, self.m_, Wq, f0, phi0, WqSq, self.jit_kernel, accuracy, block_iter, *self.model.kernel_extra_args())
             if callback is not None:
                 callback(block_iter*(b+1),self)
             if converged: break
@@ -317,7 +322,7 @@ class eigenvalue (Loadable):
             else:
                 self.eval2, conv2 = 0.0, True
         else:
-            phi0 = model.phi0()
+            phi0 = model.prefactors()['phi0']
             self.eval, conv1 = _esolve_mat(self.e, self.dm, f, phi0, maxiter, accuracy, slaved, *self.nep.model.kernel_extra_args_dm())
             if not slaved:
                 self.eval2, conv2 = _ehatsolve_mat(self.ehat, self.dmhat, f, phi0, maxiter, accuracy, *self.nep.model.kernel_extra_args_dmhat())
@@ -391,9 +396,9 @@ class eigenvalue (Loadable):
             s = np.dot(dq * self.ehat, (m - mc))
             return s/norm
         else:
-            Sc = self.nep.model.phi0().reshape(self.shape)
+            Sc = self.nep.model.prefactors()['phi0']
             Scinv = np.linalg.inv(Sc)
-            S = model_nc.phi0().reshape(self.shape)
+            S = model_nc.prefactors()['phi0']
             Sc_Fc = Sc - fc
             S_Fc = S - fc
             Sc_Fc_inv = np.linalg.inv(Sc_Fc)

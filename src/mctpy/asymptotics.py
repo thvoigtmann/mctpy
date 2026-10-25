@@ -184,7 +184,7 @@ class beta_scaling_function (correlator):
         self.dim = dim
         correlator.__init__ (self, blocksize=blocksize, h=h, blocks=blocks,
             Tend=Tend, maxinit=maxinit, maxiter=maxiter, accuracy=accuracy,
-            store=store, model=None, base=None)
+            store=store, model=None)
         self.lambda_ = lam
         self.sigma = sigma
         self.delta = delta
@@ -242,7 +242,7 @@ class beta_scaling_function (correlator):
     def type (self):
         return 'g'
 
-    def h5save (self, base):
+    def h5save (self, h5file):
         grp = h5file.create_group('beta_scaling_function')
         grp.attrs['type'] = self.type()
         grp2 = grp.create_group("time_domain")

@@ -2,7 +2,7 @@ import numpy as np
 import scipy
 
 from numba import njit
-from .__util__ import model_base, void, nparray, _dq
+from .__util__ import model_base, void, nparray, _dq, modelPrefactors
 from .__h5__ import LoadableModel
 
 ## mixture_model kernels
@@ -232,21 +232,21 @@ class mixture_model (model_base, LoadableModel,
         return self.S
     def scalar (self):
         return False
-    def phi0 (self):
-        return self.sq
     def diag (self, array_or_value):
         if isinstance(array_or_value, (list, np.ndarray)):
             return np.diag(array_or_value)
         else:
             return np.diag(np.ones(self.S)*array_or_value)
-    def Bq (self):
-        return np.ones((self.M,self.S,self.S))*self.diag(1/self.D0)
-    def Bqinv (self):
-        return np.ones((self.M,self.S,self.S))*self.diag(self.D0)
-    def Wq (self):
-        return (self.q**2)[:,None,None] * np.linalg.inv(self.sq)
-    def WqSq (self):
-        return (self.q**2)[:,None,None] * np.diag(np.ones(self.S))
+    def prefactors (self, motion_type=None):
+        pre = { 'phi0': self.sq, 'phi0d': 0.0 }
+        pre['Wq'] = (self.q**2)[:,None,None] * np.linalg.inv(self.sq)
+        pre['WqSq'] = (self.q**2)[:,None,None] * np.diag(np.ones(self.S))
+        if motion_type == None:
+            return modelPrefactors(pre)
+        elif motion_type == 'brownian':
+            pre['Bq'] = np.ones((self.M,self.S,self.S))*self.diag(1/self.D0)
+            return modelPrefactors(pre)
+        raise NotImplementedError
     def dq (self):
         return _dq(self.q)
     def __init_vertices__ (self):
@@ -427,10 +427,15 @@ class mixture_tagged_particle (model_base, LoadableModel,
         return [self.base]
     def __len__ (self):
         return self.M
-    def Wq (self):
-        return self.q*self.q
-    def Bq (self):
-        return np.ones(self.M)/self.D0
+    def prefactors (self, motion_type=None):
+        pre = { 'phi0': 1.0, 'phi0d': 0.0 }
+        pre['Wq'] = self.q**2
+        if motion_type == None:
+            return modelPrefactors(pre)
+        elif motion_type == 'brownian':
+            pre['Bq'] = np.ones(self.M)/self.D0
+            return modelPrefactors(pre)
+        raise NotImplementedError
     def __init_vertices__ (self):
         self.q = self.base.q
         self.cs = self.Sq.cq(self.q)

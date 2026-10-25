@@ -1,7 +1,7 @@
 import numpy as np
 
 from numba import njit
-from .__util__ import model_base, void, nparray, np_gradient, _dq
+from .__util__ import model_base, void, nparray, np_gradient, _dq, modelPrefactors
 from .__h5__ import LoadableModel
 
 import scipy.integrate
@@ -117,12 +117,15 @@ class simple_liquid_model (model_base, LoadableModel,
         self.__init_vertices__()
     def __len__ (self):
         return self.M
-    def Wq (self):
-        return self.q*self.q
-    def Aq (self):
-        return self.sq/self.vth
-    def Bq (self):
-        return self.sq/self.D0
+    def prefactors (self, motion_type=None):
+        pre = { 'phi0': 1.0, 'phi0d': 0.0, 'Wq': self.q*self.q }
+        if motion_type == None:
+            return modelPrefactors(pre)
+        elif motion_type == 'brownian':
+            return modelPrefactors(pre | { 'Bq': self.sq/self.D0 })
+        elif motion_type == 'newtonian':
+            return modelPrefactors(pre | { 'Aq': self.sq/self.vth })
+        raise NotImplementedError
     def dq (self):
         return _dq(self.q)
     def __init_vertices__ (self):
@@ -269,12 +272,15 @@ class tagged_particle_model (model_base, LoadableModel,
         return [self.base]
     def __len__ (self):
         return self.M
-    def Aq (self):
-        return np.ones(self.M)/self.vth
-    def Bq (self):
-        return np.ones(self.M)/self.D0
-    def Wq (self):
-        return self.q*self.q
+    def prefactors (self, motion_type=None):
+        pre = { 'phi0': 1.0, 'phi0d': 0.0, 'Wq': self.q*self.q }
+        if motion_type == None:
+            return modelPrefactors(pre)
+        elif motion_type == 'brownian':
+            return modelPrefactors(pre | { 'Bq': 1./self.D0 })
+        elif motion_type == 'newtonian':
+            return modelPrefactors(pre | { 'Aq': 1./self.vth })
+        raise NotImplementedError
     def dq (self):
         return _dq(self.q)
     def __init_vertices__ (self):
