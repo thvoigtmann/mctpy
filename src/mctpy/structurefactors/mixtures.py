@@ -314,3 +314,12 @@ class hsmPY (mixtureSq, LoadableModel, role='structurefactor',
             - np.pi/3360.*(self.A*dab**6 \
             +(0.25*self.D+np.pi/12.*self.a2*self.dadb)*self.dadb**2*dadb4 \
             +(self.D*dab**2+7.*np.pi/10*self.dadb**2)*self.dadb**3/3.) *q3
+
+    def contact_value (self):
+        """Return contact value of the RDFs.
+
+        This is the value matching the virial equation of state in the
+        Percus-Yevick approximation."""
+        xi2 = np.sum(self.densities*self.diameters**2) * np.pi/6.
+        phi = np.sum(self.densities*self.diameters**3) * np.pi/6.
+        return ((1-phi) + 3*xi2*self.da*self.db/(self.da+self.db)) / (1-phi)**2
