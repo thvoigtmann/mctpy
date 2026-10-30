@@ -4,7 +4,7 @@ from numba import njit, literally
 
 from .__util__ import model_base, np_isclose_all
 from .__h5__ import load_model, Loadable
-from .util import exponents, CorrelatorBase
+from .util import CorrelatorBase
 
 @njit
 def _decimize (f, dF, blocksize):
@@ -128,7 +128,7 @@ def _solve_block_mat (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, M, kern
         iterations = 0
         converged = False
         newphi = phi[i-1].copy()
-        #set_V (i, *kernel_V_args)
+        set_V (i, *kernel_V_args)
         while (not converged and iterations < maxiter):
             phi[i] = newphi
             kernel (m[i], phi[i], i, h*i, *kernel_args)
@@ -242,10 +242,10 @@ class correlator (CorrelatorBase, Loadable):
         self.accuracy = accuracy
 
         self.model = model
-        if model is not None:
+        if self.model is not None:
             self.model.correlator = self
-            self.jit_kernel = model.get_kernel()
-            self.jit_set_V = model.get_set_V()
+            self.jit_kernel = self.model.get_kernel()
+            self.jit_set_V = self.model.get_set_V()
 
         self.store = store
         self.solved = -2
